@@ -3,7 +3,7 @@
 import { ArrowRight, Check } from "lucide-react";
 import { useState, type FormEvent } from "react";
 import { SelectField } from "@/components/site/select-field";
-import { whatsappLink } from "@/lib/site";
+import { useSite } from "@/components/site/site-context";
 import { WhatsAppIcon } from "@/components/site/whatsapp-icon";
 
 const topics = [
@@ -20,6 +20,7 @@ const topics = [
  * booking modal uses, so the team replies from one inbox.
  */
 export function ContactForm() {
+  const { whatsappLink } = useSite();
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [topic, setTopic] = useState<string>(topics[0]);

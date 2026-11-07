@@ -11,11 +11,11 @@ import { BookButton } from "@/components/site/book-button";
 import { ContactForm } from "@/components/site/contact-form";
 import { PageShell } from "@/components/site/page-shell";
 import { PageHero, SectionHead, delay } from "@/components/site/page-parts";
+import { getSite } from "@/lib/server/cms/content";
 import {
   mapEmbedUrl,
   mapsDirectionsUrl,
   mapsOpenUrl,
-  site,
   whatsappLink,
 } from "@/lib/site";
 import { WhatsAppIcon } from "@/components/site/whatsapp-icon";
@@ -27,44 +27,45 @@ export const metadata: Metadata = {
   alternates: { canonical: "/contact" },
 };
 
-const mapEmbed = mapEmbedUrl();
-const mapsUrl = mapsOpenUrl();
-const directionsUrl = mapsDirectionsUrl();
+export default async function ContactPage() {
+  const site = await getSite();
+  const mapEmbed = mapEmbedUrl(site);
+  const mapsUrl = mapsOpenUrl(site);
+  const directionsUrl = mapsDirectionsUrl(site);
 
-const quickContacts = [
-  {
-    icon: Phone,
-    label: "Call us 24/7",
-    value: site.primaryPhone.display,
-    href: site.primaryPhone.href,
-    tone: "",
-  },
-  {
-    icon: WhatsAppIcon,
-    label: "WhatsApp booking",
-    value: "Chat with our team",
-    href: whatsappLink(),
-    tone: "is-whatsapp",
-    external: true,
-  },
-  {
-    icon: Mail,
-    label: "Email us",
-    value: site.email,
-    href: `mailto:${site.email}`,
-    tone: "",
-  },
-  {
-    icon: MapPin,
-    label: "Visit our office",
-    value: "Hadapsar, Pune",
-    href: mapsUrl,
-    tone: "",
-    external: true,
-  },
-];
+  const quickContacts = [
+    {
+      icon: Phone,
+      label: "Call us 24/7",
+      value: site.primaryPhone.display,
+      href: site.primaryPhone.href,
+      tone: "",
+    },
+    {
+      icon: WhatsAppIcon,
+      label: "WhatsApp booking",
+      value: "Chat with our team",
+      href: whatsappLink(undefined, site),
+      tone: "is-whatsapp",
+      external: true,
+    },
+    {
+      icon: Mail,
+      label: "Email us",
+      value: site.email,
+      href: `mailto:${site.email}`,
+      tone: "",
+    },
+    {
+      icon: MapPin,
+      label: "Visit our office",
+      value: "Hadapsar, Pune",
+      href: mapsUrl,
+      tone: "",
+      external: true,
+    },
+  ];
 
-export default function ContactPage() {
   return (
     <PageShell>
       <PageHero

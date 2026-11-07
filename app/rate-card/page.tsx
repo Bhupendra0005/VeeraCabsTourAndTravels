@@ -21,8 +21,9 @@ import {
 } from "@/components/site/page-parts";
 import { FaqAccordion } from "@/components/site/faq";
 import { WhatsAppIcon } from "@/components/site/whatsapp-icon";
-import { fleet, rateCard } from "@/lib/content";
-import { site, whatsappLink } from "@/lib/site";
+import { photoSrc, photoSrcSet } from "@/lib/cms/images";
+import { getFleet, getRateCard, getSite } from "@/lib/server/cms/content";
+import { whatsappLink as buildWhatsappLink } from "@/lib/site";
 
 export const metadata: Metadata = {
   title: "Rate Card — Cab Fares in Pune",
@@ -55,9 +56,6 @@ const services = [
   { key: "airport", label: "Airport transfer", icon: Plane },
 ] as const;
 
-const vehiclePhoto = (vehicle: string) =>
-  fleet.find((item) => item.title === vehicle)?.photo ?? "fleet-sedan";
-
 const pricingFaqs = [
   {
     question: "How is my fare decided?",
@@ -86,7 +84,13 @@ const pricingFaqs = [
   },
 ];
 
-export default function RateCardPage() {
+export default async function RateCardPage() {
+  const [fleet, rateCard, site] = await Promise.all([getFleet(), getRateCard(), getSite()]);
+  const whatsappLink = (message?: string) => buildWhatsappLink(message, site);
+  const photoOf = (vehicle: string) => {
+    const item = fleet.find((entry) => entry.title === vehicle);
+    return { photo: item?.photo ?? "fleet-sedan", image: item?.image ?? "" };
+  };
   return (
     <PageShell>
       <PageHero
@@ -132,8 +136,8 @@ export default function RateCardPage() {
                 >
                   <div className="rc-photo">
                     <img
-                      src={`/${vehiclePhoto(row.vehicle)}-800.webp`}
-                      srcSet={`/${vehiclePhoto(row.vehicle)}-480.webp 480w, /${vehiclePhoto(row.vehicle)}-800.webp 800w`}
+                      src={photoSrc(photoOf(row.vehicle), 800)}
+                      srcSet={photoSrcSet(photoOf(row.vehicle))}
                       sizes="(max-width: 600px) 90vw, (max-width: 1200px) 44vw, 22vw"
                       width={800}
                       height={420}

@@ -19,25 +19,21 @@ import {
   PageHero,
   SectionHead,
 } from "@/components/site/page-parts";
-import {
-  destinationCategories,
-  destinations,
-  getDestination,
-} from "@/lib/content";
+import { destinationCategories } from "@/lib/content";
+import { ikUrl } from "@/lib/cms/images";
+import { getDestinationBySlug, getDestinations, getSite } from "@/lib/server/cms/content";
 import {
   CATEGORY_HERO,
   CATEGORY_PHOTOS,
   findPhoto,
   shortSeason,
 } from "@/lib/destination-photos";
-import { site } from "@/lib/site";
 
 type Params = { slug: string };
 
-export const dynamicParams = false;
-
-export function generateStaticParams() {
-  return destinations.map((destination) => ({ slug: destination.slug }));
+// new pages added in the admin panel are rendered on first visit
+export async function generateStaticParams() {
+  return (await getDestinations()).map((destination) => ({ slug: destination.slug }));
 }
 
 export async function generateMetadata({
@@ -46,7 +42,7 @@ export async function generateMetadata({
   params: Promise<Params>;
 }): Promise<Metadata> {
   const { slug } = await params;
-  const destination = getDestination(slug);
+  const destination = await getDestinationBySlug(slug);
   if (!destination) return {};
   return {
     title: `Pune to ${destination.name} Taxi & Tour Package`,
@@ -61,7 +57,7 @@ export default async function DestinationPage({
   params: Promise<Params>;
 }) {
   const { slug } = await params;
-  const destination = getDestination(slug);
+  const [destination, destinations, site] = await Promise.all([getDestinationBySlug(slug), getDestinations(), getSite()]);
   if (!destination) notFound();
 
   const category = destinationCategories.find(
@@ -74,7 +70,7 @@ export default async function DestinationPage({
     )
     .slice(0, 3);
 
-  const ownPhoto = findPhoto(destination.slug);
+  const ownPhoto = destination.image ? ikUrl(destination.image, 1200) : findPhoto(destination.slug);
   const pool = CATEGORY_PHOTOS[destination.category] ?? [];
   const photo = ownPhoto ?? pool[0];
 

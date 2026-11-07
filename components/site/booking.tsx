@@ -23,14 +23,8 @@ import {
 import { DateField } from "@/components/site/date-field";
 import { SelectField } from "@/components/site/select-field";
 import { TimeField } from "@/components/site/time-field";
-import {
-  passengerOptions,
-  site,
-  tripTypes,
-  vehicleOptions,
-  whatsappLink,
-  type TripType,
-} from "@/lib/site";
+import { useSite } from "@/components/site/site-context";
+import { passengerOptions, tripTypes, type TripType } from "@/lib/site";
 import { WhatsAppIcon } from "@/components/site/whatsapp-icon";
 
 const BOOK_EVENT = "veera:open-booking";
@@ -90,6 +84,8 @@ export function openBooking(prefill: BookingPrefill = {}) {
 }
 
 export function BookingModal() {
+  const { site, whatsappLink, vehicles } = useSite();
+  const vehicleOptions = ["Any vehicle", ...vehicles];
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [submitted, setSubmitted] = useState(false);

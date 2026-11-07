@@ -2,7 +2,9 @@ import type { Metadata } from "next";
 import { DestinationsExplorer } from "@/components/site/destinations-explorer";
 import { PageShell } from "@/components/site/page-shell";
 import { CtaBand, PageHero } from "@/components/site/page-parts";
-import { destinationCategories, destinations } from "@/lib/content";
+import { destinationCategories } from "@/lib/content";
+import { ikUrl } from "@/lib/cms/images";
+import { getDestinations } from "@/lib/server/cms/content";
 import { CATEGORY_PHOTOS, findPhoto } from "@/lib/destination-photos";
 
 export const metadata: Metadata = {
@@ -12,11 +14,12 @@ export const metadata: Metadata = {
   alternates: { canonical: "/destinations" },
 };
 
-export default function DestinationsPage() {
+export default async function DestinationsPage() {
+  const destinations = await getDestinations();
   const seenInCategory: Record<string, number> = {};
   const items = destinations.map(
-    ({ slug, name, category, distance, duration, bestTime, tagline }) => {
-      const own = findPhoto(slug);
+    ({ slug, name, category, distance, duration, bestTime, tagline, image }) => {
+      const own = image ? ikUrl(image, 800) : findPhoto(slug);
       const pool = CATEGORY_PHOTOS[category] ?? [];
       const turn = (seenInCategory[category] = (seenInCategory[category] ?? -1) + 1);
       return {

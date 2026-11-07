@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import {
   useEffect,
+  useMemo,
   useState,
   type CSSProperties,
   type FormEvent,
@@ -28,17 +29,20 @@ import { openBooking } from "@/components/site/booking";
 import { DateField } from "@/components/site/date-field";
 import { SelectField } from "@/components/site/select-field";
 import { PlaceField, type PlaceOption } from "@/components/site/place-field";
-import { areas, destinationCategories, destinations } from "@/lib/content";
-import { site, vehicleOptions } from "@/lib/site";
+import { useSite } from "@/components/site/site-context";
+import { ikUrl } from "@/lib/cms/images";
+import type { Home } from "@/lib/server/cms/content";
 import { WhatsAppIcon } from "@/components/site/whatsapp-icon";
 
-const slides: {
+type Slide = {
   src: string;
   srcSet: string;
   mobileSrcSet?: string;
   alt: string;
   position: string;
-}[] = [
+};
+
+const defaultSlides: Slide[] = [
   {
     src: "/hero-pune-1600.webp",
     srcSet:
@@ -68,23 +72,38 @@ const slides: {
   },
 ];
 
+/** Responsive image sets for a hero photo. The built-in files come in fixed sizes; ImageKit photos are resized on the fly. */
+function responsiveSets(desktop: string, mobile: string) {
+  const builtIn = (url: string, from: RegExp, sizes: number[], build: (base: string, size: number) => string, largest: number) => {
+    const match = from.exec(url);
+    if (!match) return null;
+    return { src: build(match[1], largest), srcSet: sizes.map((size) => `${build(match[1], size)} ${size}w`).join(", ") };
+  };
+  const wide =
+    builtIn(desktop, /^\/(hero-[a-z]+)-1600\.webp$/, [800, 1200, 1600], (base, size) => `/${base}-${size}.webp`, 1600) ?? {
+      src: ikUrl(desktop, 1600),
+      srcSet: `${ikUrl(desktop, 800)} 800w, ${ikUrl(desktop, 1200)} 1200w, ${ikUrl(desktop, 1600)} 1600w`,
+    };
+  let tall: string | undefined;
+  if (mobile) {
+    tall =
+      builtIn(mobile, /^\/(hero-[a-z]+(?:-mobile)?)-940\.webp$/, [480, 720, 940], (base, size) => `/${base}-${size}.webp`, 940)?.srcSet ??
+      `${ikUrl(mobile, 480)} 480w, ${ikUrl(mobile, 720)} 720w, ${ikUrl(mobile, 940)} 940w`;
+  }
+  return { desktop: wide, mobile: tall };
+}
+
 const vehicleIcons = {
   "Spacious MPV": Users,
   "Tempo Traveller": BusFront,
 };
 
-const dropOptions: PlaceOption[] = [
-  ...destinations.map((place) => ({
-    label: place.name,
-    hint: destinationCategories.find((c) => c.id === place.category)?.label,
-  })),
-  ...areas.map((area) => ({ label: area.name, hint: "Pune area" })),
-];
-
 const rise = (delay: number) =>
   ({ "--d": `${delay}ms` }) as CSSProperties;
 
-function BookingWidget() {
+function BookingWidget({ dropOptions }: { dropOptions: PlaceOption[] }) {
+  const { vehicles } = useSite();
+  const vehicleOptions = ["Any vehicle", ...vehicles];
   const [pickup, setPickup] = useState("Pune, Maharashtra");
   const [drop, setDrop] = useState("");
   const [date, setDate] = useState("");
@@ -218,11 +237,21 @@ function BookingWidget() {
   );
 }
 
-export function Hero() {
+export function Hero({ copy, dropOptions }: { copy: Home["hero"]; dropOptions: PlaceOption[] }) {
+  const { site } = useSite();
   const [active, setActive] = useState(0);
   const [userPaused, setUserPaused] = useState(false);
   const [hoverPaused, setHoverPaused] = useState(false);
   const paused = userPaused || hoverPaused;
+  const slides = useMemo(() => {
+    const own = copy.slides
+      .filter((slide) => slide.desktopImage)
+      .map((slide): Slide => {
+        const { desktop, mobile } = responsiveSets(slide.desktopImage, slide.mobileImage);
+        return { src: desktop.src, srcSet: desktop.srcSet, mobileSrcSet: mobile, alt: slide.alt || site.name, position: "center 50%" };
+      });
+    return own.length > 0 ? own : defaultSlides;
+  }, [copy.slides, site.name]);
 
   useEffect(() => {
     if (paused) return;
@@ -288,35 +317,35 @@ export function Hero() {
         <div className="hero-copy">
           <span className="kicker hero-rise" style={rise(40)}>
             <CarFront aria-hidden="true" />
-            Pune’s premier 24/7 cab network
+            {copy.kicker}
           </span>
 
           <h1 className="hero-rise" style={rise(120)}>
-            Travel India
+            {copy.line1}
+            {copy.line2 ? (
+              <>
+                <br />
+                {copy.line2}
+              </>
+            ) : null}
             <br />
-            with
-            <br />
-            <em>confidence.</em>
+            <em>{copy.highlight}</em>
           </h1>
 
           <p className="hero-sub hero-rise" style={rise(220)}>
-            From smooth airport transfers to unforgettable hill journeys,
-            Veera Tours & Travels keeps every mile comfortable.
+            {copy.subtitle}
           </p>
 
           <div className="hero-badges hero-rise" style={rise(300)}>
-            <span className="hero-badge">
-              <ShieldCheck aria-hidden="true" />
-              Verified chauffeurs
-            </span>
-            <span className="hero-badge">
-              <Clock3 aria-hidden="true" />
-              24/7 availability
-            </span>
-            <span className="hero-badge">
-              <MapPin aria-hidden="true" />
-              All India permits
-            </span>
+            {copy.badges.map((badge, index) => {
+              const BadgeIcon = [ShieldCheck, Clock3, MapPin][index % 3];
+              return (
+                <span className="hero-badge" key={badge}>
+                  <BadgeIcon aria-hidden="true" />
+                  {badge}
+                </span>
+              );
+            })}
           </div>
 
           <div className="hero-actions hero-rise" style={rise(380)}>
@@ -325,7 +354,7 @@ export function Hero() {
               className="btn btn-gold hero-book"
               onClick={() => openBooking()}
             >
-              Book your ride
+              {copy.primaryCta}
               <ArrowRight aria-hidden="true" />
             </button>
             <a className="btn btn-ghost" href={site.primaryPhone.href}>
@@ -336,7 +365,7 @@ export function Hero() {
 
           <p className="hero-note hero-rise" style={rise(450)}>
             <Check aria-hidden="true" />
-            Instant confirmation on WhatsApp. No advance payment required.
+            {copy.note}
           </p>
 
           <div className="hero-controls hero-rise" style={rise(500)}>
@@ -384,7 +413,7 @@ export function Hero() {
           </div>
         </div>
 
-        <BookingWidget />
+        <BookingWidget dropOptions={dropOptions} />
       </div>
     </section>
   );

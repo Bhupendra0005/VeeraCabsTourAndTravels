@@ -1,9 +1,10 @@
 import type { MetadataRoute } from "next";
-import { areas, destinations, servicePages } from "@/lib/content";
+import { getAreas, getDestinations, getServices } from "@/lib/server/cms/content";
 
 const base = "https://veera-cabs.com";
 
-export default function sitemap(): MetadataRoute.Sitemap {
+export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
+  const [areas, destinations, servicePages] = await Promise.all([getAreas(), getDestinations(), getServices()]);
   const staticPaths = [
     "/",
     "/about",

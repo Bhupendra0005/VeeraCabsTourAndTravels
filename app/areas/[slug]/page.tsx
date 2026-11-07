@@ -10,15 +10,19 @@ import {
   PageHero,
   SectionHead,
 } from "@/components/site/page-parts";
-import { areas, destinations, getArea, servicePages } from "@/lib/content";
-import { site } from "@/lib/site";
+import {
+  getAreaBySlug,
+  getAreas,
+  getDestinations,
+  getServices,
+  getSite,
+} from "@/lib/server/cms/content";
 
 type Params = { slug: string };
 
-export const dynamicParams = false;
-
-export function generateStaticParams() {
-  return areas.map((area) => ({ slug: area.slug }));
+// new pages added in the admin panel are rendered on first visit
+export async function generateStaticParams() {
+  return (await getAreas()).map((area) => ({ slug: area.slug }));
 }
 
 export async function generateMetadata({
@@ -27,7 +31,7 @@ export async function generateMetadata({
   params: Promise<Params>;
 }): Promise<Metadata> {
   const { slug } = await params;
-  const area = getArea(slug);
+  const area = await getAreaBySlug(slug);
   if (!area) return {};
   return {
     title: `Taxi & Cab Service in ${area.name}, Pune`,
@@ -51,7 +55,13 @@ export default async function AreaPage({
   params: Promise<Params>;
 }) {
   const { slug } = await params;
-  const area = getArea(slug);
+  const [area, areas, destinations, servicePages, site] = await Promise.all([
+    getAreaBySlug(slug),
+    getAreas(),
+    getDestinations(),
+    getServices(),
+    getSite(),
+  ]);
   if (!area) notFound();
 
   const trips = popularSlugs

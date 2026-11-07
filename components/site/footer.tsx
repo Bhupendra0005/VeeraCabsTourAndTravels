@@ -4,8 +4,8 @@ import Link from "next/link";
 import { ArrowUp, ArrowUpRight, Mail, MapPin, Phone } from "lucide-react";
 import { openBooking } from "@/components/site/booking";
 import { BookButton } from "@/components/site/book-button";
-import { servicePages } from "@/lib/content";
-import { mapsOpenUrl, navItems, site, whatsappLink } from "@/lib/site";
+import { useSite } from "@/components/site/site-context";
+import { navItems } from "@/lib/site";
 import { WhatsAppIcon } from "@/components/site/whatsapp-icon";
 
 function FacebookIcon() {
@@ -33,6 +33,7 @@ function InstagramIcon() {
 }
 
 export function FloatingActions() {
+  const { site, whatsappLink } = useSite();
   return (
     <div className="floating-actions">
       <a
@@ -64,6 +65,7 @@ export function FloatingActions() {
 }
 
 export function SiteFooter() {
+  const { site, whatsappLink, mapsOpenUrl, services } = useSite();
   const contacts = [
     {
       icon: Phone,
@@ -176,12 +178,14 @@ export function SiteFooter() {
           ))}
           <Link href="/areas">Areas We Serve</Link>
           <Link href="/payment-options">Payment Options</Link>
+          <Link href="/terms">Terms &amp; Conditions</Link>
+          <Link href="/cancellation-policy">Cancellation Policy</Link>
           <Link href="/#faqs">FAQs</Link>
         </nav>
 
         <nav className="footer-col" aria-label="Services">
           <h4>Services</h4>
-          {servicePages.map((service) => (
+          {services.map((service) => (
             <Link key={service.slug} href={`/services/${service.slug}`}>
               {service.title}
             </Link>

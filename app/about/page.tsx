@@ -20,14 +20,15 @@ import {
   SectionHead,
   delay,
 } from "@/components/site/page-parts";
+import { photoSrc, photoSrcSet } from "@/lib/cms/images";
 import {
-  areas,
-  destinations,
-  features,
-  fleet,
-  servicePages,
-} from "@/lib/content";
-import { site } from "@/lib/site";
+  getAreas,
+  getDestinations,
+  getFeatures,
+  getFleet,
+  getServices,
+  getSite,
+} from "@/lib/server/cms/content";
 
 export const metadata: Metadata = {
   title: "About Us",
@@ -36,12 +37,6 @@ export const metadata: Metadata = {
   alternates: { canonical: "/about" },
 };
 
-const stats = [
-  { value: "24/7", label: "Hours, our desk is open" },
-  { value: String(destinations.length), label: "Places we take you to" },
-  { value: String(areas.length), label: "Pune areas we cover" },
-  { value: String(servicePages.length), label: "Types of service" },
-];
 
 const values = [
   "You know the fare before you book",
@@ -74,7 +69,21 @@ const steps = [
   },
 ];
 
-export default function AboutPage() {
+export default async function AboutPage() {
+  const [areas, destinations, features, fleet, servicePages, site] = await Promise.all([
+    getAreas(),
+    getDestinations(),
+    getFeatures(),
+    getFleet(),
+    getServices(),
+    getSite(),
+  ]);
+  const stats = [
+    { value: "24/7", label: "Hours, our desk is open" },
+    { value: String(destinations.length), label: "Places we take you to" },
+    { value: String(areas.length), label: "Pune areas we cover" },
+    { value: String(servicePages.length), label: "Types of service" },
+  ];
   return (
     <PageShell>
       <PageHero
@@ -231,7 +240,7 @@ export default function AboutPage() {
           />
           <div className="fleet-grid">
             {fleet.map(
-              ({ icon: Icon, photo, title, seats, luggage, description }, index) => (
+              ({ icon: Icon, photo, image, title, seats, luggage, description }, index) => (
                 <article
                   className="fleet-card"
                   key={title}
@@ -240,8 +249,8 @@ export default function AboutPage() {
                 >
                   <div className="fleet-photo">
                     <img
-                      src={`/${photo}-800.webp`}
-                      srcSet={`/${photo}-480.webp 480w, /${photo}-800.webp 800w`}
+                      src={photoSrc({ photo, image }, 800)}
+                      srcSet={photoSrcSet({ photo, image })}
                       sizes="(max-width: 640px) 90vw, (max-width: 1100px) 45vw, 22vw"
                       width={800}
                       height={420}

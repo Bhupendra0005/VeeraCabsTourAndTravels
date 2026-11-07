@@ -1,5 +1,16 @@
 @import "tailwindcss";
 
+/* Design tokens exposed to Tailwind utilities (bg-panel, border-line, text-muted, ...). */
+@theme inline {
+  --color-ink: var(--ink);
+  --color-panel: var(--panel);
+  --color-line: var(--line);
+  --color-muted: var(--muted);
+  --color-brand: var(--gold);
+  --color-brand-bright: var(--gold-bright);
+  --color-ok: var(--green);
+}
+
 :root {
   --ink: #060808;
   --ink-2: #0a0c0c;
@@ -11264,3 +11275,74 @@ a.service-link:hover {
   }
 }
 
+
+
+/* Navbar fit (8 destinations of the menu + actions must never wrap or overflow) */
+.desktop-nav {
+  flex: 1 1 auto;
+  justify-content: center;
+  min-width: 0;
+  gap: clamp(14px, 1.7vw, 30px);
+}
+
+.desktop-nav a {
+  white-space: nowrap;
+  font-size: clamp(14px, 1.1vw, 16px);
+}
+
+.nav-actions {
+  flex: none;
+}
+
+.nav-account {
+  display: grid;
+  flex: none;
+  width: 44px;
+  height: 44px;
+  margin-right: 14px;
+  place-items: center;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 50%;
+  color: rgba(255, 255, 255, 0.9);
+  transition:
+    background-color 0.2s ease,
+    border-color 0.2s ease,
+    color 0.2s ease;
+}
+
+.nav-account svg {
+  width: 20px;
+  height: 20px;
+}
+
+.nav-account:hover,
+.nav-account.is-active {
+  border-color: var(--gold);
+  background: rgba(0, 150, 219, 0.16);
+  color: var(--gold-bright);
+}
+
+@media (max-width: 1500px) {
+  .nav-phone {
+    display: none;
+  }
+}
+
+@media (max-width: 1024px) {
+  .nav-account {
+    display: none;
+  }
+}
+
+
+/* Navbar: hamburger below 1180px */
+@media (max-width: 1180px) {
+  .desktop-nav,
+  .nav-account {
+    display: none;
+  }
+
+  .menu-toggle {
+    display: grid;
+  }
+}

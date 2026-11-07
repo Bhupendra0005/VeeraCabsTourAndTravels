@@ -24,7 +24,8 @@ import {
   delay,
 } from "@/components/site/page-parts";
 import { FaqAccordion } from "@/components/site/faq";
-import { destinations, fleet, servicePages } from "@/lib/content";
+import { photoSrc, photoSrcSet } from "@/lib/cms/images";
+import { getDestinations, getFleet, getServices } from "@/lib/server/cms/content";
 import { BookButton } from "@/components/site/book-button";
 
 export const metadata: Metadata = {
@@ -50,14 +51,6 @@ const icons: Record<string, LucideIcon> = {
   "corporate-event-travel": Briefcase,
 };
 
-// "I need…" shortcuts built from each service's own "ideal for" list
-const situations = servicePages.flatMap((service) =>
-  service.idealFor.slice(0, 2).map((text) => ({
-    text,
-    slug: service.slug,
-    title: service.title,
-  })),
-);
 
 const steps = [
   {
@@ -90,9 +83,6 @@ const popularSlugs = [
   "goa",
   "alibaug",
 ];
-const popularRoutes = popularSlugs
-  .map((slug) => destinations.find((place) => place.slug === slug))
-  .filter((place): place is NonNullable<typeof place> => Boolean(place));
 
 const confirmBeforeTravel = [
   "Total distance, tolls and parking, explained before you book",
@@ -103,11 +93,19 @@ const confirmBeforeTravel = [
   "Cancellation and change terms, told to you upfront",
 ];
 
-const serviceFaqs = servicePages
-  .flatMap((service) => service.faqs.slice(0, 2))
-  .slice(0, 8);
 
-export default function ServicesPage() {
+export default async function ServicesPage() {
+  const [destinations, fleet, servicePages] = await Promise.all([getDestinations(), getFleet(), getServices()]);
+
+  // "I need…" shortcuts built from each service's own "ideal for" list
+  const situations = servicePages.flatMap((service) =>
+    service.idealFor.slice(0, 2).map((text) => ({ text, slug: service.slug, title: service.title })),
+  );
+  const popularRoutes = popularSlugs
+    .map((slug) => destinations.find((place) => place.slug === slug))
+    .filter((place): place is NonNullable<typeof place> => Boolean(place));
+  const serviceFaqs = servicePages.flatMap((service) => service.faqs.slice(0, 2)).slice(0, 8);
+
   return (
     <PageShell>
       <PageHero
@@ -342,7 +340,7 @@ export default function ServicesPage() {
           />
           <div className="fleet-grid">
             {fleet.map(
-              ({ icon: Icon, photo, title, seats, luggage, description }, index) => (
+              ({ icon: Icon, photo, image, title, seats, luggage, description }, index) => (
                 <article
                   className="fleet-card"
                   key={title}
@@ -351,8 +349,8 @@ export default function ServicesPage() {
                 >
                   <div className="fleet-photo">
                     <img
-                      src={`/${photo}-800.webp`}
-                      srcSet={`/${photo}-480.webp 480w, /${photo}-800.webp 800w`}
+                      src={photoSrc({ photo, image }, 800)}
+                      srcSet={photoSrcSet({ photo, image })}
                       sizes="(max-width: 640px) 90vw, (max-width: 1100px) 45vw, 22vw"
                       width={800}
                       height={420}

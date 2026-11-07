@@ -1,58 +1,35 @@
 import type { Metadata, Viewport } from "next";
-import { site } from "@/lib/site";
+import { SiteProvider } from "@/components/site/site-context";
+import { ikUrl } from "@/lib/cms/images";
+import { getHome, getSeo, getFleet, getServices, getSite } from "@/lib/server/cms/content";
+import type { SiteData } from "@/lib/site";
 import "./globals.css";
 
-export const metadata: Metadata = {
-  metadataBase: new URL("https://veera-cabs.com"),
-  title: {
-    default: "Veera Tours & Travels | Taxi & Cab Service in Pune, Maharashtra",
-    template: "%s | Veera Tours & Travels",
-  },
-  description:
-    "Book taxis, airport transfers, one-way cabs, outstation rides and tour packages with Veera Tours & Travels, Hadapsar, Pune. 24/7 bookings, experienced chauffeurs and clear upfront fares.",
-  applicationName: site.name,
-  keywords: [
-    "Veera Tours & Travels",
-    "Veera Cabs",
-    "taxi service Pune",
-    "cab service Pune",
-    "Pune to Mumbai taxi",
-    "Pune airport taxi",
-    "Hadapsar cab service",
-    "Pune to Shirdi cab",
-    "outstation cabs Maharashtra",
-    "Mahabaleshwar tour package",
-    "Goa tour package from Pune",
-  ],
-  authors: [{ name: site.name }],
-  creator: site.name,
-  category: "travel",
-  icons: {
-    icon: "/favicon.png",
-    shortcut: "/favicon.png",
-    apple: "/apple-touch-icon.png",
-  },
-  openGraph: {
-    title: "Veera Tours & Travels | Taxi & Cab Service in Pune",
-    description:
-      "Airport transfers, one-way cabs, outstation journeys and curated tours across Maharashtra and India. Proudly based in Hadapsar, Pune, available 24/7.",
-    type: "website",
-    locale: "en_IN",
-    siteName: site.name,
-    images: [{ url: "/logo.png", width: 458, height: 360, alt: site.name }],
-  },
-  twitter: {
-    card: "summary",
-    title: "Veera Tours & Travels | Taxi & Cab Service in Pune",
-    description:
-      "Reliable taxis, airport transfers and tour packages from Pune. Clear fares, verified chauffeurs and 24/7 support.",
-    images: ["/logo.png"],
-  },
-  robots: {
-    index: true,
-    follow: true,
-  },
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const [seo, site] = await Promise.all([getSeo(), getSite()]);
+  const shareImage = seo.shareImage ? ikUrl(seo.shareImage, 1200) : "/logo.png";
+  return {
+    metadataBase: new URL("https://veera-cabs.com"),
+    title: { default: seo.title, template: `%s | ${site.name}` },
+    description: seo.description,
+    applicationName: site.name,
+    keywords: seo.keywords,
+    authors: [{ name: site.name }],
+    creator: site.name,
+    category: "travel",
+    icons: { icon: "/favicon.png", shortcut: "/favicon.png", apple: "/apple-touch-icon.png" },
+    openGraph: {
+      title: seo.title,
+      description: seo.description,
+      type: "website",
+      locale: "en_IN",
+      siteName: site.name,
+      images: [{ url: shareImage, alt: site.name }],
+    },
+    twitter: { card: seo.shareImage ? "summary_large_image" : "summary", title: seo.title, description: seo.description, images: [shareImage] },
+    robots: { index: true, follow: true },
+  };
+}
 
 export const viewport: Viewport = {
   width: "device-width",
@@ -61,7 +38,8 @@ export const viewport: Viewport = {
   colorScheme: "dark",
 };
 
-const jsonLd = {
+function buildJsonLd(site: SiteData) {
+  return {
   "@context": "https://schema.org",
   "@type": "TaxiService",
   name: site.name,
@@ -107,11 +85,14 @@ const jsonLd = {
     },
   ],
   sameAs: [site.social.facebook, site.social.instagram].filter(Boolean),
-};
+  };
+}
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
+  const [site, home, services, fleet] = await Promise.all([getSite(), getHome(), getServices(), getFleet()]);
+  const jsonLd = buildJsonLd(site);
   return (
     <html lang="en" data-scroll-behavior="smooth">
       <head>
@@ -148,7 +129,16 @@ export default function RootLayout({
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
         />
       </head>
-      <body>{children}</body>
+      <body>
+        <SiteProvider
+          site={site}
+          announcement={home.announcement}
+          services={services.map((service) => ({ slug: service.slug, title: service.title }))}
+          vehicles={fleet.map((vehicle) => vehicle.title)}
+        >
+          {children}
+        </SiteProvider>
+      </body>
     </html>
   );
 }

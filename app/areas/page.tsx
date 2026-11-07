@@ -8,7 +8,7 @@ import {
   SectionHead,
   delay,
 } from "@/components/site/page-parts";
-import { areas } from "@/lib/content";
+import { getAreas } from "@/lib/server/cms/content";
 
 export const metadata: Metadata = {
   title: "Taxi Service Across Pune",
@@ -17,7 +17,8 @@ export const metadata: Metadata = {
   alternates: { canonical: "/areas" },
 };
 
-export default function AreasPage() {
+export default async function AreasPage() {
+  const areas = await getAreas();
   return (
     <PageShell>
       <PageHero

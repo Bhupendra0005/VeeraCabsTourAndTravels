@@ -4,6 +4,7 @@ import Link from "next/link";
 import {
   ArrowRight,
   BadgeIndianRupee,
+  CalendarCheck,
   CarFront,
   ChevronRight,
   House,
@@ -12,6 +13,7 @@ import {
   MapPinned,
   Menu,
   Phone,
+  Ticket,
   X,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
@@ -23,7 +25,9 @@ import {
   type CSSProperties,
   type KeyboardEvent as ReactKeyboardEvent,
 } from "react";
-import { navItems, site, whatsappLink } from "@/lib/site";
+import { AnnouncementBar } from "@/components/site/announcement-bar";
+import { useSite } from "@/components/site/site-context";
+import { navItems } from "@/lib/site";
 import { openBooking } from "@/components/site/booking";
 import { WhatsAppIcon } from "@/components/site/whatsapp-icon";
 
@@ -34,9 +38,12 @@ const navIcons: Record<string, LucideIcon> = {
   "rate-card": BadgeIndianRupee,
   about: Info,
   contact: Mail,
+  book: CalendarCheck,
+  bookings: Ticket,
 };
 
 export function SiteHeader() {
+  const { site, whatsappLink } = useSite();
   // The drawer is open only while we are still on the page it was opened from,
   // so any navigation closes it without needing an effect.
   const [openedOn, setOpenedOn] = useState<string | null>(null);
@@ -45,7 +52,7 @@ export function SiteHeader() {
   const menuOpen = openedOn === pathname;
   const setMenuOpen = (open: boolean) => setOpenedOn(open ? pathname : null);
   const isActive = (href: string) =>
-    href === "/" ? pathname === "/" : pathname.startsWith(href);
+    href === "/" ? pathname === "/" : pathname === href || pathname.startsWith(`${href}/`);
   const progressRef = useRef<HTMLSpanElement>(null);
   const scrolledRef = useRef(false);
   const toggleRef = useRef<HTMLButtonElement>(null);
@@ -110,7 +117,7 @@ export function SiteHeader() {
 
   // Close if the screen grows to desktop size
   useEffect(() => {
-    const media = window.matchMedia("(min-width: 1025px)");
+    const media = window.matchMedia("(min-width: 1181px)");
     const onChange = () => {
       if (media.matches) setOpenedOn(null);
     };
@@ -137,6 +144,8 @@ export function SiteHeader() {
   };
 
   return (
+    <>
+      <AnnouncementBar />
     <header
       className={`site-header${scrolled ? " is-scrolled" : ""}${
         menuOpen ? " is-menu-open" : ""
@@ -157,7 +166,7 @@ export function SiteHeader() {
           </Link>
 
           <nav className="desktop-nav" aria-label="Primary navigation">
-            {navItems.map((item) => (
+            {navItems.filter((item) => item.id !== "bookings").map((item) => (
               <Link
                 key={item.id}
                 href={item.href}
@@ -170,13 +179,14 @@ export function SiteHeader() {
           </nav>
 
           <div className="nav-actions">
-            <a className="nav-phone" href={site.primaryPhone.href}>
-              <Phone aria-hidden="true" />
-              <span>
-                <small>24/7 booking</small>
-                <b>{site.primaryPhone.display}</b>
-              </span>
-            </a>
+            <Link
+              className={`nav-account${isActive("/bookings") ? " is-active" : ""}`}
+              href="/bookings"
+              aria-label="My bookings"
+              title="My bookings"
+            >
+              <Ticket aria-hidden="true" />
+            </Link>
             <button
               type="button"
               className="btn btn-gold nav-book"
@@ -314,5 +324,6 @@ export function SiteHeader() {
         </div>
       </aside>
     </header>
+    </>
   );
 }

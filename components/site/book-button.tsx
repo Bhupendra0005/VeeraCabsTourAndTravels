@@ -3,7 +3,7 @@
 import { ArrowRight } from "lucide-react";
 import type { ReactNode } from "react";
 import { openBooking, type BookingPrefill } from "@/components/site/booking";
-import { whatsappLink } from "@/lib/site";
+import { useSite } from "@/components/site/site-context";
 import { WhatsAppIcon } from "@/components/site/whatsapp-icon";
 
 /** Opens the booking modal. Usable from server-rendered pages. */
@@ -37,6 +37,7 @@ export function WhatsAppButton({
   className?: string;
   children?: ReactNode;
 }) {
+  const { whatsappLink } = useSite();
   return (
     <a
       className={className}

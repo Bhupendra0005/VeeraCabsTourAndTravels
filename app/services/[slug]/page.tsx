@@ -10,14 +10,13 @@ import {
   PageHero,
   SectionHead,
 } from "@/components/site/page-parts";
-import { getServicePage, servicePages } from "@/lib/content";
+import { getServiceBySlug, getServices } from "@/lib/server/cms/content";
 
 type Params = { slug: string };
 
-export const dynamicParams = false;
-
-export function generateStaticParams() {
-  return servicePages.map((service) => ({ slug: service.slug }));
+// new pages added in the admin panel are rendered on first visit
+export async function generateStaticParams() {
+  return (await getServices()).map((service) => ({ slug: service.slug }));
 }
 
 export async function generateMetadata({
@@ -26,7 +25,7 @@ export async function generateMetadata({
   params: Promise<Params>;
 }): Promise<Metadata> {
   const { slug } = await params;
-  const service = getServicePage(slug);
+  const service = await getServiceBySlug(slug);
   if (!service) return {};
   return {
     title: service.title,
@@ -41,7 +40,7 @@ export default async function ServicePageRoute({
   params: Promise<Params>;
 }) {
   const { slug } = await params;
-  const service = getServicePage(slug);
+  const [service, servicePages] = await Promise.all([getServiceBySlug(slug), getServices()]);
   if (!service) notFound();
 
   const others = servicePages.filter((item) => item.slug !== service.slug);
