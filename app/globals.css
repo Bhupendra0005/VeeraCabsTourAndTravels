@@ -12234,7 +12234,8 @@ a.service-link:hover {
 
 /* filters column */
 .bk-filters {
-  overflow: hidden;
+  /* visible so the Sort by dropdown can open past the card edge; the head rounds its own corners */
+  overflow: visible;
   border: 1px solid #dbe6f3;
   border-radius: 20px;
   background: #fff;
@@ -12246,6 +12247,7 @@ a.service-link:hover {
   align-items: center;
   gap: 12px;
   padding: 16px 20px;
+  border-radius: 19px 19px 0 0;
   background: linear-gradient(100deg, #061f48, #0a3a80);
   color: #fff;
 }
@@ -12359,6 +12361,16 @@ a.service-link:hover {
   border: 1px solid #c7d5e6;
   border-radius: 14px;
   background: #f5f9ff;
+}
+
+/* Sort sits at the bottom of the sidebar, so the list opens upward over the filters: it never runs off the screen. Same width as the field. */
+.bk-sort .sf-panel {
+  top: auto;
+  bottom: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  min-width: 0;
+  z-index: 40;
 }
 
 .bk-sort .field-control > svg {
@@ -12698,7 +12710,8 @@ a.service-link:hover {
 /* inclusions */
 .rv-incl {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  /* as many columns as fit at a readable width, so the text never gets squeezed */
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
   gap: 12px;
   margin: 0;
   padding: 0;
@@ -12712,6 +12725,11 @@ a.service-link:hover {
   padding: 16px;
   border-radius: 16px;
   background: #f1f6fd;
+}
+
+.rv-incl li > span:last-child {
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .rv-incl-icon {
@@ -13243,10 +13261,6 @@ a.service-link:hover {
 }
 
 @media (max-width: 1199px) {
-  .rv-incl {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
   .rv-contact {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -13286,9 +13300,6 @@ a.service-link:hover {
     grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 
-  .rv-incl {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
 }
 
 /* Date picker: roomy panel inside the booking search card */

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowLeftRight, BadgeCheck, CarFront, Clock3, Route, ShieldCheck, Sparkles } from "lucide-react";
 import { CabList, type CabOption } from "@/components/booking/cab-list";
+import { ScrollToResults } from "@/components/booking/scroll-to-results";
 import { SearchCollapse } from "@/components/booking/search-collapse";
 import { SearchForm } from "@/components/booking/search-form";
 import { PageShell } from "@/components/site/page-shell";
@@ -195,6 +196,7 @@ export default async function BookPage({
             {searched && !unavailable ? (
               <>
                 <div className="bk-results-head scroll-mt-24" id="results">
+                  <ScrollToResults targetId="results" />
                   <div className="min-w-0">
                     <p className="bk-trip-chip">
                       <span className="bk-trip-chip-icon">{params.tripType === "round_trip" ? <ArrowLeftRight aria-hidden="true" /> : <CarFront aria-hidden="true" />}</span>

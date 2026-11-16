@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 import { LocationField } from "@/components/booking/location-field";
+import { SCROLL_FLAG } from "@/components/booking/scroll-to-results";
 import { TravellersField } from "@/components/booking/travellers-field";
 import { DateField } from "@/components/site/date-field";
 import { SelectField } from "@/components/site/select-field";
@@ -143,6 +144,11 @@ export function SearchForm({ options, initial, tabs, maxStops, oneWayReturn, ret
       ...(airportTrip ? { airport, address } : {}),
       ...(hourly ? { from, pkg } : {}),
     });
+    try {
+      sessionStorage.setItem(SCROLL_FLAG, "1");
+    } catch {
+      // storage blocked: the search still works, it just will not auto-scroll
+    }
     router.push(`/book?${query}${landOn ? `#${landOn}` : ""}`);
   };
 
