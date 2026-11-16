@@ -54,7 +54,8 @@ export default async function LoginPage({
 
   return (
     <PageShell>
-      <section className="relative isolate overflow-hidden bg-[#041a36] pb-44 pt-28 sm:pt-40 lg:bg-transparent lg:pb-32 lg:pt-44">
+      {/* on a laptop or desktop the whole login fits in one screen (100vh): the content is centred under the header */}
+      <section className="relative isolate overflow-hidden bg-[#041a36] pb-44 pt-28 sm:pt-40 lg:flex lg:min-h-dvh lg:items-center lg:bg-transparent lg:pb-6 lg:pt-28">
         {/* Photo + car share one "cover" stage so the car stays on the road at every width */}
         <div aria-hidden="true" className="absolute inset-0 -z-20 overflow-hidden [container-type:size]">
           <div className="absolute bottom-0 left-0 aspect-[1717/916] w-[150cqw] mask-[linear-gradient(to_bottom,transparent,black_38%)] lg:w-[max(100cqw,calc(100cqh*1.8744))] lg:mask-none">
@@ -80,13 +81,13 @@ export default async function LoginPage({
         <div aria-hidden="true" className="absolute inset-0 -z-10 bg-linear-to-b from-[#030a12]/70 via-[#030a12]/35 to-[#030a12]/85 max-lg:to-[#030a12]/10" />
         <div aria-hidden="true" className="absolute inset-0 -z-10 bg-linear-to-r from-[#030a12]/80 via-transparent to-transparent lg:from-[#030a12]/60" />
 
-        <div className="shell relative grid items-center gap-8 sm:gap-12 lg:grid-cols-[minmax(0,1fr)_minmax(0,480px)] lg:gap-20">
+        <div className="shell relative grid items-center gap-8 sm:gap-12 lg:grid-cols-[minmax(0,1fr)_minmax(0,460px)] lg:gap-16">
           <div className="lg:order-1">
             <span className="inline-flex items-center gap-2 rounded-full border border-[#22d3ee]/40 bg-[#22d3ee]/10 px-3.5 py-1.5 text-xs font-bold uppercase tracking-[0.14em] text-[#22d3ee] backdrop-blur">
               <ShieldCheck className="size-3.5" aria-hidden="true" />
               {signup ? "Create your account" : "Secure customer login"}
             </span>
-            <h1 className="mt-5 font-(family-name:--font-display) text-4xl font-extrabold leading-[1.05] tracking-tight sm:text-5xl lg:text-6xl">
+            <h1 className="mt-5 font-(family-name:--font-display) text-4xl font-extrabold leading-[1.05] tracking-tight sm:text-5xl lg:mt-4 lg:text-5xl xl:text-[3.4rem]">
               {signup ? "Join Veera." : "Welcome back."}
               <span className="mt-1 block italic">
                 Your next ride is just{" "}
@@ -96,18 +97,18 @@ export default async function LoginPage({
                 </span>
               </span>
             </h1>
-            <p className="mt-5 max-w-xl text-base text-white/75 sm:text-lg">
+            <p className="mt-5 max-w-xl text-base text-white/75 sm:text-lg lg:mt-4 lg:text-base">
               {signup
                 ? "Create a free account to book outstation cabs at fixed fares, pay online and keep all your trips in one place."
                 : "Sign in to book outstation cabs at fixed fares, pay online and keep all your trips in one place."}
             </p>
 
-            <ul className="mt-7 grid grid-cols-2 gap-3 sm:mt-8 sm:gap-4">
+            <ul className="mt-7 grid grid-cols-2 gap-3 sm:mt-8 sm:gap-4 lg:mt-6 lg:gap-3">
               {benefits.map((b) => {
                 const Icon = b.icon;
                 const shortTitle = "shortTitle" in b ? b.shortTitle : b.title;
                 return (
-                <li key={b.title} className="flex gap-2.5 rounded-2xl p-3 sm:gap-3.5 sm:p-4 border border-white/10 bg-white/[0.06] shadow-[0_8px_30px_-12px_rgba(0,0,0,0.6)] backdrop-blur-md transition hover:border-brand-bright/30 hover:bg-white/[0.09]">
+                <li key={b.title} className="flex gap-2.5 rounded-2xl p-3 sm:gap-3.5 sm:p-4 lg:p-3.5 border border-white/10 bg-white/[0.06] shadow-[0_8px_30px_-12px_rgba(0,0,0,0.6)] backdrop-blur-md transition hover:border-brand-bright/30 hover:bg-white/[0.09]">
                   <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-brand/12 text-brand-bright ring-1 ring-brand-bright/20 sm:size-10">
                     <Icon className="size-[18px] sm:size-5" aria-hidden="true" />
                   </span>

@@ -1,3 +1,4 @@
+import type { RefundSlab } from "@/lib/booking/config";
 import type { Field } from "@/lib/cms/types";
 
 /** Business rules for online booking. Edited by the owner in Admin > Booking settings. */
@@ -9,6 +10,8 @@ export type BookingSettings = {
   insuranceEnabled: boolean;
   insuranceRupees: number;
   freeCancelMinutes: number;
+  /** Partial refunds after the free window ends, for example 6 hours before pickup: 50%. Empty = no partial refunds. */
+  refundSlabs: RefundSlab[];
   minLeadMinutes: number;
   balanceCutoffHours: number;
 };
@@ -21,6 +24,7 @@ export const DEFAULT_BOOKING_SETTINGS: BookingSettings = {
   insuranceEnabled: true,
   insuranceRupees: 99,
   freeCancelMinutes: 60,
+  refundSlabs: [],
   minLeadMinutes: 120,
   balanceCutoffHours: 48,
 };
@@ -58,11 +62,24 @@ export const BOOKING_SETTINGS_FIELDS: Field[] = [
   {
     type: "number",
     key: "freeCancelMinutes",
-    label: "Free cancellation until (minutes before pickup)",
+    label: "Full refund until (minutes before pickup)",
     min: 0,
     max: 10080,
     step: 5,
     hint: "60 means customers can cancel for a full refund until 1 hour before pickup.",
+  },
+  {
+    type: "list",
+    key: "refundSlabs",
+    label: "Partial refund steps",
+    hint: "After the full-refund time ends, cancelling at least this many hours before pickup still returns this share of what was paid. Below the last step nothing is returned.",
+    itemTitle: "hoursBefore",
+    maxItems: 6,
+    addLabel: "Add a refund step",
+    fields: [
+      { type: "number", key: "hoursBefore", label: "Cancelled at least this many hours before pickup", min: 0.5, max: 720, step: 0.5, defaultValue: 6 },
+      { type: "number", key: "percent", label: "Refund (% of what was paid)", min: 1, max: 99, step: 1, defaultValue: 50 },
+    ],
   },
   {
     type: "number",

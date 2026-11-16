@@ -6,7 +6,7 @@ import { openBooking, type BookingPrefill } from "@/components/site/booking";
 import { useSite } from "@/components/site/site-context";
 import { WhatsAppIcon } from "@/components/site/whatsapp-icon";
 
-/** Opens the booking modal. Usable from server-rendered pages. */
+/** Takes the visitor to the /book page. Usable from server-rendered pages. */
 export function BookButton({
   prefill,
   className = "btn btn-gold",

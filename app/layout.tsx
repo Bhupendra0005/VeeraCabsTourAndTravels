@@ -5,13 +5,21 @@ import { getHome, getSeo, getFleet, getServices, getSite } from "@/lib/server/cm
 import type { SiteData } from "@/lib/site";
 import "./globals.css";
 
+/** Google shows about 160 characters of a description: cut longer ones at a word instead of in the middle of one. */
+function clip(text: string, max = 158): string {
+  if (text.length <= max) return text;
+  const cut = text.slice(0, max);
+  return `${cut.slice(0, cut.lastIndexOf(" ")).replace(/[,;:\s]+$/, "")}.`;
+}
+
 export async function generateMetadata(): Promise<Metadata> {
   const [seo, site] = await Promise.all([getSeo(), getSite()]);
+  const description = clip(seo.description);
   const shareImage = seo.shareImage ? ikUrl(seo.shareImage, 1200) : "/logo.png";
   return {
     metadataBase: new URL("https://veera-cabs.com"),
     title: { default: seo.title, template: `%s | ${site.name}` },
-    description: seo.description,
+    description,
     applicationName: site.name,
     keywords: seo.keywords,
     authors: [{ name: site.name }],
@@ -20,13 +28,13 @@ export async function generateMetadata(): Promise<Metadata> {
     icons: { icon: "/favicon.png", shortcut: "/favicon.png", apple: "/apple-touch-icon.png" },
     openGraph: {
       title: seo.title,
-      description: seo.description,
+      description,
       type: "website",
       locale: "en_IN",
       siteName: site.name,
       images: [{ url: shareImage, alt: site.name }],
     },
-    twitter: { card: seo.shareImage ? "summary_large_image" : "summary", title: seo.title, description: seo.description, images: [shareImage] },
+    twitter: { card: seo.shareImage ? "summary_large_image" : "summary", title: seo.title, description, images: [shareImage] },
     robots: { index: true, follow: true },
   };
 }

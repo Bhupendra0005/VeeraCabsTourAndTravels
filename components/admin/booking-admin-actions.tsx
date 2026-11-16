@@ -1,14 +1,16 @@
 "use client";
 
-import { CheckCheck, Mail, XCircle } from "lucide-react";
+import { CheckCheck, HandCoins, Mail, UserRound, XCircle } from "lucide-react";
 import { useActionState, useState, useTransition } from "react";
 import { FormMessage, SubmitButton } from "@/components/admin/form-parts";
 import { SelectMenu } from "@/components/admin/pickers";
 import { Alert, Button, Card, Field, inputClass } from "@/components/admin/ui";
 import { idle, type ActionState } from "@/lib/admin/action-state";
 import {
+  assignDriverAction,
   cancelBookingAdminAction,
   markCompletedAction,
+  recordBalanceAction,
   resendConfirmationAction,
   saveBookingNoteAction,
 } from "@/lib/server/admin/actions/bookings";
@@ -18,14 +20,31 @@ type Props = {
   status: string;
   note: string;
   hasPayments: boolean;
+  driver: { id: string; name: string; phone: string; cab: string; model: string };
+  /** Saved drivers to choose from. */
+  drivers: { id: string; name: string; phone: string; cab: string; model: string }[];
+  /** What the customer still owes, in paise (0 when fully paid). */
+  due: number;
+  /** What the cancellation policy would refund if the booking were cancelled right now (0-100). */
+  policyPercent: number;
 };
 
-export function BookingAdminActions({ bookingId, status, note, hasPayments }: Props) {
+export function BookingAdminActions({ bookingId, status, note, hasPayments, driver, drivers, due, policyPercent }: Props) {
   const [pending, startTransition] = useTransition();
   const [result, setResult] = useState<ActionState | null>(null);
   const [mode, setMode] = useState("policy");
   const [confirming, setConfirming] = useState(false);
   const [noteState, noteAction] = useActionState(saveBookingNoteAction.bind(null, bookingId), idle);
+  const [noteText, setNoteText] = useState(note);
+  const [driverState, driverAction] = useActionState(assignDriverAction.bind(null, bookingId), idle);
+  // controlled fields: a form action resets plain inputs, which would wipe what the owner typed when a check fails
+  const [drv, setDrv] = useState({ id: driver.id, name: driver.name, phone: driver.phone, cab: driver.cab, model: driver.model, notify: true, save: false });
+  const [balanceState, balanceAction] = useActionState(recordBalanceAction.bind(null, bookingId), idle);
+  const [bal, setBal] = useState({ amount: due > 0 ? String(due / 100) : "", method: "cash" });
+  const pick = (id: string) => {
+    const saved = drivers.find((d) => d.id === id);
+    setDrv(saved ? { ...drv, id, name: saved.name, phone: saved.phone, cab: saved.cab, model: saved.model, save: false } : { ...drv, id: "" });
+  };
 
   const run = (task: () => Promise<ActionState>) =>
     startTransition(async () => {
@@ -38,6 +57,9 @@ export function BookingAdminActions({ bookingId, status, note, hasPayments }: Pr
   return (
     <div className="grid gap-6">
       <Card title="Actions">
+        {!canCancel && status !== "confirmed" && status !== "completed" ? (
+          <p className="text-sm text-muted">No actions are available for a {status === "cancelled" ? "cancelled" : "closed"} booking. You can still add an internal note below.</p>
+        ) : null}
         <div className="flex flex-wrap gap-2">
           {status === "confirmed" ? (
             <Button variant="secondary" disabled={pending} onClick={() => run(() => markCompletedAction(bookingId))}>
@@ -64,7 +86,7 @@ export function BookingAdminActions({ bookingId, status, note, hasPayments }: Pr
                 value={mode}
                 onChange={setMode}
                 options={[
-                  { value: "policy", label: "Follow the cancellation policy (refund only if cancelled in time)" },
+                  { value: "policy", label: `Follow the cancellation policy (right now: ${policyPercent === 0 ? "no refund" : `${policyPercent}% refund`})` },
                   { value: "refund", label: "Refund everything paid (our cancellation)" },
                   { value: "no_refund", label: "No refund" },
                 ]}
@@ -86,9 +108,83 @@ export function BookingAdminActions({ bookingId, status, note, hasPayments }: Pr
         {result?.ok && result.message ? <div className="mt-4"><Alert tone="success">{result.message}</Alert></div> : null}
       </Card>
 
+      {(status === "confirmed" || status === "completed") && (due > 0 || balanceState.ok) ? (
+        <Card title="Collect the balance" description={due > 0 ? `The customer still owes ${(due / 100).toLocaleString("en-IN", { style: "currency", currency: "INR" })}. When the driver (or you) receives it, record it here so the booking shows fully paid.` : "Nothing is left to collect."}>
+          {due <= 0 ? <FormMessage state={balanceState} /> : null}
+          <form action={balanceAction} className={due <= 0 ? "hidden" : "grid gap-4"}>
+            <div className="grid grid-cols-[1fr_130px] gap-3">
+              <Field label="Amount received (₹)" htmlFor="bal-amount">
+                <input id="bal-amount" name="amount" inputMode="decimal" maxLength={12} autoComplete="off" className={inputClass} value={bal.amount} onChange={(e) => setBal({ ...bal, amount: e.target.value })} />
+              </Field>
+              <Field label="Paid by" htmlFor="bal-method">
+                <select id="bal-method" name="method" className={inputClass} value={bal.method} onChange={(e) => setBal({ ...bal, method: e.target.value })}>
+                  <option value="cash">Cash</option>
+                  <option value="upi">UPI</option>
+                  <option value="bank">Bank</option>
+                </select>
+              </Field>
+            </div>
+            {due > 0 ? <FormMessage state={balanceState} /> : null}
+            <div>
+              <SubmitButton pendingText="Saving...">
+                <HandCoins aria-hidden="true" /> Record payment received
+              </SubmitButton>
+            </div>
+          </form>
+        </Card>
+      ) : null}
+
+      {status === "confirmed" ? (
+        <Card title="Driver & cab" description="The customer sees these on their ticket page and e-ticket, and is emailed when you save. Leave every field empty and save to remove them.">
+          <form action={driverAction} className="grid gap-4">
+            <input type="hidden" name="driverId" value={drv.id} />
+            {drivers.length > 0 ? (
+              <Field label="Choose from your drivers" htmlFor="drv-pick" hint="Picking one fills the fields below. You can still change them for this trip.">
+                <select id="drv-pick" value={drv.id} onChange={(e) => pick(e.target.value)} className={inputClass}>
+                  <option value="">Type a new driver below</option>
+                  {drivers.map((d) => (
+                    <option key={d.id} value={d.id}>
+                      {d.name} · {d.cab || "no cab number"} · +91 {d.phone}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+            ) : null}
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field label="Driver name" htmlFor="drv-name">
+                <input id="drv-name" name="driverName" value={drv.name} onChange={(e) => setDrv({ ...drv, name: e.target.value })} maxLength={80} autoComplete="off" className={inputClass} placeholder="e.g. Ramesh Patil" />
+              </Field>
+              <Field label="Driver mobile" htmlFor="drv-phone" hint="10 digits. The customer can call this number.">
+                <input id="drv-phone" name="driverPhone" value={drv.phone} onChange={(e) => setDrv({ ...drv, phone: e.target.value })} inputMode="numeric" maxLength={20} autoComplete="off" className={inputClass} placeholder="98765 43210" />
+              </Field>
+              <Field label="Cab number" htmlFor="drv-cab">
+                <input id="drv-cab" name="cabNumber" value={drv.cab} onChange={(e) => setDrv({ ...drv, cab: e.target.value })} maxLength={20} autoComplete="off" className={`${inputClass} uppercase`} placeholder="MH12 AB 1234" />
+              </Field>
+              <Field label="Cab model and colour (optional)" htmlFor="drv-model">
+                <input id="drv-model" name="cabModel" value={drv.model} onChange={(e) => setDrv({ ...drv, model: e.target.value })} maxLength={60} autoComplete="off" className={inputClass} placeholder="Swift Dzire, white" />
+              </Field>
+            </div>
+            {!drv.id ? (
+              <label className="flex items-center gap-2.5 text-sm">
+                <input type="checkbox" name="saveDriver" checked={drv.save} onChange={(e) => setDrv({ ...drv, save: e.target.checked })} className="size-4 accent-brand" /> Save this driver to my drivers list
+              </label>
+            ) : null}
+            <label className="flex items-center gap-2.5 text-sm">
+              <input type="checkbox" name="notify" checked={drv.notify} onChange={(e) => setDrv({ ...drv, notify: e.target.checked })} className="size-4 accent-brand" /> Email these details to the customer
+            </label>
+            <FormMessage state={driverState} />
+            <div>
+              <SubmitButton pendingText="Saving...">
+                <UserRound aria-hidden="true" /> {driver.name ? "Update driver & cab" : "Assign driver & cab"}
+              </SubmitButton>
+            </div>
+          </form>
+        </Card>
+      ) : null}
+
       <Card title="Internal note" description="Only staff can see this. Customers never do.">
         <form action={noteAction} className="grid gap-3">
-          <textarea name="note" defaultValue={note} rows={4} maxLength={1000} className={inputClass} aria-label="Internal note" />
+          <textarea name="note" value={noteText} onChange={(event) => setNoteText(event.target.value)} rows={4} maxLength={1000} className={inputClass} aria-label="Internal note" />
           <FormMessage state={noteState} />
           <div>
             <SubmitButton variant="secondary">Save note</SubmitButton>

@@ -29,14 +29,14 @@ import {
 import type { LucideIcon } from "lucide-react";
 import type { CSSProperties, PointerEvent, ReactNode } from "react";
 import {
-  BookingModal,
+  BookingLauncher,
   openBooking,
   type BookingPrefill,
 } from "@/components/site/booking";
 import { AboutPhotos } from "@/components/site/about-photos";
 import { FaqAccordion, type FaqItem } from "@/components/site/faq";
 import { FloatingActions, SiteFooter } from "@/components/site/footer";
-import { Hero } from "@/components/site/hero";
+import { Hero, type HomeSearch } from "@/components/site/hero";
 import { SiteHeader } from "@/components/site/header";
 import { ScrollEffects } from "@/components/site/scroll-effects";
 import { useSite } from "@/components/site/site-context";
@@ -150,6 +150,7 @@ const services: Service[] = [
       tripType: "Round Trip",
       drop: "Tour package",
       notes: "Tour and pilgrimage package enquiry",
+      enquiry: true,
     },
   },
   {
@@ -164,6 +165,7 @@ const services: Service[] = [
       tripType: "Local Rental",
       drop: "Corporate / event travel",
       notes: "Corporate and event travel enquiry",
+      enquiry: true,
     },
   },
 ];
@@ -376,9 +378,10 @@ export type HomePageProps = {
   features: FeatureData[];
   faqs: FaqItem[];
   dropOptions: PlaceOption[];
+  search: HomeSearch | null;
 };
 
-export function HomePage({ home, fleet: fleetData, features: featuresData, faqs, dropOptions }: HomePageProps) {
+export function HomePage({ home, fleet: fleetData, features: featuresData, faqs, dropOptions, search }: HomePageProps) {
   const { site, whatsappLink } = useSite();
   const fleet = fleetData.map((vehicle) => ({ ...vehicle, icon: resolveIcon(vehicle.icon, "car") }));
   const features = featuresData.map((feature) => ({ ...feature, icon: resolveIcon(feature.icon) }));
@@ -393,7 +396,7 @@ export function HomePage({ home, fleet: fleetData, features: featuresData, faqs,
       <SiteHeader />
 
       <main id="main-content">
-        <Hero copy={home.hero} dropOptions={dropOptions} />
+        <Hero copy={home.hero} dropOptions={dropOptions} search={search} />
         <div className="checker-strip" aria-hidden="true" />
         <Marquee items={home.marquee} />
 
@@ -518,6 +521,7 @@ export function HomePage({ home, fleet: fleetData, features: featuresData, faqs,
                 className="btn btn-gold"
                 onClick={() =>
                   openBooking({
+                    enquiry: true,
                     notes: "Custom route or group tour enquiry",
                   })
                 }
@@ -600,7 +604,7 @@ export function HomePage({ home, fleet: fleetData, features: featuresData, faqs,
                 type="button"
                 className="btn btn-gold"
                 onClick={() =>
-                  openBooking({ notes: "Enquiry for a different destination" })
+                  openBooking({ enquiry: true, notes: "Enquiry for a different destination" })
                 }
               >
                 Request a route quote
@@ -738,6 +742,7 @@ export function HomePage({ home, fleet: fleetData, features: featuresData, faqs,
                 onClick={() =>
                   openBooking({
                     tripType: "Round Trip",
+                    enquiry: true,
                     notes: "Custom tour itinerary enquiry",
                   })
                 }
@@ -965,6 +970,7 @@ export function HomePage({ home, fleet: fleetData, features: featuresData, faqs,
                       onClick={() =>
                         openBooking({
                           vehicle: title,
+                          enquiry: true,
                           notes: `Vehicle request: ${title}`,
                         })
                       }
@@ -1017,7 +1023,7 @@ export function HomePage({ home, fleet: fleetData, features: featuresData, faqs,
       <SiteFooter />
 
       <FloatingActions />
-      <BookingModal />
+      <BookingLauncher />
     </>
   );
 }

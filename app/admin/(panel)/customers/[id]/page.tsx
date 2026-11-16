@@ -1,15 +1,18 @@
 import type { Metadata } from "next";
-import { ArrowLeft, CalendarCheck, CalendarDays, IndianRupee, Mail, MapPin, Phone, UserRound } from "lucide-react";
+import { ArrowLeft, Ban, CalendarCheck, CalendarClock, CalendarDays, CircleCheck, Clock3, Fingerprint, History, IndianRupee, Mail, MapPin, Phone, TrendingUp, Undo2, UserRound } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { ReactNode } from "react";
 import { BookingRoute, StatusBadge, TripWhen, money } from "@/components/admin/booking-bits";
 import { CalendarCarArt } from "@/components/admin/list-parts";
 import { UrlSelect } from "@/components/admin/status-filter";
-import { DataTable } from "@/components/admin/ui";
+import { CustomerBlockControl, CustomerNoteForm } from "@/components/admin/customer-controls";
+import { Alert, Badge, Card, DataTable } from "@/components/admin/ui";
+import { can } from "@/lib/admin/permissions";
+import { formatDate, to12h } from "@/lib/booking/config";
 import { STATUS_LABEL } from "@/lib/booking/status";
 import { requireAdminPage } from "@/lib/server/admin/guard";
-import { getCustomerWithBookings } from "@/lib/server/admin/queries";
+import { getCustomerWithBookings, todayIst } from "@/lib/server/admin/queries";
 import { getProfile } from "@/lib/server/auth/profile";
 import { isUuid } from "@/lib/server/core/validate";
 
@@ -41,7 +44,7 @@ export default async function AdminCustomerPage({
   params: Promise<{ id: string }>;
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  await requireAdminPage("customers.view");
+  const admin = await requireAdminPage("customers.view");
   const { id } = await params;
   if (!isUuid(id)) notFound();
   const raw = (await searchParams).status;
@@ -49,10 +52,20 @@ export default async function AdminCustomerPage({
 
   const found = await getCustomerWithBookings(id);
   if (!found) notFound();
-  const { customer, bookings, spent } = found;
+  const { customer, bookings, spent, payments } = found;
   const profile = await getProfile(customer.id, customer.email).catch(() => null);
 
   const shown = status && status in STATUS_LABEL ? bookings.filter((b) => b.status === status) : bookings;
+  const count = (s: string) => bookings.filter((b) => b.status === s).length;
+  const refunded = bookings.reduce((sum, b) => sum + (b.refund_amount || 0), 0);
+  const today = todayIst();
+  const counted = bookings.filter((b) => b.status === "confirmed" || b.status === "completed");
+  const average = counted.length ? Math.round(counted.reduce((sum, b) => sum + b.total, 0) / counted.length) : 0;
+  const nextTrip = bookings
+    .filter((b) => b.status === "confirmed" && b.travel_date >= today)
+    .sort((a, b) => `${a.travel_date} ${a.travel_time}`.localeCompare(`${b.travel_date} ${b.travel_time}`))[0];
+  const lastBooking = bookings[0];
+  const refOf = (bookingId: string) => bookings.find((b) => b.id === bookingId)?.ref ?? "-";
   const extra: { icon: ReactNode; label: string; value: string }[] = [];
   if (profile?.name) extra.push({ icon: <UserRound />, label: "Name", value: profile.name });
   if (profile?.phone) extra.push({ icon: <Phone />, label: "Mobile", value: `+91 ${profile.phone}` });
@@ -74,6 +87,12 @@ export default async function AdminCustomerPage({
           </div>
         </header>
       </div>
+
+      {customer.blocked ? (
+        <Alert tone="danger">
+          This customer is blocked from new online bookings{customer.blocked_reason ? `: ${customer.blocked_reason}` : ""}. They can still log in and see their old trips.
+        </Alert>
+      ) : null}
 
       {/* Profile */}
       <section className="rounded-2xl border border-brand-bright/30 bg-linear-to-b from-[#0c1a24] to-panel p-5 shadow-[0_0_44px_-18px_rgba(0,150,219,0.55)] sm:p-6">
@@ -106,7 +125,52 @@ export default async function AdminCustomerPage({
             ))}
           </div>
         ) : null}
+        <div className="mt-5 grid gap-5 border-t border-white/10 pt-5 sm:grid-cols-2 xl:grid-cols-4">
+          <Info icon={<CircleCheck />} label="Confirmed / completed">
+            {count("confirmed")} / {count("completed")}
+          </Info>
+          <Info icon={<Ban />} label="Cancelled">
+            {count("cancelled")}
+          </Info>
+          <Info icon={<Clock3 />} label="Payment pending / failed">
+            {count("pending_payment")} / {count("payment_failed")}
+          </Info>
+          <Info icon={<Undo2 />} label="Refunded">
+            {money(refunded)}
+          </Info>
+          <Info icon={<TrendingUp />} label="Average booking value">
+            {counted.length ? money(average) : "-"}
+          </Info>
+          <Info icon={<CalendarClock />} label="Next trip">
+            {nextTrip ? `${formatDate(nextTrip.travel_date)}, ${to12h(nextTrip.travel_time)} (${nextTrip.ref})` : "None scheduled"}
+          </Info>
+          <Info icon={<History />} label="Last booking made">
+            {lastBooking ? joined(lastBooking.created_at) : "-"}
+          </Info>
+          <Info icon={<Fingerprint />} label="Customer ID">
+            <span className="text-sm font-medium">{customer.id}</span>
+          </Info>
+        </div>
+        {customer.blocked ? (
+          <div className="mt-5 grid gap-5 border-t border-white/10 pt-5 sm:grid-cols-2">
+            <Info icon={<Ban />} label="Blocked since">
+              {customer.blocked_at ? joined(customer.blocked_at) : "-"}
+            </Info>
+            <Info icon={<Ban />} label="Block reason">
+              {customer.blocked_reason || "No reason given"}
+            </Info>
+          </div>
+        ) : null}
       </section>
+
+      <div className="grid gap-6 lg:grid-cols-2">
+        <Card title="Private note" description="Only staff can see this. The customer never does.">
+          <CustomerNoteForm id={customer.id} note={customer.admin_note ?? ""} />
+        </Card>
+        <Card title="Online booking access" description="A blocked customer can still log in, but cannot book online. You can unblock them any time.">
+          <CustomerBlockControl id={customer.id} blocked={!!customer.blocked} reason={customer.blocked_reason ?? ""} allowed={can(admin.role, "settings.manage")} />
+        </Card>
+      </div>
 
       {/* Bookings */}
       <section className="relative rounded-2xl border border-white/10 bg-linear-to-b from-[#0b1620] to-panel">
@@ -148,12 +212,36 @@ export default async function AdminCustomerPage({
                 { header: "Booking", primary: true, cell: (b) => <BookingRoute booking={b} /> },
                 { header: "Status", cell: (b) => <StatusBadge status={b.status} /> },
                 { header: "Travel", cell: (b) => <TripWhen booking={b} /> },
+                { header: "Traveller", cell: (b) => `${b.traveller_name} · +91 ${b.traveller_phone}` },
+                { header: "Passengers", cell: (b) => `${b.passengers} passenger${b.passengers === 1 ? "" : "s"}, ${b.bags} bag${b.bags === 1 ? "" : "s"}` },
+                { header: "Pickup", cell: (b) => b.pickup_address || "-" },
+                { header: "Driver", cell: (b) => (b.driver_name ? `${b.driver_name}${b.cab_number ? ` · ${b.cab_number}` : ""}` : "Not assigned") },
+                { header: "Source", cell: (b) => (b.source === "phone" ? "Phone booking" : "Website") },
+                { header: "Booked on", cell: (b) => joined(b.created_at) },
                 { header: "Total", align: "right", cell: (b) => money(b.total) },
               ]}
             />
           </div>
         )}
       </section>
+
+      {/* Payments */}
+      <Card title="Payments" description={payments.length ? "Every payment attempt for this customer's bookings, newest first." : "No payments yet."}>
+        {payments.length === 0 ? null : (
+          <DataTable
+            rows={payments}
+            rowKey={(p) => p.id}
+            columns={[
+              { header: "Booking", primary: true, cell: (p) => <Link href={`/admin/bookings/${p.booking_id}`} className="font-semibold text-brand-bright hover:underline">{refOf(p.booking_id)}</Link> },
+              { header: "Type", cell: (p) => <span className="capitalize">{p.kind}</span> },
+              { header: "Amount", cell: (p) => money(p.amount) },
+              { header: "Status", cell: (p) => <Badge tone={p.status === "paid" ? "success" : p.status === "failed" ? "danger" : p.status === "refunded" ? "info" : "warning"}>{p.status === "created" ? "not completed" : p.status}</Badge> },
+              { header: "Razorpay payment", cell: (p) => p.razorpay_payment_id || "-" },
+              { header: "Date", cell: (p) => joined(p.paid_at ?? p.created_at) },
+            ]}
+          />
+        )}
+      </Card>
     </div>
   );
 }

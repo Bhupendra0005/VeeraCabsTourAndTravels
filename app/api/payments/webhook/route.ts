@@ -1,4 +1,4 @@
-import { confirmPayment, markPaymentFailed } from "@/lib/server/bookings/service";
+import { confirmPayment, markPaymentFailed, markRefundFailed } from "@/lib/server/bookings/service";
 import { handle, HttpError, json } from "@/lib/server/core/http";
 import { verifyWebhookSignature } from "@/lib/server/payments/razorpay";
 
@@ -6,7 +6,10 @@ export const runtime = "nodejs";
 
 type WebhookBody = {
   event?: string;
-  payload?: { payment?: { entity?: { id?: string; order_id?: string; amount?: number; status?: string } } };
+  payload?: {
+    payment?: { entity?: { id?: string; order_id?: string; amount?: number; status?: string } };
+    refund?: { entity?: { id?: string; payment_id?: string } };
+  };
 };
 
 /**
@@ -35,6 +38,10 @@ export function POST(request: Request) {
       } else if (event.event === "payment.failed") {
         await markPaymentFailed(payment.order_id);
       }
+    }
+    const refund = event.payload?.refund?.entity;
+    if (event.event === "refund.failed" && refund?.id && refund.payment_id) {
+      await markRefundFailed(refund.id, refund.payment_id);
     }
     return json({ ok: true });
   });

@@ -25,10 +25,12 @@ import { TRIP_TYPE_LABEL, formatDate, formatINR, to12h } from "@/lib/booking/con
 import { STATUS_CLASS, STATUS_LABEL } from "@/lib/booking/status";
 import { WhatsAppIcon } from "@/components/site/whatsapp-icon";
 import { whatsappLink } from "@/lib/site";
+import { getProfile } from "@/lib/server/auth/profile";
 import { getSession } from "@/lib/server/auth/session";
 import { listCustomerBookings } from "@/lib/server/bookings/service";
 import type { BookingRow } from "@/lib/server/bookings/types";
-import { getSite } from "@/lib/server/cms/content";
+import { getFleet, getSite } from "@/lib/server/cms/content";
+import { cabHeading } from "@/lib/booking/fleet";
 import { cn } from "@/lib/utils/cn";
 
 export const metadata: Metadata = {
@@ -61,6 +63,8 @@ function bucket(b: BookingRow, today: string): Exclude<Tab, "all"> {
 }
 
 function whenChip(b: BookingRow, today: string) {
+  // a cancelled or failed booking is not going to happen, so it gets no "pickup in N days" countdown
+  if (b.status === "cancelled" || b.status === "payment_failed" || b.status === "completed") return null;
   if (b.status === "pending_payment") return { text: "Complete payment to confirm", tone: "amber" as const };
   const days = dayDiff(b.travel_date, today);
   if (days === 0) return { text: "Pickup today", tone: "green" as const };
@@ -83,7 +87,7 @@ const accent: Record<BookingRow["status"], string> = {
   payment_failed: "from-red-400 to-red-600",
 };
 
-function TripCard({ b, today }: { b: BookingRow; today: string }) {
+function TripCard({ b, today, cab }: { b: BookingRow; today: string; cab: string }) {
   const chip = whenChip(b, today);
   const round = b.trip_type === "round_trip";
   return (
@@ -98,7 +102,7 @@ function TripCard({ b, today }: { b: BookingRow; today: string }) {
               <CarFront className="size-[18px]" aria-hidden="true" />
             </span>
             <div className="min-w-0">
-              <p className="text-sm font-bold [overflow-wrap:anywhere]">{b.vehicle_type}</p>
+              <p className="text-sm font-bold [overflow-wrap:anywhere]">{cab}</p>
               <p className="text-xs text-muted">
                 {TRIP_TYPE_LABEL[b.trip_type]} · Ref <span className="font-mono tracking-wide">{b.ref}</span>
               </p>
@@ -191,11 +195,18 @@ function TripCard({ b, today }: { b: BookingRow; today: string }) {
           </div>
         </div>
 
-        {chip ? (
-          <div className="border-t border-white/5 bg-white/[0.02] px-5 py-2.5 pl-6 sm:px-6 sm:pl-7">
-            <span className={cn("inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold ring-1", chipTone[chip.tone])}>
-              <Clock3 className="size-3.5" aria-hidden="true" /> {chip.text}
-            </span>
+        {chip || (b.status === "confirmed" && b.driver_name) ? (
+          <div className="flex flex-wrap items-center gap-2 border-t border-white/5 bg-white/[0.02] px-5 py-2.5 pl-6 sm:px-6 sm:pl-7">
+            {chip ? (
+              <span className={cn("inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold ring-1", chipTone[chip.tone])}>
+                <Clock3 className="size-3.5" aria-hidden="true" /> {chip.text}
+              </span>
+            ) : null}
+            {b.status === "confirmed" && b.driver_name ? (
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-400/15 px-3 py-1 text-xs font-bold text-emerald-300 ring-1 ring-emerald-400/25">
+                Driver: {b.driver_name}{b.cab_number ? ` · ${b.cab_number}` : ""}
+              </span>
+            ) : null}
           </div>
         ) : null}
       </article>
@@ -274,13 +285,21 @@ export default async function BookingsPage({
 
   const raw = (await searchParams).tab;
   const asked = Array.isArray(raw) ? raw[0] : raw;
-  const [bookings, site] = await Promise.all([
+  const [bookings, site, profile, fleet] = await Promise.all([
     listCustomerBookings(session.customerId).catch((error) => {
       console.error("Could not load bookings", error);
       return null;
     }),
     getSite(),
+    getProfile(session.customerId, session.email).catch(() => null),
+    getFleet().catch(() => []),
   ]);
+  // "Dzire, Etios or similar" for a Sedan booking; the plain vehicle name when the fleet has no models for it
+  const cabLabel = (b: BookingRow) => {
+    const vehicle = fleet.find((item) => item.title === b.vehicle_type);
+    const heading = vehicle ? cabHeading(vehicle.title, vehicle.models ?? "") : { name: b.vehicle_type, similar: false };
+    return heading.similar ? `${heading.name} or similar` : heading.name;
+  };
 
   const today = todayIst();
   const list = bookings ?? [];
@@ -295,8 +314,9 @@ export default async function BookingsPage({
       return tab === "upcoming" ? key(a).localeCompare(key(b)) : key(b).localeCompare(key(a));
     });
 
-  const initial = session.email.trim().charAt(0).toUpperCase();
-  const name = session.email.split("@")[0];
+  // the name from My profile (first name), the start of the email address when none is saved yet
+  const name = profile?.name.trim().split(/\s+/)[0] || session.email.split("@")[0];
+  const initial = name.charAt(0).toUpperCase();
 
   const groups = accountGroups({ current: "trips", tab, counts });
 
@@ -366,7 +386,7 @@ export default async function BookingsPage({
             ) : (
               <ul className="grid gap-4">
                 {shown.map((b) => (
-                  <TripCard key={b.id} b={b} today={today} />
+                  <TripCard key={b.id} b={b} today={today} cab={cabLabel(b)} />
                 ))}
               </ul>
             )}

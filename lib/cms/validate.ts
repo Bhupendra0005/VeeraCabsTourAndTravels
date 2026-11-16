@@ -80,7 +80,9 @@ export function validateFields(fields: Field[], input: unknown, path = ""): Reco
         break;
       }
       case "number": {
-        const value = typeof raw === "number" ? raw : Number(raw);
+        // a field added after the document was first saved has no value yet: use its default
+        const given = raw === undefined || raw === null || raw === "" ? field.defaultValue : raw;
+        const value = typeof given === "number" ? given : Number(given);
         if (!Number.isFinite(value)) fail(where, "must be a number");
         if (value < field.min || value > field.max) fail(where, `must be between ${field.min} and ${field.max}`);
         out[field.key] = value;

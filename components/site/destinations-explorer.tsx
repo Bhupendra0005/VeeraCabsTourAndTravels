@@ -206,7 +206,7 @@ export function DestinationsExplorer({
               type="button"
               className="btn btn-gold"
               onClick={() =>
-                openBooking({ drop: query, notes: "Enquiry for a destination not on the list" })
+                openBooking({ enquiry: true, drop: query, notes: "Enquiry for a destination not on the list" })
               }
             >
               Ask about {query || "another place"}

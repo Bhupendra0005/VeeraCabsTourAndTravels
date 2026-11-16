@@ -50,6 +50,39 @@ function tripRows(b: BookingRow): string {
     .join("");
 }
 
+/** The driver and cab rows, empty until the owner has assigned them. */
+export function hasDriver(b: BookingRow): boolean {
+  return !!(b.driver_name || b.driver_phone || b.cab_number);
+}
+
+function driverRows(b: BookingRow): string {
+  const rows: [string, string][] = [];
+  if (b.driver_name) rows.push(["Driver", b.driver_name]);
+  if (b.driver_phone) rows.push(["Driver phone", `+91 ${b.driver_phone}`]);
+  if (b.cab_number) rows.push(["Cab number", b.cab_number]);
+  if (b.cab_model) rows.push(["Cab", b.cab_model]);
+  return rows
+    .map(([k, v]) => `<tr><td style="padding:6px 0;color:#5b676d;width:140px;vertical-align:top">${esc(k)}</td><td style="padding:6px 0;font-weight:700">${esc(v)}</td></tr>`)
+    .join("");
+}
+
+/** Sent when the owner assigns (or changes) the driver and cab. */
+export function driverAssignedEmail(site: SiteData, b: BookingRow) {
+  const line = [b.driver_name && `Driver ${b.driver_name}`, b.driver_phone && `+91 ${b.driver_phone}`, b.cab_number && `Cab ${b.cab_number}`].filter(Boolean).join(", ");
+  return {
+    subject: `Your driver and cab for booking ${b.ref}`,
+    text: `Your driver and cab for booking ${b.ref} (${b.from_city} to ${b.to_city}, ${formatDate(b.travel_date)} at ${to12h(b.travel_time)}): ${line}.`,
+    html: layout(
+      site,
+      "Your driver and cab are assigned",
+      `<p style="margin:0 0 12px">Hi ${esc(b.traveller_name)}, here are the details for your trip on ${esc(formatDate(b.travel_date))} at ${esc(to12h(b.travel_time))}.</p>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#eef6fb;border-radius:10px;padding:8px 14px">${driverRows(b)}</table>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top:14px">${tripRows(b)}</table>
+<p style="margin:16px 0 0;font-size:13px;color:#5b676d">Please keep your phone reachable around pickup time. You can also see these details any time under My trips on our website.</p>`,
+    ),
+  };
+}
+
 export function confirmationEmail(site: SiteData, rules: BookingSettings, b: BookingRow, paid: number) {
   const due = Math.max(0, b.total - paid);
   return {
@@ -59,7 +92,7 @@ export function confirmationEmail(site: SiteData, rules: BookingSettings, b: Boo
       site,
       "Your booking is confirmed",
       `<p style="margin:0 0 12px">Hi ${esc(b.traveller_name)}, thank you for booking with ${esc(site.name)}. Your ticket and invoice are attached.</p>
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0">${tripRows(b)}
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0">${tripRows(b)}${driverRows(b)}
 <tr><td style="padding:6px 0;color:#5b676d">Paid</td><td style="padding:6px 0;font-weight:600">${esc(formatINR(paid))}</td></tr>
 <tr><td style="padding:6px 0;color:#5b676d">Balance</td><td style="padding:6px 0;font-weight:600">${esc(formatINR(due))}</td></tr></table>
 <p style="margin:16px 0 0;font-size:13px;color:#5b676d">The balance can be paid online until ${esc(describeMinutes(rules.balanceCutoffHours * 60))} before departure, or to the driver at the end of the trip. Free cancellation until ${esc(describeMinutes(rules.freeCancelMinutes))} before departure.</p>`,
@@ -70,8 +103,8 @@ export function confirmationEmail(site: SiteData, rules: BookingSettings, b: Boo
 export function cancellationEmail(site: SiteData, rules: BookingSettings, b: BookingRow, refund: number) {
   const refundLine =
     refund > 0
-      ? `A refund of ${formatINR(refund)} has been initiated to your original payment method. It usually reaches you in 5 to 7 working days.`
-      : `No refund applies to this cancellation (free cancellation ends ${describeMinutes(rules.freeCancelMinutes)} before departure).`;
+      ? `Refund of ${formatINR(refund)} initiated to your original payment method. It arrives in 5-7 working days.`
+      : `No refund applies to this cancellation (it was too close to departure for a refund).`;
   return {
     subject: `Booking cancelled: ${b.ref}`,
     text: `Your booking ${b.ref} has been cancelled. ${refundLine}`,

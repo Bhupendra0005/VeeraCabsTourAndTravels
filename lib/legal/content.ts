@@ -1,4 +1,5 @@
 import { describeMinutes } from "@/lib/booking/config";
+import { hasRefundSteps, refundBands, refundSentence } from "@/lib/booking/refund";
 import type { BookingSettings } from "@/lib/booking/settings";
 import type { SiteData } from "@/lib/site";
 
@@ -11,14 +12,21 @@ export type LegalSection = { title: string; body: string[] };
  */
 export function cancellationSections(s: BookingSettings, site: SiteData): LegalSection[] {
   const free = describeMinutes(s.freeCancelMinutes);
+  const stepped = hasRefundSteps(s.freeCancelMinutes, s.refundSlabs);
   return [
   {
-    title: "Penalty",
-    body: [
-      `For cancellation, no penalty up to ${free} before departure, and a 100% penalty beyond that.`,
-      "If you cancel in time, the full amount you paid is refunded to your original payment method. Refunds usually reach you in 5 to 7 working days, depending on your bank.",
-      `If you cancel less than ${free} before departure, no refund is given.`,
-    ],
+    title: stepped ? "Refunds and penalty" : "Penalty",
+    body: stepped
+      ? [
+          "How much you get back depends on how long before pickup you cancel, counted from the pickup time on your ticket:",
+          ...refundBands(s.freeCancelMinutes, s.refundSlabs).map((band) => `${band.text}: ${band.percent === 0 ? "no refund (100% penalty)" : `${band.percent}% of the amount you paid is refunded`}.`),
+          "Refunds go back to your original payment method and usually reach you in 5 to 7 working days, depending on your bank. The part that is not refunded is kept as the cancellation charge.",
+        ]
+      : [
+          `For cancellation, no penalty up to ${free} before departure, and a 100% penalty beyond that.`,
+          "If you cancel in time, the full amount you paid is refunded to your original payment method. Refunds usually reach you in 5 to 7 working days, depending on your bank.",
+          `If you cancel less than ${free} before departure, no refund is given.`,
+        ],
   },
   {
     title: "How to cancel",
@@ -59,7 +67,9 @@ export function termsSections(s: BookingSettings): LegalSection[] {
   {
     title: "3. Cancellation and refunds",
     body: [
-      `Free cancellation applies until ${free} before departure. After that a 100% penalty applies. See the Cancellation Policy for details.`,
+      hasRefundSteps(s.freeCancelMinutes, s.refundSlabs)
+        ? `${refundSentence(s.freeCancelMinutes, s.refundSlabs)} See the Cancellation Policy for details.`
+        : `Free cancellation applies until ${free} before departure. After that a 100% penalty applies. See the Cancellation Policy for details.`,
     ],
   },
   {
@@ -85,7 +95,7 @@ export function termsSections(s: BookingSettings): LegalSection[] {
   {
     title: "7. Privacy",
     body: [
-      "We use your name, phone number and email only to provide your booking, send your ticket and invoice, and give support. We do not sell your data.",
+      "We use your name, phone number and email only to provide your booking, send your ticket and invoice, and give support. We do not sell your data. The Privacy Policy page has the full details.",
     ],
   },
   {

@@ -1,7 +1,10 @@
 import "server-only";
+import { DEFAULT_BOOKING_EXTRAS } from "@/lib/booking/extras";
+import { BOOKING_PAGE_KEY, DEFAULT_BOOKING_PAGE } from "@/lib/booking/page-content";
+import { AIRPORT_KEY, DEFAULT_AIRPORT, DEFAULT_HOURLY, HOURLY_KEY } from "@/lib/booking/transfers";
 import { DEFAULT_FAQS } from "@/lib/cms/default-faqs";
 import { ICONS } from "@/lib/cms/icons";
-import { areas, destinations, features, fleet, paymentMethods, rateCard, servicePages } from "@/lib/content";
+import { areas, destinations, features, fleet, paymentMethods, servicePages } from "@/lib/content";
 import { site } from "@/lib/site";
 
 /** Built-in content, derived from the original static content. Used until the owner saves their own version. */
@@ -11,6 +14,13 @@ function iconKey(component: unknown): string {
 }
 
 const CAPACITY: Record<string, number> = { Sedan: 4, "Premium SUV": 7, "Spacious MPV": 6, "Tempo Traveller": 17 };
+/** Sample listing details per vehicle (cab type, fuel, models, boot bags, extra-km rate in ₹). The owner edits these in Fleet. */
+const CAB_DETAILS: Record<string, { category: string; fuel: string; models: string; bags: number; extraKmRate: number; listDiscountPercent: number }> = {
+  Sedan: { category: "Sedan", fuel: "Diesel", models: "Dzire, Etios", bags: 2, extraKmRate: 12, listDiscountPercent: 0 },
+  "Premium SUV": { category: "SUV", fuel: "Diesel", models: "Innova Crysta", bags: 4, extraKmRate: 19, listDiscountPercent: 0 },
+  "Spacious MPV": { category: "MPV", fuel: "Diesel", models: "Ertiga", bags: 3, extraKmRate: 15, listDiscountPercent: 0 },
+  "Tempo Traveller": { category: "Tempo Traveller", fuel: "Diesel", models: "", bags: 10, extraKmRate: 26, listDiscountPercent: 0 },
+};
 
 export const SITE_INFO_DEFAULTS = {
   name: site.name,
@@ -41,7 +51,7 @@ export const HOME_DEFAULTS = {
       "From smooth airport transfers to unforgettable hill journeys, Veera Tours & Travels keeps every mile comfortable.",
     badges: ["Verified chauffeurs", "24/7 availability", "All India permits"],
     primaryCta: "Book your ride",
-    note: "Instant confirmation on WhatsApp. No advance payment required.",
+    note: "Fixed fares shown upfront. Pay securely online and get your e-ticket instantly.",
     slides: [
       {
         desktopImage: "/hero-pune-1600.webp",
@@ -90,6 +100,7 @@ export const FLEET_DEFAULTS = {
     seats: vehicle.seats,
     capacity: CAPACITY[vehicle.title] ?? 4,
     luggage: vehicle.luggage,
+    ...(CAB_DETAILS[vehicle.title] ?? { category: "Sedan", fuel: "Diesel", models: "", bags: 2, extraKmRate: 12, listDiscountPercent: 0 }),
     description: vehicle.description,
     icon: iconKey(vehicle.icon),
     image: "",
@@ -129,16 +140,6 @@ export const SERVICES_DEFAULTS = {
 
 export const PAYMENT_METHODS_DEFAULTS = { items: paymentMethods };
 
-export const RATE_CARD_DEFAULTS = {
-  items: rateCard.map((row) => ({
-    vehicle: row.vehicle,
-    seats: row.seats,
-    local: row.local ?? "",
-    outstation: row.outstation ?? "",
-    airport: row.airport ?? "",
-  })),
-};
-
 export const SEO_DEFAULTS = {
   title: "Veera Tours & Travels | Taxi & Cab Service in Pune, Maharashtra",
   description:
@@ -160,12 +161,15 @@ export const DEFAULTS: Record<string, unknown> = {
   site_info: SITE_INFO_DEFAULTS,
   home: HOME_DEFAULTS,
   fleet: FLEET_DEFAULTS,
+  booking_extras: DEFAULT_BOOKING_EXTRAS,
+  [BOOKING_PAGE_KEY]: DEFAULT_BOOKING_PAGE,
+  [AIRPORT_KEY]: DEFAULT_AIRPORT,
+  [HOURLY_KEY]: DEFAULT_HOURLY,
   features: FEATURES_DEFAULTS,
   faqs: FAQS_DEFAULTS,
   destinations: DESTINATIONS_DEFAULTS,
   areas: AREAS_DEFAULTS,
   services: SERVICES_DEFAULTS,
   payment_methods: PAYMENT_METHODS_DEFAULTS,
-  rate_card: RATE_CARD_DEFAULTS,
   seo: SEO_DEFAULTS,
 };

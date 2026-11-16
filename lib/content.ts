@@ -1,5 +1,6 @@
 import {
   BusFront,
+  CalendarCheck,
   CarFront,
   Clock3,
   Headphones,
@@ -10,7 +11,6 @@ import {
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import type { ComponentType, SVGProps } from "react";
-import { WhatsAppIcon } from "@/components/site/whatsapp-icon";
 
 /* ------------------------------------------------------------------ */
 /* Shared home / about content                                         */
@@ -38,9 +38,9 @@ export const features: { icon: ComponentType<SVGProps<SVGSVGElement>>; title: st
     text: "We plan around your time and reach before you step out.",
   },
   {
-    icon: WhatsAppIcon,
-    title: "Easy WhatsApp booking",
-    text: "Message us your trip, get the price and confirm. No app needed.",
+    icon: CalendarCheck,
+    title: "Easy online booking",
+    text: "Pick your cab, pay securely and get your e-ticket by email. No app needed.",
   },
   {
     icon: Headphones,
@@ -761,6 +761,7 @@ export type ServicePage = {
     tripType: "One Way" | "Round Trip" | "Airport Transfer" | "Local Rental";
     drop?: string;
     notes: string;
+    enquiry?: boolean;
   };
 };
 
@@ -828,7 +829,7 @@ export const servicePages: ServicePage[] = [
       "Experienced highway and ghat-road chauffeurs",
       "Choice of sedan, SUV, MPV or tempo traveller",
       "Upfront fare with toll and permit details explained",
-      "WhatsApp confirmation, no app required",
+      "Instant e-ticket by email, no app required",
     ],
     idealFor: [
       "Family holidays and weekend getaways",
@@ -949,6 +950,7 @@ export const servicePages: ServicePage[] = [
       tripType: "Round Trip",
       drop: "Tour package",
       notes: "Tour and pilgrimage package enquiry",
+      enquiry: true,
     },
   },
   {
@@ -996,6 +998,7 @@ export const servicePages: ServicePage[] = [
       tripType: "Local Rental",
       drop: "Corporate / event travel",
       notes: "Corporate and event travel enquiry",
+      enquiry: true,
     },
   },
 ];
@@ -1003,26 +1006,6 @@ export const servicePages: ServicePage[] = [
 export function getServicePage(slug: string) {
   return servicePages.find((service) => service.slug === slug);
 }
-
-/* ------------------------------------------------------------------ */
-/* Rate card (values are placeholders until the client supplies them)    */
-/* ------------------------------------------------------------------ */
-
-export type RateRow = {
-  vehicle: string;
-  seats: string;
-  /** Use a string like "₹12 / km" once real rates are known. */
-  local: string | null;
-  outstation: string | null;
-  airport: string | null;
-};
-
-export const rateCard: RateRow[] = [
-  { vehicle: "Sedan", seats: "4 passengers", local: null, outstation: null, airport: null },
-  { vehicle: "Premium SUV", seats: "6–7 passengers", local: null, outstation: null, airport: null },
-  { vehicle: "Spacious MPV", seats: "6 passengers", local: null, outstation: null, airport: null },
-  { vehicle: "Tempo Traveller", seats: "12–17 passengers", local: null, outstation: null, airport: null },
-];
 
 /* ------------------------------------------------------------------ */
 /* Payment options (confirm with the client before launch)               */

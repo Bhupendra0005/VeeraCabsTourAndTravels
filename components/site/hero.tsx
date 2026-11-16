@@ -25,7 +25,10 @@ import {
   type CSSProperties,
   type FormEvent,
 } from "react";
+import { SearchForm } from "@/components/booking/search-form";
 import { openBooking } from "@/components/site/booking";
+import type { SearchParams } from "@/lib/booking/search";
+import type { SearchOptions } from "@/lib/server/bookings/service";
 import { DateField } from "@/components/site/date-field";
 import { SelectField } from "@/components/site/select-field";
 import { PlaceField, type PlaceOption } from "@/components/site/place-field";
@@ -100,6 +103,29 @@ const vehicleIcons = {
 
 const rise = (delay: number) =>
   ({ "--d": `${delay}ms` }) as CSSProperties;
+
+/** Everything the Book Online search box needs, loaded on the server by the home page. */
+export type HomeSearch = {
+  options: Pick<SearchOptions, "cities" | "stopCities" | "airports" | "places" | "hourlyCities" | "hourlyPackages">;
+  initial: SearchParams;
+  tabs: string[];
+  maxStops: number;
+  oneWayReturn: boolean;
+  returnHint: string;
+  askTravellers: { airport: boolean; hourly: boolean };
+  suggestions: boolean;
+};
+
+/** The very same search box as the Book Online page. Searching sends the visitor to the cab list there. */
+function HomeSearchBox({ search }: { search: HomeSearch }) {
+  return (
+    <div className="home-search hero-rise" style={rise(540)}>
+      <div className="mmt mmt-band mmt-band--home">
+        <SearchForm {...search} landOn="results" />
+      </div>
+    </div>
+  );
+}
 
 function BookingWidget({ dropOptions }: { dropOptions: PlaceOption[] }) {
   const { vehicles } = useSite();
@@ -222,11 +248,11 @@ function BookingWidget({ dropOptions }: { dropOptions: PlaceOption[] }) {
       <div className="booking-foot">
         <span>
           <CircleCheck aria-hidden="true" />
-          No advance payment
+          Fixed fares, no surprises
         </span>
         <span>
           <WhatsAppIcon aria-hidden="true" />
-          Confirmed on WhatsApp
+          E-ticket by email
         </span>
         <span className="booking-foot-extra">
           <Clock3 aria-hidden="true" />
@@ -237,7 +263,7 @@ function BookingWidget({ dropOptions }: { dropOptions: PlaceOption[] }) {
   );
 }
 
-export function Hero({ copy, dropOptions }: { copy: Home["hero"]; dropOptions: PlaceOption[] }) {
+export function Hero({ copy, dropOptions, search }: { copy: Home["hero"]; dropOptions: PlaceOption[]; search: HomeSearch | null }) {
   const { site } = useSite();
   const [active, setActive] = useState(0);
   const [userPaused, setUserPaused] = useState(false);
@@ -413,7 +439,7 @@ export function Hero({ copy, dropOptions }: { copy: Home["hero"]; dropOptions: P
           </div>
         </div>
 
-        <BookingWidget dropOptions={dropOptions} />
+        {search ? <HomeSearchBox search={search} /> : <BookingWidget dropOptions={dropOptions} />}
       </div>
     </section>
   );

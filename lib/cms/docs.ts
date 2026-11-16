@@ -1,4 +1,7 @@
+import { BOOKING_EXTRAS_FIELDS, BOOKING_EXTRAS_KEY } from "@/lib/booking/extras";
+import { AIRPORT_FIELDS, AIRPORT_KEY, HOURLY_FIELDS, HOURLY_KEY } from "@/lib/booking/transfers";
 import { ICON_OPTIONS } from "@/lib/cms/icons";
+import { BOOKING_PAGE_FIELDS, BOOKING_PAGE_KEY } from "@/lib/booking/page-content";
 import type { DocDefinition, Field } from "@/lib/cms/types";
 
 /** Schemas for every editable part of the website (drives the admin forms and server validation). */
@@ -24,7 +27,7 @@ export const DOCS: DocDefinition[] = [
         label: "Primary phone",
         fields: [
           { type: "text", key: "display", label: "Shown as", required: true, max: 30, placeholder: "+91 96968 88585" },
-          { type: "text", key: "raw", label: "Digits only (for the call link)", required: true, max: 15, placeholder: "9696888585" },
+          { type: "text", key: "raw", label: "Digits only (for the call link)", required: true, max: 15, placeholder: "9696888585", digits: true },
         ],
       },
       {
@@ -33,10 +36,10 @@ export const DOCS: DocDefinition[] = [
         label: "Secondary phone",
         fields: [
           { type: "text", key: "display", label: "Shown as", max: 30 },
-          { type: "text", key: "raw", label: "Digits only", max: 15 },
+          { type: "text", key: "raw", label: "Digits only", max: 15, digits: true },
         ],
       },
-      { type: "text", key: "whatsapp", label: "WhatsApp number (with country code, digits only)", required: true, max: 15, placeholder: "919696888585" },
+      { type: "text", key: "whatsapp", label: "WhatsApp number (with country code, digits only)", required: true, max: 15, placeholder: "919696888585", digits: true },
       { type: "text", key: "email", label: "Email", required: true, max: 120 },
       {
         type: "group",
@@ -48,7 +51,7 @@ export const DOCS: DocDefinition[] = [
         ],
       },
       { type: "text", key: "hours", label: "Opening hours", max: 80 },
-      { type: "text", key: "gstin", label: "GSTIN (printed on invoices)", max: 15, hint: "Leave empty if you are not GST registered." },
+      { type: "text", key: "gstin", label: "GSTIN (printed on invoices)", max: 15, upper: true, placeholder: "27ABCDE1234F1Z5", hint: "Leave empty if you are not GST registered." },
       { type: "text", key: "mapQuery", label: "Map search text", max: 200, hint: "Used to find your shop on Google Maps." },
       { type: "link", key: "mapEmbedSrc", label: "Google Maps embed link (optional)", hint: "Google Maps > Share > Embed a map > copy the src link." },
       { type: "link", key: "mapShareUrl", label: "Google Maps share link (optional)" },
@@ -107,6 +110,8 @@ export const DOCS: DocDefinition[] = [
         key: "assurances",
         label: "Trust points",
         itemTitle: "title",
+        itemSubtitle: "text",
+        itemIcon: "icon",
         maxItems: 8,
         addLabel: "Add trust point",
         fields: [
@@ -123,7 +128,7 @@ export const DOCS: DocDefinition[] = [
     key: "fleet",
     label: "Fleet",
     description: "Your vehicles. The name must match the vehicle type used in Routes & fares.",
-    viewPath: "/rate-card",
+    viewPath: "/book",
     fields: [
       {
         type: "list",
@@ -132,6 +137,20 @@ export const DOCS: DocDefinition[] = [
         itemTitle: "title",
         itemSubtitle: "seats",
         itemImage: "image",
+        itemMeta: [
+          { key: "category" },
+          { key: "fuel" },
+          { key: "extraKmRate", prefix: "₹", suffix: " / extra km" },
+          { key: "count", suffix: " vehicles" },
+        ],
+        layout: "cards",
+        imageFit: "contain",
+        sections: [
+          { title: "Name & photo", keys: ["title", "icon", "image", "description"] },
+          { title: "Seats & luggage", keys: ["seats", "capacity", "luggage", "bags", "count"] },
+          { title: "Type & pricing", keys: ["category", "fuel", "models", "extraKmRate", "listDiscountPercent"] },
+          { title: "On the website", keys: ["active"] },
+        ],
         maxItems: 20,
         addLabel: "Add vehicle",
         fields: [
@@ -139,14 +158,49 @@ export const DOCS: DocDefinition[] = [
           { type: "text", key: "seats", label: "Seats shown to customers", max: 40, placeholder: "4 passengers" },
           { type: "number", key: "capacity", label: "Maximum passengers", min: 1, max: 60, step: 1, defaultValue: 4 },
           { type: "text", key: "luggage", label: "Luggage", max: 40 },
+          { type: "text", key: "category", label: "Cab type (filter on the booking page)", max: 24, placeholder: "Sedan", hint: "For example Hatchback, Sedan, SUV, MPV, Tempo Traveller. Vehicles with the same text are grouped in the filter." },
+          { type: "text", key: "fuel", label: "Fuel type (filter on the booking page)", max: 16, placeholder: "Diesel", hint: "For example Diesel, Petrol, CNG, Electric." },
+          { type: "text", key: "models", label: "Example models", max: 60, placeholder: "Dzire, Etios", hint: "Shown as \"Dzire, Etios or similar\". Leave empty to show only the vehicle name." },
+          { type: "number", key: "bags", label: "Bags that fit in the boot", min: 0, max: 40, step: 1, defaultValue: 2 },
+          { type: "number", key: "listDiscountPercent", label: "Show as \"% off\" on the cab list (0 = off)", min: 0, max: 70, step: 1, defaultValue: 0, hint: "Shows the old price struck through and \"X% off\" next to your fare. Use it only when the usual fare really was higher." },
+          { type: "number", key: "count", label: "How many of these vehicles you have (0 = do not limit)", min: 0, max: 200, step: 1, defaultValue: 0, hint: "Set this to stop double booking: when this many bookings already overlap a trip, the cab is hidden for that time. 0 means unlimited." },
+          { type: "number", key: "extraKmRate", label: "Charge per extra km (₹)", min: 0, max: 500, step: 1, defaultValue: 12, hint: "Shown as \"₹12/km will apply beyond the included kms\"." },
           { type: "textarea", key: "description", label: "Description", max: 300, rows: 3 },
           { type: "select", key: "icon", label: "Icon", options: ICON_OPTIONS },
-          { type: "image", key: "image", label: "Photo (optional)", hint: "Leave empty to use the built-in photo." },
+          { type: "image", key: "image", label: "Photo", fit: "contain", hint: "Upload a photo for each vehicle you add. Without one, a standard car photo is shown." },
           { type: "text", key: "photo", label: "Built-in photo name", max: 60, hidden: true },
           { type: "toggle", key: "active", label: "Show this vehicle on the website", defaultValue: true },
         ],
       },
     ],
+  },
+  {
+    key: BOOKING_PAGE_KEY,
+    label: "Booking page",
+    description: "Wording and switches of the online booking pages: title, search tabs, extra stops, reviews, GST box and review tags.",
+    viewPath: "/book",
+    fields: BOOKING_PAGE_FIELDS,
+  },
+  {
+    key: BOOKING_EXTRAS_KEY,
+    label: "Booking offers",
+    description: "Coupons, paid special requests and the 'what the fare includes' lines shown on the online booking review page.",
+    viewPath: "/book",
+    fields: BOOKING_EXTRAS_FIELDS,
+  },
+  {
+    key: AIRPORT_KEY,
+    label: "Airport transfer fares",
+    description: "Fixed fares per airport and vehicle for the Airport Transfers tab of online booking.",
+    viewPath: "/book",
+    fields: AIRPORT_FIELDS,
+  },
+  {
+    key: HOURLY_KEY,
+    label: "Hourly rental fares",
+    description: "Packages (for example 4 hrs / 40 km) and fares per vehicle for the Hourly Rentals tab of online booking.",
+    viewPath: "/book",
+    fields: HOURLY_FIELDS,
   },
   {
     key: "features",
@@ -159,6 +213,8 @@ export const DOCS: DocDefinition[] = [
         key: "items",
         label: "Points",
         itemTitle: "title",
+        itemSubtitle: "text",
+        itemIcon: "icon",
         maxItems: 12,
         addLabel: "Add point",
         fields: [
@@ -175,7 +231,7 @@ export const DOCS: DocDefinition[] = [
     description: "Questions shown on the home page.",
     viewPath: "/#faqs",
     fields: [
-      { type: "list", key: "items", label: "Questions", itemTitle: "question", maxItems: 40, addLabel: "Add question", fields: faqItemFields },
+      { type: "list", key: "items", label: "Questions", itemTitle: "question", itemSubtitle: "answer", maxItems: 40, addLabel: "Add question", fields: faqItemFields },
     ],
   },
   {
@@ -189,8 +245,17 @@ export const DOCS: DocDefinition[] = [
         key: "items",
         label: "Destinations",
         itemTitle: "name",
-        itemSubtitle: "distance",
+        itemSubtitle: "tagline",
         itemImage: "image",
+        itemMeta: [{ key: "category" }, { key: "distance" }, { key: "duration" }],
+        itemHref: "/destinations/{slug}",
+        layout: "cards",
+        slugFrom: { slug: "slug", from: "name" },
+        sections: [
+          { title: "Name & photo", keys: ["name", "slug", "category", "image"] },
+          { title: "Trip facts", keys: ["distance", "duration", "bestTime"] },
+          { title: "Page content", keys: ["tagline", "intro", "highlights", "tips"] },
+        ],
         maxItems: 120,
         addLabel: "Add destination",
         fields: [
@@ -230,12 +295,20 @@ export const DOCS: DocDefinition[] = [
         key: "items",
         label: "Areas",
         itemTitle: "name",
-        itemSubtitle: "slug",
+        itemSubtitle: "blurb",
+        itemInitial: true,
+        itemMeta: [{ key: "slug", prefix: "/areas/" }, { key: "landmarks", suffix: " landmarks" }],
+        itemHref: "/areas/{slug}",
+        slugFrom: { slug: "slug", from: "name" },
+        sections: [
+          { title: "Name & page address", keys: ["name", "slug"] },
+          { title: "Page content", keys: ["blurb", "landmarks"] },
+        ],
         maxItems: 80,
         addLabel: "Add area",
         fields: [
-          { type: "text", key: "name", label: "Name", required: true, max: 80 },
-          { type: "text", key: "slug", label: "Page address (slug)", required: true, max: 80 },
+          { type: "text", key: "name", label: "Name", required: true, max: 80, placeholder: "Baner" },
+          { type: "text", key: "slug", label: "Page address (slug)", required: true, max: 80, placeholder: "baner", hint: "Lowercase letters, numbers and dashes. It fills itself from the name. Changing it later changes the page URL." },
           { type: "strings", key: "landmarks", label: "Landmarks", max: 80, maxItems: 12 },
           { type: "textarea", key: "blurb", label: "Description", max: 800, rows: 4 },
         ],
@@ -253,7 +326,16 @@ export const DOCS: DocDefinition[] = [
         key: "items",
         label: "Services",
         itemTitle: "title",
-        itemSubtitle: "tag",
+        itemSubtitle: "tagline",
+        itemInitial: true,
+        itemMeta: [{ key: "tag" }, { key: "bookingTripType" }, { key: "faqs", suffix: " FAQs" }],
+        itemHref: "/services/{slug}",
+        slugFrom: { slug: "slug", from: "title" },
+        sections: [
+          { title: "Name & summary", keys: ["title", "slug", "tag", "tagline", "summary"] },
+          { title: "Page content", keys: ["intro", "whatYouGet", "idealFor", "faqs"] },
+          { title: "Booking form", keys: ["bookingTripType", "bookingDrop", "bookingNotes"] },
+        ],
         maxItems: 30,
         addLabel: "Add service",
         fields: [
@@ -304,38 +386,14 @@ export const DOCS: DocDefinition[] = [
     ],
   },
   {
-    key: "rate_card",
-    label: "Rate card",
-    description: "Indicative per-vehicle rates shown on the Rate Card page. Leave a rate empty to show 'On request'.",
-    viewPath: "/rate-card",
-    fields: [
-      {
-        type: "list",
-        key: "items",
-        label: "Vehicles",
-        itemTitle: "vehicle",
-        itemSubtitle: "seats",
-        maxItems: 20,
-        addLabel: "Add vehicle",
-        fields: [
-          { type: "text", key: "vehicle", label: "Vehicle (same as the Fleet name)", required: true, max: 40 },
-          { type: "text", key: "seats", label: "Seats", max: 40 },
-          { type: "text", key: "local", label: "Local city hire", max: 60, placeholder: "₹12 / km" },
-          { type: "text", key: "outstation", label: "Outstation", max: 60 },
-          { type: "text", key: "airport", label: "Airport transfer", max: 60 },
-        ],
-      },
-    ],
-  },
-  {
     key: "seo",
     label: "SEO",
     description: "How the website appears in Google and when shared.",
     viewPath: "/",
     fields: [
-      { type: "text", key: "title", label: "Default page title", required: true, max: 120 },
-      { type: "textarea", key: "description", label: "Default description", required: true, max: 300, rows: 3 },
-      { type: "strings", key: "keywords", label: "Keywords", max: 60, maxItems: 30 },
+      { type: "text", key: "title", label: "Default page title", required: true, max: 120, ideal: [30, 60], hint: "The blue headline in Google results. Put your main service and city first." },
+      { type: "textarea", key: "description", label: "Default description", required: true, max: 300, rows: 3, ideal: [70, 160], hint: "The grey text under the headline. Say what you offer and why to call you." },
+      { type: "strings", key: "keywords", label: "Keywords", max: 60, maxItems: 30, hint: "Google mostly ignores keywords, so the title and description above matter far more. Keep this list short and real, e.g. \"cab service in Pune\"." },
       { type: "image", key: "shareImage", label: "Share image (optional)", hint: "Shown when the link is shared on WhatsApp or social media." },
     ],
   },

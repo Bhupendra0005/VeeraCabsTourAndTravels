@@ -23,7 +23,6 @@ export type DocumentLayout = {
   ticket: {
     title: string;
     subtitle: string;
-    showQr: boolean;
     showNotes: boolean;
     notes: string[];
   };
@@ -54,7 +53,6 @@ export const DEFAULT_DOCUMENT_LAYOUT: DocumentLayout = {
   ticket: {
     title: "E-TICKET",
     subtitle: "Your travel booking is confirmed",
-    showQr: true,
     showNotes: true,
     notes: [
       "Free cancellation until {freeCancel} before departure.",
@@ -142,7 +140,6 @@ export const DOCUMENT_LAYOUT_FIELDS: Field[] = [
     fields: [
       { type: "text", key: "title", label: "Title", max: 24, placeholder: "E-TICKET" },
       { type: "text", key: "subtitle", label: "Sub-title (confirmed bookings)", max: 60 },
-      { type: "toggle", key: "showQr", label: "Show the QR code" },
       { type: "toggle", key: "showNotes", label: 'Show the "Good to know" box' },
       {
         type: "strings",

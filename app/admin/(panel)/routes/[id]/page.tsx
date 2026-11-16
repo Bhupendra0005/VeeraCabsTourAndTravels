@@ -52,7 +52,7 @@ export default async function EditRoutePage({
   const fleet = await getFleetAll();
   const titles = new Set(fleet.map((v) => v.title));
   const rows = [
-    ...fleet.map((v) => ({ vehicle: v.title, hidden: !v.active })),
+    ...fleet.map((v) => ({ vehicle: v.title, photo: v.photo, hidden: !v.active })),
     // fares for a vehicle that was later removed from the fleet stay visible so they are not lost silently
     ...[...existing.keys()].filter((name) => !titles.has(name)).map((name) => ({ vehicle: name, hidden: true })),
   ];

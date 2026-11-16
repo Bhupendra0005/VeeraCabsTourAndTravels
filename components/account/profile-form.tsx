@@ -4,6 +4,7 @@ import { AlertCircle, BadgeCheck, CheckCircle2, Loader2, Mail, MapPin, Phone, Sa
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent, type ReactNode } from "react";
 import { postJson } from "@/lib/payments/checkout-client";
+import { cleanMobile } from "@/lib/utils/phone";
 
 type Initial = { email: string; name: string; phone: string; city: string };
 
@@ -89,11 +90,10 @@ export function ProfileForm({ initial }: { initial: Initial }) {
               autoComplete="tel-national"
               value={phone}
               onChange={(e) => {
-                setPhone(e.target.value.replace(/\D/g, "").slice(0, 10));
+                setPhone(cleanMobile(e.target.value));
                 setSaved(false);
               }}
               placeholder="98765 43210"
-              maxLength={10}
               className={`${input} pl-21!`}
             />
           </div>

@@ -43,15 +43,15 @@ export function AccountBanner({
           </div>
         </div>
 
-        <div className="grid gap-3 sm:grid-cols-3 lg:max-w-[78%] lg:gap-4">
+        <div className="grid grid-cols-3 gap-2 sm:gap-3 lg:max-w-[78%] lg:gap-4">
           {stats.map((stat) => (
-            <div key={stat.label} className="flex items-center gap-4 rounded-2xl border border-white/12 bg-[#071a2b]/70 px-4 py-3.5 shadow-[0_10px_30px_-16px_rgba(0,0,0,0.8)] backdrop-blur-md">
-              <span className="grid size-12 shrink-0 place-items-center rounded-xl bg-brand/15 text-[#22d3ee] ring-1 ring-[#22d3ee]/25 [&>svg]:size-6">{stat.icon}</span>
+            <div key={stat.label} className="flex min-w-0 flex-col items-start gap-2 rounded-2xl border border-white/12 bg-[#071a2b]/70 px-3 py-3 shadow-[0_10px_30px_-16px_rgba(0,0,0,0.8)] backdrop-blur-md sm:flex-row sm:items-center sm:gap-4 sm:px-4 sm:py-3.5">
+              <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-brand/15 text-[#22d3ee] ring-1 ring-[#22d3ee]/25 sm:size-12 [&>svg]:size-5 sm:[&>svg]:size-6">{stat.icon}</span>
               <div className="min-w-0">
-                <p className="font-(family-name:--font-display) text-2xl leading-none font-extrabold wrap-anywhere">{stat.value}</p>
-                <p className="mt-1 text-sm text-white/75">{stat.label}</p>
+                <p className="font-(family-name:--font-display) text-xl leading-none font-extrabold wrap-anywhere sm:text-2xl">{stat.value}</p>
+                <p className="mt-1 text-xs leading-tight text-white/75 sm:text-sm">{stat.label}</p>
                 {stat.progress !== undefined ? (
-                  <div className="mt-2 h-1.5 w-full min-w-28 overflow-hidden rounded-full bg-white/15" role="progressbar" aria-valuenow={stat.progress} aria-valuemin={0} aria-valuemax={100} aria-label={stat.label}>
+                  <div className="mt-2 h-1.5 w-full min-w-0 overflow-hidden sm:min-w-28 rounded-full bg-white/15" role="progressbar" aria-valuenow={stat.progress} aria-valuemin={0} aria-valuemax={100} aria-label={stat.label}>
                     <div className="h-full rounded-full bg-linear-to-r from-[#22d3ee] to-brand-bright" style={{ width: `${stat.progress}%` }} />
                   </div>
                 ) : null}

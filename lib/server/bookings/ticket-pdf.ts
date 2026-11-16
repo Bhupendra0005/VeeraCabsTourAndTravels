@@ -1,6 +1,6 @@
 import "server-only";
 import { rgb, type RGB } from "pdf-lib";
-import { TRIP_TYPE_LABEL, describeMinutes, formatDate, to12h } from "@/lib/booking/config";
+import { TRIP_TYPE_LABEL, describeMinutes, formatDate, to12h, usableRefundSlabs } from "@/lib/booking/config";
 import { accentHex, paletteFrom, type DocumentLayout } from "@/lib/booking/document-layout";
 import type { BookingSettings } from "@/lib/booking/settings";
 import { loadCustomLogo } from "@/lib/server/bookings/custom-logo";
@@ -163,43 +163,17 @@ async function drawTicket(b: BookingRow, payments: PaymentRow[], ctx: PdfContext
     block("calendar", "RETURN DATE", formatDate(b.return_date), false);
   }
 
-  // QR card: the whole block (brackets, QR, id pill, caption) is centred in the card with even padding
+  // the booking ID takes the whole card
   c.card(RIGHT_X, row1Top, RIGHT_W, row1H);
-  if (layout.ticket.showQr) {
-    const qrSize = u(150);
-    const bracketGap = u(18);
-    const blockHeight = u(18 + 150 + 108 + 4); // top bracket .. caption baseline
-    const blockTop = row1Top + (row1H - blockHeight) / 2;
-    const qrTop = blockTop + bracketGap;
-    const qrLeft = RIGHT_X + (RIGHT_W - qrSize) / 2;
-    c.qr(`VEERA-BOOKING:${b.ref}`, qrLeft, qrTop, qrSize);
-    const arm = u(30);
-    const corner = (px: number, py: number, dx: number, dy: number) =>
-      c.path(`M 0 ${dy * arm} V 0 H ${dx * arm}`, px, py, 1, { stroke: C.blue, width: 2.6, round: true });
-    corner(qrLeft - bracketGap, qrTop - bracketGap, 1, 1);
-    corner(qrLeft + qrSize + bracketGap, qrTop - bracketGap, -1, 1);
-    corner(qrLeft - bracketGap, qrTop + qrSize + bracketGap, 1, -1);
-    corner(qrLeft + qrSize + bracketGap, qrTop + qrSize + bracketGap, -1, -1);
-    const midX = RIGHT_X + RIGHT_W / 2;
-    const qrBottom = qrTop + qrSize;
-    c.text("BOOKING ID", midX, qrBottom + u(42), { size: fs(15), bold: true, color: C.muted, align: "center", tracking: 1.3 });
-    const refSize = fit(c, b.ref, u(210), fs(28), fs(16));
-    const refW = c.measure(b.ref, refSize, true) + u(50);
-    c.box(midX - refW / 2, qrBottom + u(50), refW, u(42), { fill: C.tintStrong, radius: u(21) });
-    c.text(b.ref, midX, qrBottom + u(50) + u(42) / 2 + refSize * 0.35, { size: refSize, bold: true, color: C.navy, align: "center" });
-    c.text("Show this at pickup", midX, qrBottom + u(112), { size: fs(17), color: C.muted, align: "center" });
-  } else {
-    // no QR code: the booking ID takes the whole card
-    const midX = RIGHT_X + RIGHT_W / 2;
-    const midY = row1Top + row1H / 2;
-    c.icon("ticket", midX - u(30), midY - u(110), u(60), C.blue, 1.7);
-    c.text("BOOKING ID", midX, midY - u(10), { size: fs(15), bold: true, color: C.muted, align: "center", tracking: 1.3 });
-    const refSize = fit(c, b.ref, u(300), fs(34), fs(16));
-    const refW = c.measure(b.ref, refSize, true) + u(60);
-    c.box(midX - refW / 2, midY + u(4), refW, u(56), { fill: C.tintStrong, radius: u(28) });
-    c.text(b.ref, midX, midY + u(4) + u(56) / 2 + refSize * 0.35, { size: refSize, bold: true, color: C.navy, align: "center" });
-    c.text("Show this at pickup", midX, midY + u(96), { size: fs(17), color: C.muted, align: "center" });
-  }
+  const midX = RIGHT_X + RIGHT_W / 2;
+  const midY = row1Top + row1H / 2;
+  c.icon("ticket", midX - u(30), midY - u(110), u(60), C.blue, 1.7);
+  c.text("BOOKING ID", midX, midY - u(10), { size: fs(15), bold: true, color: C.muted, align: "center", tracking: 1.3 });
+  const refSize = fit(c, b.ref, u(300), fs(34), fs(16));
+  const refW = c.measure(b.ref, refSize, true) + u(60);
+  c.box(midX - refW / 2, midY + u(4), refW, u(56), { fill: C.tintStrong, radius: u(28) });
+  c.text(b.ref, midX, midY + u(4) + u(56) / 2 + refSize * 0.35, { size: refSize, bold: true, color: C.navy, align: "center" });
+  c.text("Show this at pickup", midX, midY + u(96), { size: fs(17), color: C.muted, align: "center" });
 
   /* ---------------- traveller + payment ---------------- */
   const row2Top = row1Top + row1H + u(18);
@@ -251,9 +225,23 @@ async function drawTicket(b: BookingRow, payments: PaymentRow[], ctx: PdfContext
 
   /* ---------------- good to know ---------------- */
   const gtkTop = row2Top + row2H + u(18);
+  // with partial-refund steps the "100% penalty after that" note would be wrong, so it tells the steps instead
+  const steps = usableRefundSlabs(rules.freeCancelMinutes, rules.refundSlabs);
+  const afterFree = steps.length
+    ? `After that: ${steps.map((step) => `${step.percent}% refund up to ${describeMinutes(step.minutes)}`).join(", ")} before departure, then none.`
+    : "After that a 100% penalty applies and no refund is given.";
   const fill = (text: string) =>
-    text.replaceAll("{freeCancel}", describeMinutes(rules.freeCancelMinutes)).replaceAll("{balanceCutoff}", describeMinutes(rules.balanceCutoffHours * 60));
-  const notes = layout.ticket.notes.map(fill).filter(Boolean).slice(0, 4);
+    (steps.length && text.trim() === "After that a 100% penalty applies and no refund is given." ? afterFree : text)
+      .replaceAll("{afterFree}", afterFree)
+      .replaceAll("{freeCancel}", describeMinutes(rules.freeCancelMinutes))
+      .replaceAll("{balanceCutoff}", describeMinutes(rules.balanceCutoffHours * 60));
+  let notes = layout.ticket.notes.map(fill).filter(Boolean);
+  if (b.driver_name || b.driver_phone || b.cab_number) {
+    // the driver is known: say so (first, so it is never cut off) and drop the "shared before pickup" sentence
+    const driverNote = [b.driver_name && `Driver: ${b.driver_name}`, b.driver_phone && `+91 ${b.driver_phone}`, b.cab_number && `Cab: ${b.cab_number}`, b.cab_model].filter(Boolean).join(" · ");
+    notes = [driverNote, ...notes.map((text) => text.replace(/\s*Driver details are shared before pickup\.?/i, "").trim()).filter(Boolean)];
+  }
+  notes = notes.slice(0, 4);
   if (layout.ticket.showNotes && notes.length > 0) {
     const count = notes.length;
     const area = 925; // usable width inside the box, in design units

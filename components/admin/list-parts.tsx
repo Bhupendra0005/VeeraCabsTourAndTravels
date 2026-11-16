@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils/cn";
 
 /** Text-input look used inside filter panels (selects and dates have their own components). */
 export const filterControl =
-  "h-12 w-full rounded-xl border border-white/10 bg-black/30 pl-10 pr-3 text-sm text-(--text) outline-none transition placeholder:text-white/35 hover:border-white/20 focus:border-brand focus:ring-4 focus:ring-brand/15 [color-scheme:dark]";
+  "h-12 w-full rounded-xl border border-white/10 bg-black/30 pl-10 pr-3 text-base text-(--text) sm:text-sm outline-none transition placeholder:text-white/35 hover:border-white/20 focus:border-brand focus:ring-4 focus:ring-brand/15 [color-scheme:dark]";
 
 export const filterIcon =
   "pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-white/45 transition-colors group-focus-within:text-brand-bright";
@@ -16,7 +16,7 @@ export function FilterPanel({ label, children }: { label: string; children: Reac
   return (
     <section
       aria-label={label}
-      className="relative z-10 rounded-2xl border border-brand-bright/30 bg-linear-to-b from-[#0c1a24] to-panel p-4 shadow-[0_0_44px_-18px_rgba(0,150,219,0.55)] sm:p-5"
+      className="relative z-10 rounded-2xl border border-brand-bright/30 bg-linear-to-b from-[#0c1a24] to-panel p-5 shadow-[0_0_44px_-18px_rgba(0,150,219,0.55)] sm:p-6"
     >
       {children}
     </section>
@@ -25,7 +25,7 @@ export function FilterPanel({ label, children }: { label: string; children: Reac
 
 export function FilterLabel({ htmlFor, children }: { htmlFor: string; children: ReactNode }) {
   return (
-    <label htmlFor={htmlFor} className="mb-2 block text-[13px] font-semibold">
+    <label htmlFor={htmlFor} className="mb-2.5 block text-[13px] font-semibold">
       {children}
     </label>
   );
@@ -86,11 +86,11 @@ export function StatTile({
   tone?: StatTone;
 }) {
   return (
-    <div className="flex items-center gap-4 rounded-2xl border border-line bg-linear-to-b from-white/[0.035] to-transparent bg-panel p-4 transition hover:-translate-y-0.5 hover:border-white/15 sm:p-5">
-      <span className={cn("grid size-14 shrink-0 place-items-center rounded-2xl bg-linear-to-br shadow-[0_8px_24px_-12px] ring-1 [&>svg]:size-6", tones[tone])}>{icon}</span>
+    <div className="flex flex-col items-start gap-2 rounded-2xl border border-line bg-linear-to-b from-white/[0.035] to-transparent bg-panel p-3.5 transition hover:-translate-y-0.5 hover:border-white/15 sm:flex-row sm:items-center sm:gap-4 sm:p-5">
+      <span className={cn("grid size-10 shrink-0 place-items-center rounded-xl bg-linear-to-br shadow-[0_8px_24px_-12px] ring-1 sm:size-14 sm:rounded-2xl [&>svg]:size-5 sm:[&>svg]:size-6", tones[tone])}>{icon}</span>
       <div className="min-w-0">
         <p className="text-[13px] font-medium text-white/70">{label}</p>
-        <p className="font-(family-name:--font-display) text-2xl leading-tight font-extrabold tracking-tight wrap-anywhere">{value}</p>
+        <p className="font-(family-name:--font-display) text-xl leading-tight font-extrabold tracking-tight wrap-anywhere sm:text-2xl">{value}</p>
         {hint ? <p className="text-xs text-muted">{hint}</p> : null}
       </div>
     </div>

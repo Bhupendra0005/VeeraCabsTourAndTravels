@@ -56,17 +56,17 @@ const steps = [
   {
     icon: Send,
     title: "Tell us your plan",
-    text: "Share pickup, drop, date and the number of people on a call or WhatsApp.",
+    text: "Enter pickup, drop, date and the number of people on the Book Online page, or call us.",
   },
   {
     icon: BadgeIndianRupee,
-    title: "Get a clear quote",
-    text: "We suggest the right vehicle and send the fare before you commit to anything.",
+    title: "See the fixed fare",
+    text: "Compare vehicles for your group and see the full fare before you pay.",
   },
   {
     icon: CalendarCheck,
-    title: "Confirm your car",
-    text: "Lock the booking on WhatsApp. No advance payment is needed to reserve.",
+    title: "Pay and confirm",
+    text: "Pay securely online, part now or in full, and get your e-ticket by email.",
   },
   {
     icon: ThumbsUp,
@@ -220,7 +220,7 @@ export default async function ServicesPage() {
                 Booking in <span className="gold">four easy steps.</span>
               </>
             }
-            description="No app to download and no advance payment. Just tell us where you are headed."
+            description="No app to download. Search your route, see the fare and book online."
           />
           <ol className="ab-steps">
             {steps.map(({ icon: Icon, title, text }, index) => (

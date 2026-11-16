@@ -43,6 +43,7 @@ export function accountGroups({
         { href: "/cancellation-policy", label: "Cancellation policy", icon: "policy" },
         { href: "/payment-options", label: "Payment options", icon: "payments" },
         { href: "/terms", label: "Terms & conditions", icon: "terms" },
+        { href: "/privacy-policy", label: "Privacy policy", icon: "privacy" },
       ],
     },
   ];

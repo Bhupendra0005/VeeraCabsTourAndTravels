@@ -1,9 +1,8 @@
 "use client";
 
-import { Check, Copy, FolderOpen, ImagePlus, Loader2, Trash2, UploadCloud } from "lucide-react";
+import { Check, Copy, ExternalLink, FolderOpen, ImagePlus, Loader2, Maximize2, Search, Trash2, UploadCloud, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { SelectMenu } from "@/components/admin/pickers";
-import { Alert, Button } from "@/components/admin/ui";
+import { Alert, Button, inputClass } from "@/components/admin/ui";
 import { prepareImage } from "@/lib/admin/prepare-image";
 import { cn } from "@/lib/utils/cn";
 
@@ -48,12 +47,15 @@ export function MediaLibrary({ mode, onPick, initialFolder = "all" }: { mode: "m
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
-  const [uploading, setUploading] = useState(false);
+  const [uploading, setUploading] = useState("");
   const [copied, setCopied] = useState("");
   const [deleting, setDeleting] = useState("");
   const [confirmDelete, setConfirmDelete] = useState("");
   const [dragging, setDragging] = useState(false);
+  const [query, setQuery] = useState("");
+  const [preview, setPreview] = useState<MediaFile | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const previewRef = useRef<HTMLDialogElement>(null);
 
   // first page for the chosen folder (state is only set after the request returns)
   useEffect(() => {
@@ -75,6 +77,12 @@ export function MediaLibrary({ mode, onPick, initialFolder = "all" }: { mode: "m
     };
   }, [folder]);
 
+  // the big preview is a modal dialog
+  useEffect(() => {
+    const dialog = previewRef.current;
+    if (preview && dialog && !dialog.open) dialog.showModal();
+  }, [preview]);
+
   const loadMore = async () => {
     setLoading(true);
     try {
@@ -90,12 +98,14 @@ export function MediaLibrary({ mode, onPick, initialFolder = "all" }: { mode: "m
 
   const upload = async (list: FileList | null) => {
     if (!list || list.length === 0) return;
-    setUploading(true);
+    const chosen = Array.from(list).slice(0, 10);
+    setUploading(`Uploading 1 of ${chosen.length}...`);
     setError("");
     setNotice("");
     let done = 0;
     try {
-      for (const original of Array.from(list).slice(0, 10)) {
+      for (const original of chosen) {
+        setUploading(`Uploading ${done + 1} of ${chosen.length}...`);
         const file = await prepareImage(original);
         const form = new FormData();
         form.set("file", file);
@@ -108,7 +118,7 @@ export function MediaLibrary({ mode, onPick, initialFolder = "all" }: { mode: "m
     } catch (e) {
       setError(`${(e as Error).message}${done ? ` (${done} uploaded before the error.)` : ""}`);
     } finally {
-      setUploading(false);
+      setUploading("");
       if (inputRef.current) inputRef.current.value = "";
     }
   };
@@ -120,6 +130,7 @@ export function MediaLibrary({ mode, onPick, initialFolder = "all" }: { mode: "m
       await api(`/api/admin/media?id=${file.fileId}`, { method: "DELETE" });
       setFiles((current) => current.filter((item) => item.fileId !== file.fileId));
       setConfirmDelete("");
+      previewRef.current?.close();
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -138,41 +149,49 @@ export function MediaLibrary({ mode, onPick, initialFolder = "all" }: { mode: "m
   };
 
   const folderLabel = FOLDERS.find((f) => f.value === (folder === "all" ? "general" : folder))?.label;
-  const iconBtn =
-    "grid size-9 place-items-center rounded-lg bg-black/65 text-white backdrop-blur transition hover:bg-brand disabled:opacity-60 [&>svg]:size-4";
+  const needle = query.trim().toLowerCase();
+  const shown = needle ? files.filter((file) => file.name.toLowerCase().includes(needle)) : files;
 
   return (
     <div className="grid gap-5">
-      <div className="flex flex-wrap items-end gap-4">
-        <div className="grid gap-1.5">
-          <label htmlFor={`media-folder-${mode}`} className="text-[13px] font-semibold">
-            Folder
-          </label>
-          <SelectMenu
-            id={`media-folder-${mode}`}
-            value={folder}
-            size="lg"
-            icon={<FolderOpen />}
-            onChange={(next) => {
-              setLoading(true);
-              setError("");
-              setFolder(next);
-            }}
-            className="min-w-52"
-            options={FOLDERS.map((f) => ({ value: f.value, label: f.label }))}
-          />
-        </div>
-        <p className="mb-3 inline-flex items-center gap-2 rounded-full bg-white/8 px-3 py-1 text-xs font-bold text-white/75">
+      {/* Folders as tabs */}
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-3">
+        <nav className="-mx-1 flex min-w-0 flex-1 gap-2 overflow-x-auto px-1 pb-1 [scrollbar-width:none]" aria-label="Folders">
+          {FOLDERS.map((f) => {
+            const on = folder === f.value;
+            return (
+              <button
+                key={f.value}
+                type="button"
+                aria-pressed={on}
+                onClick={() => {
+                  if (on) return;
+                  setLoading(true);
+                  setError("");
+                  setQuery("");
+                  setFolder(f.value);
+                }}
+                className={cn(
+                  "inline-flex h-10 shrink-0 items-center gap-2 rounded-xl border px-4 text-sm font-bold transition [&>svg]:size-4",
+                  on ? "border-transparent bg-linear-to-r from-brand to-brand-bright text-white shadow-[0_10px_28px_-10px_rgba(0,150,219,0.85)]" : "border-white/10 bg-white/4 text-white/80 hover:border-white/25 hover:text-white",
+                )}
+              >
+                {f.value === "all" ? <ImagePlus aria-hidden="true" /> : <FolderOpen aria-hidden="true" />} {f.label}
+              </button>
+            );
+          })}
+        </nav>
+        <span className="inline-flex items-center gap-2 rounded-full bg-white/8 px-3 py-1.5 text-xs font-bold text-white/75">
           {files.length}
           {hasMore ? "+" : ""} {files.length === 1 && !hasMore ? "image" : "images"}
-        </p>
+        </span>
       </div>
 
       {/* Upload: click or drop photos here */}
       <input ref={inputRef} id={`media-upload-${mode}`} type="file" accept="image/jpeg,image/png,image/webp" multiple className="sr-only" onChange={(e) => void upload(e.target.files)} />
       <button
         type="button"
-        disabled={uploading}
+        disabled={Boolean(uploading)}
         onClick={() => inputRef.current?.click()}
         onDragOver={(event) => {
           event.preventDefault();
@@ -185,60 +204,70 @@ export function MediaLibrary({ mode, onPick, initialFolder = "all" }: { mode: "m
           void upload(event.dataTransfer.files);
         }}
         className={cn(
-          "flex flex-col items-center gap-2 rounded-2xl border-2 border-dashed px-6 text-center transition disabled:cursor-wait",
-          mode === "pick" ? "py-6" : "py-10",
+          "flex items-center gap-4 rounded-2xl border-2 border-dashed px-5 text-left transition disabled:cursor-wait max-sm:flex-col max-sm:text-center",
+          mode === "pick" ? "py-4" : "py-6",
           dragging ? "border-brand-bright bg-brand/15" : "border-white/15 bg-white/3 hover:border-brand-bright/60 hover:bg-white/5",
         )}
       >
-        <span className="grid size-14 place-items-center rounded-2xl bg-linear-to-br from-brand/25 to-brand/5 text-brand-bright ring-1 ring-brand-bright/25">
+        <span className="grid size-14 shrink-0 place-items-center rounded-2xl bg-linear-to-br from-brand/25 to-brand/5 text-brand-bright ring-1 ring-brand-bright/25">
           {uploading ? <Loader2 className="size-7 animate-spin" aria-hidden="true" /> : <UploadCloud className="size-7" aria-hidden="true" />}
         </span>
-        <span className="font-(family-name:--font-display) text-lg font-bold">{uploading ? "Uploading..." : dragging ? "Drop to upload" : "Drag photos here, or click to upload"}</span>
-        <span className="max-w-md text-xs text-muted">
-          JPG, PNG or WebP, up to 10 at a time. Large photos are resized automatically. Uploads go to {folderLabel}.
+        <span className="grid gap-0.5">
+          <span className="font-(family-name:--font-display) text-lg font-bold">{uploading || (dragging ? "Drop to upload" : "Drag photos here, or click to upload")}</span>
+          <span className="max-w-xl text-xs text-muted">JPG, PNG or WebP, up to 10 at a time. Large photos are resized automatically. Uploads go to {folderLabel}.</span>
         </span>
       </button>
 
       {error ? <Alert tone="danger">{error}</Alert> : null}
       {notice ? <Alert tone="success">{notice}</Alert> : null}
 
+      {files.length > 8 ? (
+        <div className="relative">
+          <Search className="pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2 text-white/45" aria-hidden="true" />
+          <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search by file name..." aria-label="Search images" className={cn(inputClass, "pl-10")} />
+        </div>
+      ) : null}
+
       {files.length === 0 && !loading && !error ? (
         <div className="grid place-items-center gap-3 rounded-2xl border border-dashed border-white/12 px-6 py-12 text-center">
           <ImagePlus className="size-10 text-white/30" aria-hidden="true" />
           <p className="text-sm text-muted">No images in this folder yet. Upload your first one above.</p>
         </div>
+      ) : shown.length === 0 && needle ? (
+        <p className="text-sm text-muted">No image name contains &quot;{query}&quot;.</p>
       ) : (
         <ul className={cn("grid gap-4", mode === "pick" ? "grid-cols-2 sm:grid-cols-3 md:grid-cols-4" : "grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5")}>
-          {files.map((file) => (
-            <li key={file.fileId} className="group relative overflow-hidden rounded-2xl border border-white/10 bg-white/3 transition hover:-translate-y-0.5 hover:border-brand-bright/40 hover:shadow-[0_18px_40px_-20px_rgba(0,150,219,0.5)]">
-              <div className="relative aspect-4/3 bg-black/30">
+          {shown.map((file) => (
+            <li key={file.fileId} className="group relative flex min-w-0 flex-col overflow-hidden rounded-2xl border border-white/10 bg-white/3 transition hover:-translate-y-0.5 hover:border-brand-bright/40 hover:shadow-[0_18px_40px_-20px_rgba(0,150,219,0.5)]">
+              {/* the whole photo, not a crop; a click opens it large */}
+              <button type="button" onClick={() => setPreview(file)} aria-label={`Open ${file.name}`} className="relative block aspect-4/3 w-full bg-black/40">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={file.thumbnailUrl} alt={file.name} loading="lazy" className="size-full object-cover transition duration-300 group-hover:scale-105" />
-                {mode === "manage" && confirmDelete !== file.fileId ? (
-                  <div className="absolute right-2 top-2 flex gap-1.5 opacity-100 transition sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100">
-                    <button type="button" className={iconBtn} onClick={() => void copy(file.url)} aria-label={`Copy link for ${file.name}`} title="Copy link">
-                      {copied === file.url ? <Check aria-hidden="true" /> : <Copy aria-hidden="true" />}
-                    </button>
-                    <button type="button" className={cn(iconBtn, "hover:bg-red-600")} onClick={() => setConfirmDelete(file.fileId)} aria-label={`Delete ${file.name}`} title="Delete">
-                      <Trash2 aria-hidden="true" />
-                    </button>
-                  </div>
-                ) : null}
-              </div>
-              <div className="grid gap-2 p-3">
-                <p className="text-[13px] font-semibold [overflow-wrap:anywhere]">{file.name}</p>
-                <div className="flex flex-wrap gap-1.5 text-[11px] font-semibold text-white/65">
-                  {file.width && file.height ? <span className="rounded-md bg-white/8 px-2 py-0.5">{file.width} × {file.height}</span> : null}
-                  <span className="rounded-md bg-white/8 px-2 py-0.5">{kb(file.size)}</span>
-                  {copied === file.url ? <span className="rounded-md bg-emerald-400/15 px-2 py-0.5 text-emerald-300">Link copied</span> : null}
+                <img src={file.thumbnailUrl} alt={file.name} loading="lazy" className="size-full object-contain transition duration-300 group-hover:scale-[1.03]" />
+                <span className="absolute right-2 bottom-2 grid size-8 place-items-center rounded-lg bg-black/60 text-white opacity-0 backdrop-blur transition group-hover:opacity-100 max-sm:opacity-100">
+                  <Maximize2 className="size-4" aria-hidden="true" />
+                </span>
+              </button>
+              <div className="grid flex-1 content-start gap-2 p-3">
+                <div className="line-clamp-2 text-[13px] font-semibold wrap-anywhere" title={file.name}>
+                  {file.name}
                 </div>
+                <div className="flex flex-wrap gap-1.5 text-[11px] font-semibold text-white/65">
+                  {file.width && file.height ? (
+                    <span className="rounded-md bg-white/8 px-2 py-0.5">
+                      {file.width} × {file.height}
+                    </span>
+                  ) : null}
+                  <span className="rounded-md bg-white/8 px-2 py-0.5">{kb(file.size)}</span>
+                </div>
+              </div>
+              <div className="border-t border-white/10 p-2.5">
                 {mode === "pick" ? (
-                  <Button size="sm" className="rounded-lg" onClick={() => onPick?.(file.url)}>
+                  <Button size="sm" className="min-h-9 w-full rounded-lg" onClick={() => onPick?.(file.url)}>
                     <Check aria-hidden="true" /> Use this image
                   </Button>
                 ) : confirmDelete === file.fileId ? (
                   <div className="grid gap-2 rounded-lg border border-red-400/30 bg-red-400/10 p-2.5">
-                    <p className="text-xs text-red-200">Delete permanently? Pages using it will fall back to the default photo.</p>
+                    <div className="text-xs text-red-200">Delete permanently? Pages using it will fall back to the default photo.</div>
                     <div className="flex gap-2">
                       <Button size="sm" variant="danger" disabled={deleting === file.fileId} onClick={() => void remove(file)}>
                         {deleting === file.fileId ? "Deleting..." : "Delete"}
@@ -248,7 +277,22 @@ export function MediaLibrary({ mode, onPick, initialFolder = "all" }: { mode: "m
                       </Button>
                     </div>
                   </div>
-                ) : null}
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <Button size="sm" variant="secondary" className="min-h-9 flex-1" onClick={() => void copy(file.url)}>
+                      {copied === file.url ? <Check aria-hidden="true" /> : <Copy aria-hidden="true" />} {copied === file.url ? "Copied" : "Copy link"}
+                    </Button>
+                    <button
+                      type="button"
+                      onClick={() => setConfirmDelete(file.fileId)}
+                      aria-label={`Delete ${file.name}`}
+                      title="Delete"
+                      className="grid size-9 shrink-0 place-items-center rounded-lg border border-white/15 text-red-300 transition hover:bg-red-500/15 hover:text-red-200 [&>svg]:size-4"
+                    >
+                      <Trash2 aria-hidden="true" />
+                    </button>
+                  </div>
+                )}
               </div>
             </li>
           ))}
@@ -263,6 +307,67 @@ export function MediaLibrary({ mode, onPick, initialFolder = "all" }: { mode: "m
           </Button>
         ) : null}
       </div>
+
+      {preview ? (
+        <dialog
+          ref={previewRef}
+          aria-label={preview.name}
+          onClose={() => setPreview(null)}
+          onClick={(event) => {
+            if (event.target === previewRef.current) previewRef.current?.close();
+          }}
+          className="m-auto flex max-h-[94dvh] w-[calc(100%-1.5rem)] max-w-5xl flex-col overflow-hidden rounded-2xl border border-brand-bright/30 bg-panel p-0 text-(--text) shadow-[0_0_60px_-10px_rgba(0,150,219,0.5)] backdrop:bg-black/80 backdrop:backdrop-blur-sm"
+        >
+          <div className="flex items-start gap-3 border-b border-white/10 px-5 py-3.5">
+            <div className="min-w-0 flex-1">
+              <h2 className="font-(family-name:--font-display) text-base font-bold wrap-anywhere">{preview.name}</h2>
+              <div className="mt-1 flex flex-wrap gap-1.5 text-[11px] font-semibold text-white/65">
+                {preview.width && preview.height ? (
+                  <span className="rounded-md bg-white/8 px-2 py-0.5">
+                    {preview.width} × {preview.height}
+                  </span>
+                ) : null}
+                <span className="rounded-md bg-white/8 px-2 py-0.5">{kb(preview.size)}</span>
+                {preview.folder ? <span className="rounded-md bg-white/8 px-2 py-0.5">Folder: {preview.folder.replace(/^\/+|\/+$/g, "") || "general"}</span> : null}
+              </div>
+            </div>
+            <button type="button" onClick={() => previewRef.current?.close()} aria-label="Close" className="grid size-9 shrink-0 place-items-center rounded-lg text-white/60 transition hover:bg-white/10 hover:text-white">
+              <X className="size-5" aria-hidden="true" />
+            </button>
+          </div>
+          <div className="grid min-h-0 flex-1 place-items-center overflow-auto bg-black/50 p-3">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={preview.url} alt={preview.name} className="max-h-[68dvh] w-auto max-w-full object-contain" />
+          </div>
+          <div className="flex flex-wrap items-center justify-end gap-2 border-t border-white/10 bg-black/20 px-5 py-3.5">
+            <Button variant="secondary" onClick={() => void copy(preview.url)}>
+              {copied === preview.url ? <Check aria-hidden="true" /> : <Copy aria-hidden="true" />} {copied === preview.url ? "Link copied" : "Copy link"}
+            </Button>
+            <a
+              href={preview.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center justify-center gap-2 rounded-lg border border-white/15 bg-white/5 px-4 py-2.5 text-sm font-semibold leading-tight transition hover:bg-white/10 [&>svg]:size-4"
+            >
+              <ExternalLink aria-hidden="true" /> Open original
+            </a>
+            {mode === "pick" ? (
+              <Button
+                onClick={() => {
+                  onPick?.(preview.url);
+                  previewRef.current?.close();
+                }}
+              >
+                <Check aria-hidden="true" /> Use this image
+              </Button>
+            ) : (
+              <Button variant="danger" disabled={deleting === preview.fileId} onClick={() => void remove(preview)}>
+                <Trash2 aria-hidden="true" /> {deleting === preview.fileId ? "Deleting..." : "Delete"}
+              </Button>
+            )}
+          </div>
+        </dialog>
+      ) : null}
     </div>
   );
 }

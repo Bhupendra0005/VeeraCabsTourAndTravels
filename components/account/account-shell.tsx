@@ -21,7 +21,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { LogoutButton } from "@/components/auth/logout-button";
 import { cn } from "@/lib/utils/cn";
 
-export type AccountIcon = "upcoming" | "completed" | "cancelled" | "all" | "profile" | "book" | "policy" | "payments" | "terms";
+export type AccountIcon = "upcoming" | "completed" | "cancelled" | "all" | "profile" | "book" | "policy" | "payments" | "terms" | "privacy";
 
 const ICONS: Record<AccountIcon, LucideIcon> = {
   profile: UserRound,
@@ -33,6 +33,7 @@ const ICONS: Record<AccountIcon, LucideIcon> = {
   policy: ShieldCheck,
   payments: Wallet,
   terms: FileText,
+  privacy: ShieldCheck,
 };
 
 export type AccountNavItem = { href: string; label: string; icon: AccountIcon; count?: number; active?: boolean };

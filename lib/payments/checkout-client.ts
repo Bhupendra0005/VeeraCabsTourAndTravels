@@ -1,3 +1,5 @@
+import { MOCK_KEY_ID, MOCK_SIGNATURE, mockPaymentId } from "@/lib/payments/mock";
+
 /** Browser-side Razorpay Checkout helper. Only the public key id is used here. */
 
 type CheckoutResponse = {
@@ -51,6 +53,24 @@ export async function openCheckout(
   order: PayOrder,
   prefill: { name: string; email: string; contact: string },
 ): Promise<CheckoutResponse | null> {
+  // local test mode (server MOCK_PAYMENTS=1, no Razorpay keys): no real checkout, the tester confirms or cancels
+  if (order.keyId === MOCK_KEY_ID) {
+    const ok = window.confirm(
+      `TEST MODE (no real payment)
+
+Simulate a successful payment of ₹${(order.amount / 100).toLocaleString("en-IN")}?
+
+OK = payment successful
+Cancel = payment not completed`,
+    );
+    if (!ok) return null;
+    return {
+      razorpay_order_id: order.orderId,
+      razorpay_payment_id: mockPaymentId(order.amount, order.orderId),
+      razorpay_signature: MOCK_SIGNATURE,
+    };
+  }
+
   await loadScript();
   const Razorpay = window.Razorpay;
   if (!Razorpay) throw new Error("Payment window is unavailable.");

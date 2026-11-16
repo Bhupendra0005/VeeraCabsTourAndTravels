@@ -15,6 +15,7 @@ import {
 import { Turnstile } from "@/components/auth/turnstile";
 import { postJson } from "@/lib/payments/checkout-client";
 import { cn } from "@/lib/utils/cn";
+import { cleanMobile } from "@/lib/utils/phone";
 
 const CAPTCHA_REQUIRED = !!process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
 const CODE_LENGTH = 6;
@@ -51,18 +52,18 @@ function MailShield() {
 const fieldClass =
   "h-12 w-full rounded-2xl border border-white/15 bg-white/5 pl-11 pr-4 text-[15px] text-(--text) outline-none transition placeholder:text-white/30 hover:border-white/20 focus:border-brand focus:ring-4 focus:ring-brand/15";
 
-function Steps({ step, first = "Your email" }: { step: "email" | "code"; first?: string }) {
+function Steps({ step, first = "Your email", className }: { step: "email" | "code"; first?: string; className?: string }) {
   const items = [
     { id: "email", label: first },
     { id: "code", label: "Verify code" },
   ] as const;
   return (
-    <ol className="mb-7 flex items-center justify-center gap-3" aria-label="Progress">
+    <ol className={cn("mb-7 flex items-center justify-center gap-2 sm:gap-3", className)} aria-label="Progress">
       {items.map((item, index) => {
         const done = step === "code" && item.id === "email";
         const active = step === item.id;
         return (
-          <li key={item.id} className="flex items-center gap-3" aria-current={active ? "step" : undefined}>
+          <li key={item.id} className="flex items-center gap-2 sm:gap-3" aria-current={active ? "step" : undefined}>
             <span
               className={cn(
                 "grid size-7 place-items-center rounded-full text-xs font-bold ring-1 transition",
@@ -73,8 +74,8 @@ function Steps({ step, first = "Your email" }: { step: "email" | "code"; first?:
             >
               {done ? "✓" : index + 1}
             </span>
-            <span className={cn("text-[13px] font-semibold", active ? "text-white" : "text-muted")}>{item.label}</span>
-            {index === 0 ? <span className="h-px w-8 bg-[#22d3ee]/60 sm:w-12" aria-hidden="true" /> : null}
+            <span className={cn("whitespace-nowrap text-[13px] font-semibold", active ? "text-white" : "text-muted")}>{item.label}</span>
+            {index === 0 ? <span className="h-px w-5 bg-[#22d3ee]/60 sm:w-12" aria-hidden="true" /> : null}
           </li>
         );
       })}
@@ -92,11 +93,23 @@ function ErrorNote({ message }: { message: string }) {
   );
 }
 
-export function LoginForm({ next, mode = "login" }: { next: string; mode?: "login" | "signup" }) {
+export function LoginForm({
+  next,
+  mode = "login",
+  onSuccess,
+  initialEmail = "",
+}: {
+  /** Pre-fills the email box (for example the address already typed on the booking form). */
+  initialEmail?: string;
+  next: string;
+  mode?: "login" | "signup";
+  /** When set, the form is used inside another page (for example at checkout): it calls this instead of navigating. */
+  onSuccess?: () => void;
+}) {
   const router = useRouter();
   const signup = mode === "signup";
   const [step, setStep] = useState<"email" | "code">("email");
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useState(initialEmail);
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [digits, setDigits] = useState<string[]>(Array(CODE_LENGTH).fill(""));
@@ -151,6 +164,11 @@ export function LoginForm({ next, mode = "login" }: { next: string; mode?: "logi
           code: value,
           ...(signup ? { profile: { name: name.trim(), phone } } : {}),
         });
+        if (onSuccess) {
+          router.refresh();
+          onSuccess();
+          return;
+        }
         router.replace(next);
         router.refresh();
       } catch (e) {
@@ -160,7 +178,7 @@ export function LoginForm({ next, mode = "login" }: { next: string; mode?: "logi
         boxes.current[0]?.focus();
       }
     },
-    [email, name, next, phone, router, signup],
+    [email, name, next, onSuccess, phone, router, signup],
   );
 
   // the first box takes focus when the code step opens, and the form submits itself when the 6th digit lands
@@ -216,13 +234,13 @@ export function LoginForm({ next, mode = "login" }: { next: string; mode?: "logi
   };
 
   return (
-    <div className="relative overflow-hidden rounded-[28px] border border-brand-bright/40 bg-[#07141f]/70 p-6 shadow-[0_0_0_1px_rgba(60,184,242,0.12),0_0_60px_-10px_rgba(34,211,238,0.35),0_30px_80px_-20px_rgba(0,0,0,0.8)] backdrop-blur-xl sm:p-9">
+    <div className="relative overflow-hidden rounded-[28px] border border-brand-bright/40 bg-[#07141f]/70 p-6 shadow-[0_0_0_1px_rgba(60,184,242,0.12),0_0_60px_-10px_rgba(34,211,238,0.35),0_30px_80px_-20px_rgba(0,0,0,0.8)] backdrop-blur-xl sm:p-9 lg:p-6">
       <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 top-0 h-px bg-linear-to-r from-transparent via-brand-bright to-transparent" />
       <div aria-hidden="true" className="pointer-events-none absolute -right-20 -top-24 size-56 rounded-full bg-brand/20 blur-[80px]" />
 
       <div className="relative">
-        {step === "email" ? (
-          <div role="tablist" aria-label="Log in or create account" className="mb-6 grid grid-cols-2 gap-1 rounded-full border border-white/10 bg-black/25 p-1">
+        {step === "email" && !onSuccess ? (
+          <div role="tablist" aria-label="Log in or create account" className="mb-6 grid grid-cols-2 gap-1 rounded-full border border-white/10 bg-black/25 p-1 lg:mb-3">
             {(
               [
                 { id: "login", label: "Log in", href: `/login?next=${encodeURIComponent(next)}` },
@@ -247,15 +265,17 @@ export function LoginForm({ next, mode = "login" }: { next: string; mode?: "logi
           </div>
         ) : null}
 
-        <Steps step={step} first={signup ? "Your details" : "Your email"} />
+        {/* inside the checkout popup the close button sits in the top-right corner: keep the steps clear of it on phones */}
+        <Steps step={step} first={signup ? "Your details" : "Your email"} className={onSuccess ? "pr-9 sm:pr-0" : undefined} />
 
         {step === "email" ? (
-          <form onSubmit={sendCode} className="grid gap-5" noValidate>
+          <form onSubmit={sendCode} className="grid gap-5 lg:gap-3.5" noValidate>
             <div className="text-center">
-              <span className="relative mx-auto mb-3 grid size-28 place-items-center rounded-full bg-[radial-gradient(circle,rgba(34,211,238,0.18),transparent_70%)]">
+              {/* the envelope picture is dropped on short laptop screens so the whole form stays in view */}
+              <span className="relative mx-auto mb-3 grid size-28 place-items-center rounded-full bg-[radial-gradient(circle,rgba(34,211,238,0.18),transparent_70%)] lg:mb-0.5 lg:size-14 lg:[@media(max-height:940px)]:hidden">
                 <MailShield />
               </span>
-              <h2 className="font-(family-name:--font-display) text-2xl font-extrabold sm:text-[28px]">
+              <h2 className="font-(family-name:--font-display) text-2xl font-extrabold sm:text-[28px] lg:text-2xl">
                 {signup ? "Create your account" : "Log in to continue"}
               </h2>
               <p className="mx-auto mt-2 max-w-xs text-sm text-white/65">
@@ -299,9 +319,8 @@ export function LoginForm({ next, mode = "login" }: { next: string; mode?: "logi
                       inputMode="numeric"
                       autoComplete="tel-national"
                       value={phone}
-                      onChange={(e) => setPhone(e.target.value.replace(/\D/g, "").slice(0, 10))}
+                      onChange={(e) => setPhone(cleanMobile(e.target.value))}
                       placeholder="98765 43210"
-                      maxLength={10}
                       required
                       className={`${fieldClass} pl-[5.25rem]!`}
                     />
@@ -351,6 +370,10 @@ export function LoginForm({ next, mode = "login" }: { next: string; mode?: "logi
               {signup ? "By creating an account you agree to our" : "By continuing you agree to our"}{" "}
               <Link href="/terms" className="font-semibold text-[#22d3ee] underline underline-offset-2">
                 Terms &amp; Conditions
+              </Link>{" "}
+              and{" "}
+              <Link href="/privacy-policy" className="font-semibold text-[#22d3ee] underline underline-offset-2">
+                Privacy Policy
               </Link>
               .
             </p>

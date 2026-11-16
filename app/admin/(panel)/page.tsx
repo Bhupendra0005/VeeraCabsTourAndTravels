@@ -11,12 +11,13 @@ import {
   Inbox,
   IndianRupee,
   ReceiptText,
+  UserRoundX,
   Wallet,
 } from "lucide-react";
 import { BookingRoute, StatusBadge, TripWhen, money } from "@/components/admin/booking-bits";
-import { Alert, ButtonLink, Card, DataTable, EmptyState, StatCard } from "@/components/admin/ui";
+import { Alert, Badge, ButtonLink, Card, DataTable, EmptyState, StatCard } from "@/components/admin/ui";
 import { requireAdminPage } from "@/lib/server/admin/guard";
-import { getDashboard } from "@/lib/server/admin/queries";
+import { getDashboard, todayIst } from "@/lib/server/admin/queries";
 
 export const metadata: Metadata = { title: "Dashboard" };
 
@@ -71,7 +72,7 @@ function BookingsOverview({ stats }: { stats: { total: number; confirmed: number
     <Card
       className="h-full"
       title={<SectionTitle icon={<BarChart3 />}>Bookings overview</SectionTitle>}
-      description="All time, by status."
+      description={<span className="block pl-[42px]">All time, by status.</span>}
     >
       <div className="grid justify-items-center gap-6">
         <div className="relative size-44" role="img" aria-label={`${stats.total} bookings in total`}>
@@ -96,7 +97,13 @@ function BookingsOverview({ stats }: { stats: { total: number; confirmed: number
           </svg>
           <div className="absolute inset-0 grid place-items-center text-center">
             <div>
-              <p className="font-(family-name:--font-display) text-4xl leading-none font-extrabold">{stats.total}</p>
+              <p
+                className={`font-(family-name:--font-display) leading-none font-extrabold tabular-nums ${
+                  String(stats.total).length <= 4 ? "text-4xl" : String(stats.total).length <= 5 ? "text-3xl" : String(stats.total).length <= 6 ? "text-2xl" : "text-xl"
+                }`}
+              >
+                {stats.total}
+              </p>
               <p className="mt-1.5 text-xs font-medium tracking-wide text-muted uppercase">Bookings</p>
             </div>
           </div>
@@ -109,8 +116,8 @@ function BookingsOverview({ stats }: { stats: { total: number; confirmed: number
               <li key={r.key} className="flex items-center gap-3 rounded-xl px-3 py-2 text-sm transition hover:bg-white/4">
                 <span className="size-2.5 shrink-0 rounded-full" style={{ background: overviewColors[r.key], boxShadow: `0 0 10px ${overviewColors[r.key]}88` }} aria-hidden="true" />
                 <span className="flex-1 text-white/80">{r.label}</span>
-                <span className="w-9 text-right text-xs text-muted tabular-nums">{sum > 0 ? `${pct}%` : ""}</span>
-                <span className="w-7 text-right font-bold tabular-nums">{r.value}</span>
+                <span className="min-w-9 text-right text-xs text-muted tabular-nums">{sum > 0 ? `${pct}%` : ""}</span>
+                <span className="min-w-7 text-right font-bold tabular-nums">{r.value}</span>
               </li>
             );
           })}
@@ -148,7 +155,7 @@ export default async function AdminDashboardPage({
           className="absolute inset-0 -z-20 size-full object-cover object-[85%_62%]"
           decoding="async"
         />
-        <div aria-hidden="true" className="absolute inset-0 -z-10 bg-linear-to-r from-[#050b1a]/85 via-[#050b1a]/45 to-transparent md:via-[#050b1a]/25" />
+        <div aria-hidden="true" className="absolute inset-0 -z-10 bg-linear-to-r from-[#050b1a]/90 via-[#050b1a]/70 to-[#050b1a]/35 md:from-[#050b1a]/85 md:via-[#050b1a]/25 md:to-transparent" />
         <div aria-hidden="true" className="absolute inset-0 -z-10 bg-linear-to-t from-black/40 to-transparent" />
         <div className="flex min-h-[220px] flex-col justify-center gap-5 p-6 sm:p-8 md:min-h-[250px]">
           <div className="min-w-0">
@@ -156,11 +163,11 @@ export default async function AdminDashboardPage({
               <CalendarDays className="size-3.5 text-brand-bright" aria-hidden="true" />
               {today}
             </p>
-            <h1 className="mt-3 font-(family-name:--font-display) text-3xl font-extrabold tracking-tight [overflow-wrap:anywhere] sm:text-5xl">
+            <h1 className="mt-3 font-(family-name:--font-display) text-3xl font-extrabold tracking-tight [overflow-wrap:anywhere] drop-shadow-[0_2px_10px_rgba(0,0,0,0.7)] sm:text-5xl">
               {greeting(now)}
               {admin.name ? `, ${admin.name}` : ""} <span aria-hidden="true">👋</span>
             </h1>
-            <p className="mt-2 text-sm text-white/75 sm:text-base">Here is what is happening with your bookings.</p>
+            <p className="mt-2 text-sm font-medium text-white drop-shadow-[0_1px_6px_rgba(0,0,0,0.8)] sm:text-base">Here is what is happening with your bookings.</p>
           </div>
           <div className="flex flex-wrap gap-2.5">
             <ButtonLink href="/admin/bookings" className="shadow-[0_10px_30px_-10px_rgba(0,150,219,0.9)]">
@@ -179,18 +186,61 @@ export default async function AdminDashboardPage({
 
       {stats ? (
         <>
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 xl:grid-cols-4">
             <StatCard tone="green" label="Revenue, last 30 days" value={money(stats.revenue30)} icon={<IndianRupee />} hint="Payments received" />
-            <StatCard tone="violet" label="Balance still to collect" value={money(stats.balanceDue)} icon={<Wallet />} hint="Confirmed upcoming trips" />
+            <StatCard tone="violet" label="Balance still to collect" value={money(stats.balanceDue)} icon={<Wallet />} hint="Confirmed and completed trips" />
             <StatCard tone="blue" label="Confirmed bookings" value={stats.confirmed} icon={<CalendarCheck />} hint={`${stats.total} in total`} />
             <StatCard tone="amber" label="Awaiting payment" value={stats.pending} icon={<Clock3 />} hint={`${stats.todaysNew} new today · ${stats.cancelled} cancelled`} />
           </div>
+
+          {stats.needDriver.length > 0 ? (
+            <Card
+              className="border-amber-400/40"
+              title={<SectionTitle icon={<UserRoundX />}>{stats.needDriver.length} {stats.needDriver.length === 1 ? "trip needs" : "trips need"} a driver</SectionTitle>}
+              description={<span className="block pl-[42px]">Confirmed trips in the next 7 days with no driver and cab assigned yet. Soonest first.</span>}
+              actions={
+                <ButtonLink href="/admin/bookings?driver=none" variant="secondary" size="sm">
+                  See all <ArrowRight />
+                </ButtonLink>
+              }
+            >
+              <DataTable
+                rows={stats.needDriver}
+                rowKey={(b) => b.id}
+                columns={[
+                  {
+                    header: "When",
+                    primary: true,
+                    cell: (b) => (
+                      <span className="flex flex-wrap items-center gap-2">
+                        <TripWhen booking={b} />
+                        {b.travel_date === todayIst() ? <Badge tone="danger">today</Badge> : b.travel_date === todayIst(1) ? <Badge tone="warning">tomorrow</Badge> : null}
+                      </span>
+                    ),
+                  },
+                  { header: "Trip", cell: (b) => <BookingRoute booking={b} /> },
+                  { header: "Traveller", cell: (b) => `${b.traveller_name} · +91 ${b.traveller_phone}` },
+                  {
+                    header: "",
+                    align: "right",
+                    cell: (b) => (
+                      <ButtonLink href={`/admin/bookings/${b.id}`} size="sm">
+                        Assign driver
+                      </ButtonLink>
+                    ),
+                  },
+                ]}
+              />
+            </Card>
+          ) : stats.upcoming.length > 0 ? (
+            <Alert tone="success">Every confirmed trip in the next 7 days has a driver and cab assigned.</Alert>
+          ) : null}
 
           <div className="grid items-stretch gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
           <Card
             className="h-full"
             title={<SectionTitle icon={<CalendarClock />}>Trips in the next 7 days</SectionTitle>}
-            description="Confirmed bookings, soonest first."
+            description={<span className="block pl-[42px]">Confirmed bookings, soonest first.</span>}
           >
             {stats.upcoming.length === 0 ? (
               <EmptyState icon={<CalendarX2 />} title="No trips scheduled this week">
@@ -204,6 +254,7 @@ export default async function AdminDashboardPage({
                   { header: "Booking", primary: true, cell: (b) => <BookingRoute booking={b} /> },
                   { header: "When", cell: (b) => <TripWhen booking={b} /> },
                   { header: "Traveller", cell: (b) => `${b.traveller_name} · +91 ${b.traveller_phone}` },
+                  { header: "Driver", cell: (b) => (b.driver_name ? `${b.driver_name}${b.cab_number ? ` · ${b.cab_number}` : ""}` : <Badge tone="warning">not assigned</Badge>) },
                   { header: "Pickup", cell: (b) => b.pickup_address },
                 ]}
               />

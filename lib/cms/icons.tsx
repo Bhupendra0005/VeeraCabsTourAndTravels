@@ -1,5 +1,6 @@
 import {
   BusFront,
+  CalendarCheck,
   CarFront,
   Clock3,
   Headphones,
@@ -26,6 +27,7 @@ export const ICONS: Record<string, LucideIcon | typeof WhatsAppIcon> = {
   headphones: Headphones,
   wallet: Wallet,
   whatsapp: WhatsAppIcon,
+  calendar: CalendarCheck,
   pin: MapPin,
   plane: Plane,
   route: Route,
@@ -42,6 +44,7 @@ export const ICON_OPTIONS = [
   { value: "headphones", label: "Headphones" },
   { value: "wallet", label: "Wallet" },
   { value: "whatsapp", label: "WhatsApp" },
+  { value: "calendar", label: "Calendar / booking" },
   { value: "pin", label: "Map pin" },
   { value: "plane", label: "Plane" },
   { value: "route", label: "Route" },

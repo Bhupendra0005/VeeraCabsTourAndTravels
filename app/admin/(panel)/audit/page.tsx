@@ -1,5 +1,23 @@
 import type { Metadata } from "next";
-import { CalendarDays, FileEdit, History, Layers, ListFilter, LogIn, LogOut, RotateCw, Search, ShieldAlert, Users } from "lucide-react";
+import {
+  CalendarClock,
+  CalendarDays,
+  CircleCheck,
+  CircleX,
+  FileEdit,
+  History,
+  KeyRound,
+  Layers,
+  ListFilter,
+  LogIn,
+  LogOut,
+  RotateCw,
+  Search,
+  ShieldAlert,
+  Trash2,
+  UserPlus,
+  Users,
+} from "lucide-react";
 import type { ReactNode } from "react";
 import { ClearFiltersLink, EmptyPanel, FilterButtons, FilterLabel, FilterPanel, StatTile, filterControl, filterIcon } from "@/components/admin/list-parts";
 import { SelectMenu } from "@/components/admin/pickers";
@@ -34,6 +52,17 @@ const RANGES = [
 const stamp = (iso: string) =>
   new Date(iso).toLocaleString("en-IN", { day: "numeric", month: "short", year: "numeric", hour: "numeric", minute: "2-digit", timeZone: "Asia/Kolkata" });
 
+/** "5 min ago", "3 h ago", "2 days ago", or the date for anything older than a week. */
+function ago(iso: string) {
+  const minutes = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 60000));
+  if (minutes < 1) return "just now";
+  if (minutes < 60) return `${minutes} min ago`;
+  const hours = Math.round(minutes / 60);
+  if (hours < 24) return `${hours} h ago`;
+  const days = Math.round(hours / 24);
+  return days <= 7 ? `${days} ${days === 1 ? "day" : "days"} ago` : new Date(iso).toLocaleDateString("en-IN", { day: "numeric", month: "short", timeZone: "Asia/Kolkata" });
+}
+
 function since(range: string): string | null {
   const now = Date.now();
   if (range === "today") {
@@ -48,21 +77,94 @@ function since(range: string): string | null {
 /** Only characters that are safe inside a PostgREST filter value. */
 const cleanQuery = (value: string | undefined) => (value ?? "").replace(/[^\p{L}\p{N}@._ -]/gu, "").trim().slice(0, 60);
 
-function ActionBadge({ action }: { action: string }) {
-  const failed = action.includes("failed");
-  const meta: { tone: string; icon: ReactNode } = failed
-    ? { tone: "bg-red-400/12 text-red-300 ring-red-400/25", icon: <ShieldAlert /> }
-    : action.endsWith("login")
-      ? { tone: "bg-emerald-400/12 text-emerald-300 ring-emerald-400/25", icon: <LogIn /> }
-      : action.endsWith("logout")
-        ? { tone: "bg-red-400/12 text-red-300 ring-red-400/25", icon: <LogOut /> }
-        : action.includes("saved") || action.includes("created") || action.includes("changed") || action.includes("updated")
-          ? { tone: "bg-sky-400/12 text-sky-300 ring-sky-400/25", icon: <FileEdit /> }
-          : { tone: "bg-white/8 text-white/75 ring-white/12", icon: <History /> };
+type Tone = "green" | "red" | "blue" | "amber" | "grey";
+const TONES: Record<Tone, string> = {
+  green: "bg-emerald-400/12 text-emerald-300 ring-emerald-400/25",
+  red: "bg-red-400/12 text-red-300 ring-red-400/25",
+  blue: "bg-sky-400/12 text-sky-300 ring-sky-400/25",
+  amber: "bg-amber-400/12 text-amber-300 ring-amber-400/25",
+  grey: "bg-white/8 text-white/75 ring-white/12",
+};
+
+/** Plain-English names for the actions we record. Anything not listed gets a readable name made from its code. */
+const KNOWN: Record<string, { label: string; tone: Tone; icon: ReactNode }> = {
+  "admin.login": { label: "Signed in", tone: "green", icon: <LogIn /> },
+  "admin.logout": { label: "Signed out", tone: "grey", icon: <LogOut /> },
+  "admin.login_failed": { label: "Failed sign-in", tone: "red", icon: <ShieldAlert /> },
+  "admin.password_changed": { label: "Changed their password", tone: "amber", icon: <KeyRound /> },
+  "content.saved": { label: "Saved website content", tone: "blue", icon: <FileEdit /> },
+  "content.reset": { label: "Restored original content", tone: "amber", icon: <RotateCw /> },
+  "customer.note_saved": { label: "Saved a customer note", tone: "blue", icon: <FileEdit /> },
+  "booking.cancelled": { label: "Cancelled a booking", tone: "red", icon: <CircleX /> },
+  "booking.completed": { label: "Marked a booking completed", tone: "green", icon: <CircleCheck /> },
+  "booking.note_saved": { label: "Saved a booking note", tone: "blue", icon: <FileEdit /> },
+  "booking.confirmation_resent": { label: "Re-sent a booking confirmation", tone: "blue", icon: <FileEdit /> },
+  "booking.balance_recorded": { label: "Recorded a balance payment", tone: "green", icon: <CircleCheck /> },
+  "booking.phone_created": { label: "Created a phone booking", tone: "green", icon: <CircleCheck /> },
+  "driver.created": { label: "Added a driver", tone: "green", icon: <UserPlus /> },
+  "driver.updated": { label: "Updated a driver", tone: "blue", icon: <FileEdit /> },
+  "route.deleted": { label: "Deleted a route", tone: "red", icon: <Trash2 /> },
+  "team.created": { label: "Added a team member", tone: "green", icon: <UserPlus /> },
+  "team.role_changed": { label: "Changed a member's role", tone: "amber", icon: <Users /> },
+  "team.password_reset": { label: "Reset a member's password", tone: "amber", icon: <KeyRound /> },
+};
+
+function describe(action: string) {
+  const known = KNOWN[action];
+  if (known) return known;
+  const words = action.replace(/[._]/g, " ").trim();
+  const label = words.charAt(0).toUpperCase() + words.slice(1);
+  if (action.includes("failed")) return { label, tone: "red" as Tone, icon: <ShieldAlert /> };
+  if (/deleted|cancel/.test(action)) return { label, tone: "red" as Tone, icon: <Trash2 /> };
+  if (/created|added/.test(action)) return { label, tone: "green" as Tone, icon: <UserPlus /> };
+  if (/saved|updated|changed/.test(action)) return { label, tone: "blue" as Tone, icon: <FileEdit /> };
+  return { label, tone: "grey" as Tone, icon: <History /> };
+}
+
+function ActionChip({ action }: { action: string }) {
+  const info = describe(action);
   return (
-    <span className={cn("inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold tracking-wide uppercase ring-1 [&>svg]:size-3.5", meta.tone)}>
-      {meta.icon}
-      <span className="wrap-anywhere">{action}</span>
+    <span className="inline-flex flex-col items-start gap-1">
+      <span className={cn("inline-flex max-w-full items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold ring-1 [&>svg]:size-3.5 [&>svg]:shrink-0", TONES[info.tone])}>
+        {info.icon}
+        <span className="wrap-anywhere">{info.label}</span>
+      </span>
+      <code className="px-1 text-[11px] text-muted">{action}</code>
+    </span>
+  );
+}
+
+function Person({ email }: { email: string }) {
+  return (
+    <span className="flex items-center gap-2.5">
+      <span className="grid size-8 shrink-0 place-items-center rounded-full bg-linear-to-br from-brand-bright to-[#04567f] text-sm font-extrabold text-white">{email.charAt(0).toUpperCase()}</span>
+      <span className="min-w-0 wrap-anywhere">{email}</span>
+    </span>
+  );
+}
+
+const shortId = (id: string | null) => (id && /^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(id) ? id.slice(0, 8) : id);
+
+/** The item an event was about, e.g. "booking · VT7K2M9QXA". */
+function itemText(row: Entry) {
+  return [row.entity, shortId(row.entity_id)].filter(Boolean).join(" · ");
+}
+
+/** The extra facts of an event as small "name: value" chips instead of raw JSON. */
+function Details({ meta }: { meta: Entry["meta"] }) {
+  const entries = Object.entries(meta ?? {}).filter(([, v]) => v !== null && v !== "" && v !== undefined);
+  if (entries.length === 0) return <span className="text-muted">-</span>;
+  return (
+    <span className="flex flex-wrap gap-1.5">
+      {entries.slice(0, 6).map(([key, value]) => {
+        const text = typeof value === "object" ? JSON.stringify(value) : String(value);
+        return (
+          <span key={key} className="rounded-md bg-white/5 px-2 py-0.5 text-xs text-white/75 ring-1 ring-white/10 wrap-anywhere">
+            <span className="text-muted">{key.replace(/_/g, " ")}:</span> {text.length > 48 ? `${text.slice(0, 47)}…` : text}
+          </span>
+        );
+      })}
+      {entries.length > 6 ? <span className="rounded-md bg-white/5 px-2 py-0.5 text-xs text-muted">+{entries.length - 6} more</span> : null}
     </span>
   );
 }
@@ -85,11 +187,11 @@ export default async function AuditPage({ searchParams }: { searchParams: Promis
   const from = since(range);
   if (from) query = query.gte("created_at", from);
 
-  const [list, total, logins, logouts, latest, actionsRes] = await Promise.all([
+  const [list, total, logins, failed, latest, actionsRes] = await Promise.all([
     query.order("created_at", { ascending: false }).range(start, start + PAGE_SIZE - 1),
     db().from("admin_audit_log").select("id", { count: "exact", head: true }),
     db().from("admin_audit_log").select("id", { count: "exact", head: true }).eq("action", "admin.login"),
-    db().from("admin_audit_log").select("id", { count: "exact", head: true }).eq("action", "admin.logout"),
+    db().from("admin_audit_log").select("id", { count: "exact", head: true }).ilike("action", "%failed%"),
     db().from("admin_audit_log").select("created_at").order("created_at", { ascending: false }).limit(1),
     db().from("admin_audit_log").select("action").limit(5000),
   ]);
@@ -97,7 +199,7 @@ export default async function AuditPage({ searchParams }: { searchParams: Promis
 
   const rows = (list.data ?? []) as Entry[];
   const actions = [...new Set((actionsRes.data ?? []).map((r) => r.action as string))].sort();
-  const actionOptions = [{ value: "", label: "All actions" }, ...actions.map((value) => ({ value, label: value }))];
+  const actionOptions = [{ value: "", label: "All actions" }, ...actions.map((value) => ({ value, label: describe(value).label }))];
   const lastAt = (latest.data?.[0]?.created_at as string | undefined) ?? null;
   const shownFrom = rows.length ? start + 1 : 0;
   const shownTo = start + rows.length;
@@ -109,14 +211,14 @@ export default async function AuditPage({ searchParams }: { searchParams: Promis
   };
 
   return (
-    <div className="grid gap-6">
-      <PageHeader icon={<History />} title="Audit log" description="A record of all sign-ins and changes made in the admin panel." />
+    <div className="grid grid-cols-[minmax(0,1fr)] gap-6">
+      <PageHeader icon={<History />} title="Audit log" description="A record of all sign-ins and changes made in the admin panel: who did what, and when." />
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatTile tone="blue" icon={<Users />} label="Total events" value={total.count ?? 0} />
-        <StatTile tone="green" icon={<LogIn />} label="Logins" value={logins.count ?? 0} />
-        <StatTile tone="red" icon={<LogOut />} label="Logouts" value={logouts.count ?? 0} />
-        <StatTile tone="violet" icon={<CalendarDays />} label="Last activity" value={<span className="text-lg">{lastAt ? stamp(lastAt) : "-"}</span>} />
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
+        <StatTile tone="blue" icon={<History />} label="Total events" value={total.count ?? 0} />
+        <StatTile tone="green" icon={<LogIn />} label="Sign-ins" value={logins.count ?? 0} />
+        <StatTile tone={(failed.count ?? 0) > 0 ? "red" : "green"} icon={<ShieldAlert />} label="Failed attempts" value={failed.count ?? 0} hint="Wrong password or blocked" />
+        <StatTile tone="violet" icon={<CalendarClock />} label="Last activity" value={<span className="text-lg">{lastAt ? ago(lastAt) : "-"}</span>} hint={lastAt ? stamp(lastAt) : undefined} />
       </div>
 
       <FilterPanel label="Filter the audit log">
@@ -150,7 +252,7 @@ export default async function AuditPage({ searchParams }: { searchParams: Promis
           action={filtered ? <ClearFiltersLink href="/admin/audit" /> : null}
         />
       ) : (
-        <section className="overflow-hidden rounded-2xl border border-brand-bright/25 bg-linear-to-b from-[#0b1620] to-panel p-4 shadow-[0_0_44px_-22px_rgba(0,150,219,0.5)] sm:p-5">
+        <section className="grid gap-4">
           <DataTable
             rows={rows}
             rowKey={(row) => String(row.id)}
@@ -159,23 +261,44 @@ export default async function AuditPage({ searchParams }: { searchParams: Promis
                 header: "When",
                 primary: true,
                 cell: (row) => (
-                  <span className="inline-flex items-center gap-2.5">
-                    <CalendarDays className="size-4 shrink-0 text-brand-bright" aria-hidden="true" /> {stamp(row.created_at)}
+                  <span className="block whitespace-nowrap">
+                    <span className="block font-semibold">{ago(row.created_at)}</span>
+                    <span className="block text-xs font-normal text-muted">{stamp(row.created_at)}</span>
                   </span>
                 ),
               },
-              { header: "Who", cell: (row) => row.admin_email },
-              { header: "Action", cell: (row) => <ActionBadge action={row.action} /> },
-              { header: "Item", cell: (row) => [row.entity, row.entity_id].filter(Boolean).join(" · ") || <span className="text-muted">-</span> },
-              {
-                header: "Details",
-                cell: (row) => (row.meta ? <code className="text-xs text-white/70 wrap-anywhere">{JSON.stringify(row.meta)}</code> : <span className="text-muted">-</span>),
-              },
+              { header: "Who", cell: (row) => <Person email={row.admin_email} /> },
+              { header: "What happened", cell: (row) => <ActionChip action={row.action} /> },
+              { header: "Item", cell: (row) => itemText(row) || <span className="text-muted">-</span> },
+              { header: "Details", cell: (row) => <Details meta={row.meta} /> },
             ]}
+            card={(row) => {
+              const info = describe(row.action);
+              const item = itemText(row);
+              return (
+                <div className="grid h-full content-start gap-3 rounded-2xl border border-line bg-panel p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <Person email={row.admin_email} />
+                    <span className="shrink-0 text-right text-xs text-muted" title={stamp(row.created_at)}>
+                      {ago(row.created_at)}
+                    </span>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className={cn("inline-flex max-w-full items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold ring-1 [&>svg]:size-3.5 [&>svg]:shrink-0", TONES[info.tone])}>
+                      {info.icon}
+                      <span className="wrap-anywhere">{info.label}</span>
+                    </span>
+                    {item ? <span className="rounded-md bg-white/5 px-2 py-1 text-xs text-white/75 ring-1 ring-white/10 wrap-anywhere">{item}</span> : null}
+                  </div>
+                  {row.meta && Object.keys(row.meta).length ? <Details meta={row.meta} /> : null}
+                  <div className="border-t border-line pt-2.5 text-[11px] text-muted">{stamp(row.created_at)}</div>
+                </div>
+              );
+            }}
           />
-          <p className="mt-4 px-1 text-sm text-muted">
+          <div className="px-1 text-sm text-muted">
             Showing {shownFrom}-{shownTo} of {list.count ?? 0} {list.count === 1 ? "event" : "events"}
-          </p>
+          </div>
           <Pagination page={page} pageSize={PAGE_SIZE} total={list.count ?? 0} hrefFor={hrefFor} />
         </section>
       )}

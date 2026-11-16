@@ -51,7 +51,7 @@ export default async function AdminCustomersPage({ searchParams }: { searchParam
       <PageHeader icon={<Users />} title="Customers" description="People who have registered and booked with you." />
 
       {totals ? (
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
           <StatTile tone="blue" icon={<Users />} label="Total customers" value={totals.total} />
           <StatTile tone="green" icon={<CalendarCheck />} label="With bookings" value={totals.withBookings} />
           <StatTile tone="violet" icon={<IndianRupee />} label="Total spent" value={money(totals.spent)} />
@@ -96,6 +96,7 @@ export default async function AdminCustomersPage({ searchParams }: { searchParam
                       {c.email.charAt(0).toUpperCase()}
                     </span>
                     <span className="font-semibold group-hover:text-brand-bright group-hover:underline">{c.email}</span>
+                    {c.blocked ? <span className="ml-2 rounded-full bg-red-400/15 px-2 py-0.5 text-xs font-bold uppercase text-red-300">blocked</span> : null}
                   </Link>
                 ),
               },

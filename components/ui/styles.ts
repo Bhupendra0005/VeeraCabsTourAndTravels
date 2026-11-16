@@ -11,7 +11,7 @@ export const ui = {
   form: "mt-3.5 grid gap-3.5",
   label: "-mb-1.5 text-sm font-semibold text-muted",
   loginCard: "grid [&_h2]:mt-3 [&_h2]:font-(family-name:--font-display) [&_h2]:text-2xl [&_h2]:font-bold",
-  turnstile: "min-h-[65px]",
+  turnstile: "",
   searchCard: "grid gap-[18px]",
   searchButton: "justify-self-start",
   results: "grid gap-4",

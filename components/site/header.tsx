@@ -3,7 +3,6 @@
 import Link from "next/link";
 import {
   ArrowRight,
-  BadgeIndianRupee,
   CalendarCheck,
   CarFront,
   ChevronRight,
@@ -35,7 +34,6 @@ const navIcons: Record<string, LucideIcon> = {
   home: House,
   services: CarFront,
   destinations: MapPinned,
-  "rate-card": BadgeIndianRupee,
   about: Info,
   contact: Mail,
   book: CalendarCheck,
@@ -170,7 +168,7 @@ export function SiteHeader() {
               <Link
                 key={item.id}
                 href={item.href}
-                className={isActive(item.href) ? "is-active" : ""}
+                className={`${isActive(item.href) ? "is-active" : ""}${item.id === "book" ? " nav-highlight" : ""}`.trim()}
                 aria-current={isActive(item.href) ? "page" : undefined}
               >
                 {item.label}
@@ -268,7 +266,7 @@ export function SiteHeader() {
               <Link
                 key={item.id}
                 href={item.href}
-                className={`drawer-link${isActive(item.href) ? " is-active" : ""}`}
+                className={`drawer-link${isActive(item.href) ? " is-active" : ""}${item.id === "book" ? " nav-highlight" : ""}`}
                 aria-current={isActive(item.href) ? "page" : undefined}
                 style={{ "--i": index } as CSSProperties}
                 onClick={closeMenu}

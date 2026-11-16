@@ -41,10 +41,9 @@ export const site: SiteData = {
 
 export const navItems = [
   { label: "Home", href: "/", id: "home" },
+  { label: "Book Online", href: "/book", id: "book" },
   { label: "Services", href: "/services", id: "services" },
   { label: "Destinations", href: "/destinations", id: "destinations" },
-  { label: "Rate Card", href: "/rate-card", id: "rate-card" },
-  { label: "Book Online", href: "/book", id: "book" },
   { label: "About", href: "/about", id: "about" },
   { label: "Contact", href: "/contact", id: "contact" },
   { label: "My Bookings", href: "/bookings", id: "bookings" },

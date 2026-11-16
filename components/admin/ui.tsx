@@ -1,5 +1,6 @@
 import Link from "next/link";
-import type { ComponentProps, ReactNode } from "react";
+import { Fragment, type ComponentProps, type ReactNode } from "react";
+import { ListViews } from "@/components/admin/table-view";
 import { cn } from "@/lib/utils/cn";
 
 /* Admin design primitives. Server-safe (no hooks). Text always wraps: nothing is truncated. */
@@ -7,7 +8,7 @@ import { cn } from "@/lib/utils/cn";
 export const wrap = "[overflow-wrap:anywhere]";
 
 export const inputClass =
-  "w-full rounded-xl border border-white/12 bg-black/30 px-3.5 py-3 text-sm text-(--text) placeholder:text-white/35 outline-none transition hover:border-white/20 focus:border-brand focus:ring-4 focus:ring-brand/15 disabled:cursor-not-allowed disabled:opacity-60";
+  "w-full rounded-xl border border-white/12 bg-black/30 px-3.5 py-3 text-sm text-(--text) placeholder:text-white/35 outline-none transition hover:border-white/20 focus:border-brand focus:ring-4 focus:ring-brand/15 disabled:cursor-not-allowed disabled:opacity-60 [color-scheme:dark] [&>option]:bg-[#161a1d] [&>option]:text-white";
 
 type Variant = "primary" | "secondary" | "danger" | "ghost";
 type Size = "sm" | "md";
@@ -19,7 +20,7 @@ export function buttonClass({
 }: { variant?: Variant; size?: Size; className?: string } = {}) {
   return cn(
     "inline-flex items-center justify-center gap-2 rounded-lg font-semibold leading-tight transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand disabled:cursor-not-allowed disabled:opacity-55 [&>svg]:size-4 [&>svg]:shrink-0",
-    size === "sm" ? "px-3 py-1.5 text-[13px]" : "px-4 py-2.5 text-sm",
+    size === "sm" ? "px-3 py-1.5 text-[13px] max-sm:min-h-10" : "px-4 py-2.5 text-sm",
     variant === "primary" && "bg-brand text-white hover:bg-brand-bright",
     variant === "secondary" && "border border-white/15 bg-white/5 text-(--text) hover:bg-white/10",
     variant === "danger" && "bg-red-600 text-white hover:bg-red-500",
@@ -207,16 +208,26 @@ export function StatCard({
   tone?: keyof typeof statTones;
 }) {
   const t = statTones[tone];
+  // shrink the figure as it gets longer so big numbers (₹1,23,45,678) fit the card instead of breaking mid-number
+  const len = typeof value === "string" || typeof value === "number" ? String(value).length : 0;
+  const size =
+    len <= 6
+      ? "text-2xl sm:text-3xl"
+      : len <= 9
+        ? "text-xl sm:text-2xl"
+        : len <= 12
+          ? "text-lg sm:text-xl"
+          : "text-base sm:text-lg";
   return (
-    <div className="relative overflow-hidden rounded-2xl border border-line bg-panel bg-linear-to-b from-white/[0.035] to-transparent p-5 transition hover:-translate-y-0.5 hover:border-white/15">
+    <div className="relative overflow-hidden rounded-2xl border border-line bg-panel bg-linear-to-b from-white/[0.035] to-transparent p-4 transition hover:-translate-y-0.5 hover:border-white/15 sm:p-5">
       <div aria-hidden="true" className={cn("pointer-events-none absolute -right-10 -top-10 size-32 rounded-full opacity-[0.13] blur-2xl", t.glow)} />
       <div className="relative flex items-center justify-between gap-3">
-        <p className="text-[13px] font-semibold text-muted">{label}</p>
+        <p className="text-xs font-semibold text-muted sm:text-[13px]">{label}</p>
         {icon ? (
-          <span className={cn("grid size-10 shrink-0 place-items-center rounded-xl ring-1 [&>svg]:size-5", t.tile)}>{icon}</span>
+          <span className={cn("grid size-8 shrink-0 place-items-center rounded-xl ring-1 sm:size-10 [&>svg]:size-4 sm:[&>svg]:size-5", t.tile)}>{icon}</span>
         ) : null}
       </div>
-      <p className={cn("relative mt-3 font-(family-name:--font-display) text-3xl font-bold tracking-tight", wrap)}>{value}</p>
+      <p className={cn("relative mt-2 font-(family-name:--font-display) font-bold tracking-tight tabular-nums sm:mt-3", size, wrap)}>{value}</p>
       {hint ? <p className="relative mt-1 text-xs text-muted">{hint}</p> : null}
     </div>
   );
@@ -235,16 +246,21 @@ export function DataTable<T>({
   columns,
   rows,
   rowKey,
+  card,
 }: {
   columns: Column<T>[];
   rows: T[];
   rowKey: (row: T) => string;
+  /** Draws a row as its own card in the grid view (instead of the generic label/value card). */
+  card?: (row: T) => ReactNode;
 }) {
   const primary = columns.find((c) => c.primary) ?? columns[0];
   return (
-    <>
-      <div className="hidden overflow-x-auto rounded-2xl border border-line md:block">
-        <table className="w-full border-collapse text-left text-sm">
+    <ListViews
+      table={
+      <div key="table" className="hidden overflow-x-auto rounded-2xl border border-line group-data-[view=auto]:md:block group-data-[view=table]:block">
+        {/* min width: on a phone the table scrolls sideways instead of squeezing every cell into one letter per line */}
+        <table className="w-full min-w-176 border-collapse text-left text-sm">
           <thead className="bg-white/5 text-xs uppercase tracking-wide text-muted">
             <tr>
               {columns.map((c) => (
@@ -258,7 +274,8 @@ export function DataTable<T>({
             {rows.map((row) => (
               <tr key={rowKey(row)} className="align-top hover:bg-white/[0.03]">
                 {columns.map((c) => (
-                  <td key={c.header} className={cn("px-4 py-3", wrap, c.align === "right" && "text-right")}>
+                  // wrap-break-word (not "anywhere"): a column never shrinks below its longest word, so cells stay readable and the table scrolls instead
+                  <td key={c.header} className={cn("px-4 py-3 wrap-break-word", c.align === "right" && "text-right")}>
                     {c.cell(row)}
                   </td>
                 ))}
@@ -267,25 +284,41 @@ export function DataTable<T>({
           </tbody>
         </table>
       </div>
-
-      <ul className="grid gap-3 md:hidden">
-        {rows.map((row) => (
-          <li key={rowKey(row)} className="rounded-2xl border border-line bg-panel p-4">
-            <div className={cn("mb-3 font-semibold", wrap)}>{primary.cell(row)}</div>
-            <dl className="grid gap-2 text-sm">
+      }
+      grid={
+      <ul key="grid" className={cn("grid gap-3 group-data-[view=auto]:md:hidden group-data-[view=table]:hidden", card ? "gap-4 lg:grid-cols-2" : "sm:grid-cols-2 xl:grid-cols-3")}>
+        {card
+          ? rows.map((row) => (
+              <li key={rowKey(row)} className="min-w-0">
+                {card(row)}
+              </li>
+            ))
+          : rows.map((row) => (
+          <li key={rowKey(row)} className="min-w-0 rounded-2xl border border-line bg-panel p-4">
+            <div className={cn("mb-3 border-b border-line pb-3 font-semibold [&_a]:py-1.5 [&_a:not(.flex)]:inline-block", wrap)}>{primary.cell(row)}</div>
+            <dl className="grid gap-2.5 text-sm">
               {columns
-                .filter((c) => c !== primary)
+                .filter((c) => c !== primary && c.header)
                 .map((c) => (
-                  <div key={c.header} className="grid grid-cols-[110px_1fr] gap-3">
-                    <dt className="text-muted">{c.header}</dt>
+                  <div key={c.header} className="grid grid-cols-[96px_minmax(0,1fr)] items-center gap-3">
+                    <dt className="text-[13px] text-muted">{c.header}</dt>
                     <dd className={wrap}>{c.cell(row)}</dd>
                   </div>
                 ))}
             </dl>
+            {/* columns with no header are actions: a full-width row at the bottom of the card */}
+            {columns.some((c) => c !== primary && !c.header) ? (
+              <div className="mt-4 flex flex-wrap justify-end gap-2 border-t border-line pt-4 max-sm:[&>a]:w-full max-sm:[&>a]:min-h-11">
+                {columns.filter((c) => c !== primary && !c.header).map((c, i) => (
+                  <Fragment key={i}>{c.cell(row)}</Fragment>
+                ))}
+              </div>
+            ) : null}
           </li>
         ))}
       </ul>
-    </>
+      }
+    />
   );
 }
 

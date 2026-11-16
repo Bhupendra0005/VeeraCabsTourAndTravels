@@ -3,7 +3,7 @@ export const DEFAULT_FAQS: { question: string; answer: string }[] = [
   {
     question: "How do I book a cab with Veera Tours & Travels?",
     answer:
-      "Use the booking form on this page, call +91 96968 88585 or message us on WhatsApp. Share your pickup, destination, date and group size. We’ll confirm the vehicle, chauffeur and fare before your journey.",
+      "Open the Book Online page, enter your route and date, choose a cab and pay securely. Your e-ticket and invoice arrive by email. Prefer to talk? Call +91 96968 88585 or message us on WhatsApp.",
   },
   {
     question: "Do you provide airport transfers?",
@@ -13,17 +13,17 @@ export const DEFAULT_FAQS: { question: string; answer: string }[] = [
   {
     question: "Can I book a one-way outstation cab?",
     answer:
-      "Yes. One-way drops are available to Mumbai, Shirdi, Nashik, Mahabaleshwar, Goa and other destinations. Tell us your route and we’ll quote for the journey you actually need.",
+      "Yes. One-way drops are available to Mumbai, Shirdi, Nashik, Mahabaleshwar, Goa and other destinations. Search your route on the Book Online page to see the fixed fare, or message us for a route that is not listed.",
   },
   {
     question: "What vehicles are available?",
     answer:
-      "We can arrange sedans, premium SUVs, spacious MPVs and tempo travellers depending on your route and group size. If you have a preference, mention it in the booking form and we’ll confirm availability.",
+      "We can arrange sedans, premium SUVs, spacious MPVs and tempo travellers depending on your route and group size. Pick the vehicle you want on the Book Online page, or call or WhatsApp us to check availability.",
   },
   {
     question: "How are fares calculated?",
     answer:
-      "Your quote is based on the route, vehicle, travel dates and any waiting time. We confirm the fare on WhatsApp before you book, so there are no surprises. Tolls, parking and state permits can vary by route and are explained upfront.",
+      "Fares are fixed for each route and vehicle and shown on the Book Online page before you pay, so there are no surprises. For custom routes we send a quote on WhatsApp. Tolls, parking and state permits can vary by route and are explained upfront.",
   },
   {
     question: "Do you organise tour packages?",

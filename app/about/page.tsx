@@ -33,7 +33,7 @@ import {
 export const metadata: Metadata = {
   title: "About Us",
   description:
-    "Veera Tours & Travels is a cab and tour service in Hadapsar, Pune. We offer airport pickup and drop, one-way cabs, outstation trips and tour packages across Maharashtra and India.",
+    "Veera Tours & Travels is a cab and tour service in Hadapsar, Pune: airport transfers, one-way cabs, outstation trips and tour packages across Maharashtra.",
   alternates: { canonical: "/about" },
 };
 
@@ -49,18 +49,18 @@ const values = [
 const steps = [
   {
     icon: Send,
-    title: "Tell us your trip",
-    text: "Call or message us on WhatsApp. Tell us where to pick you up, where to go and the date.",
+    title: "Search your trip",
+    text: "Open Book Online and enter where to pick you up, where to go and the date.",
   },
   {
     icon: BadgeIndianRupee,
-    title: "Get the price",
-    text: "We reply with the fare and suggest the right car for the number of people.",
+    title: "See the fixed fare",
+    text: "Compare cars for your group size and see the full fare before you pay.",
   },
   {
     icon: CalendarCheck,
-    title: "Confirm your car",
-    text: "Say yes on WhatsApp and your car is booked. You do not need to pay in advance.",
+    title: "Pay and confirm",
+    text: "Pay securely online, part now or in full, and your car is booked. Your e-ticket arrives by email.",
   },
   {
     icon: ThumbsUp,
@@ -170,7 +170,7 @@ export default async function AboutPage() {
                 Booking a ride in <span className="gold">four easy steps.</span>
               </>
             }
-            description="You do not need an app and you do not pay in advance. Just tell us where you want to go."
+            description="No app to download. Search your route, see the fare and book online in a few minutes."
           />
           <ol className="ab-steps">
             {steps.map(({ icon: Icon, title, text }, index) => (

@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { CalendarCheck, Layers, Search, SlidersHorizontal } from "lucide-react";
+import { CalendarCheck, Layers, PhoneCall, Search, SlidersHorizontal } from "lucide-react";
 import { BookingRoute, StatusBadge, TripWhen, money } from "@/components/admin/booking-bits";
 import {
   CalendarCarArt,
@@ -12,10 +12,12 @@ import {
   filterIcon,
 } from "@/components/admin/list-parts";
 import { DatePicker, SelectMenu } from "@/components/admin/pickers";
-import { Alert, DataTable, PageHeader, Pagination } from "@/components/admin/ui";
+import { Alert, Badge, ButtonLink, DataTable, PageHeader, Pagination } from "@/components/admin/ui";
+import Link from "next/link";
+import { can } from "@/lib/admin/permissions";
 import { STATUS_LABEL } from "@/lib/booking/status";
 import { requireAdminPage } from "@/lib/server/admin/guard";
-import { PAGE_SIZE, listBookings, pageParam } from "@/lib/server/admin/queries";
+import { PAGE_SIZE, listBookings, pageParam, todayIst } from "@/lib/server/admin/queries";
 
 export const metadata: Metadata = { title: "Bookings" };
 
@@ -28,16 +30,17 @@ const statusOptions = [
 ];
 
 export default async function AdminBookingsPage({ searchParams }: { searchParams: Promise<Params> }) {
-  await requireAdminPage("bookings.view");
+  const admin = await requireAdminPage("bookings.view");
   const raw = await searchParams;
   const filters = {
     q: one(raw.q),
     status: one(raw.status),
     from: one(raw.from),
     to: one(raw.to),
+    driver: one(raw.driver) === "none" ? "none" : undefined,
     page: pageParam(one(raw.page)),
   };
-  const filtered = Boolean(filters.q || filters.status || filters.from || filters.to);
+  const filtered = Boolean(filters.q || filters.status || filters.from || filters.to || filters.driver);
   const result = await listBookings(filters).catch((error) => {
     console.error("Bookings list failed", error);
     return null;
@@ -50,18 +53,29 @@ export default async function AdminBookingsPage({ searchParams }: { searchParams
   };
 
   return (
-    <div className="grid gap-6">
-      <PageHeader icon={<CalendarCheck />} title="Bookings" description="Search, review and manage every booking." />
+    <div className="grid grid-cols-[minmax(0,1fr)] gap-6">
+      <PageHeader
+        icon={<CalendarCheck />}
+        title="Bookings"
+        description="Search, review and manage every booking."
+        actions={
+          can(admin.role, "bookings.manage") ? (
+            <ButtonLink href="/admin/bookings/new">
+              <PhoneCall aria-hidden="true" /> New phone booking
+            </ButtonLink>
+          ) : null
+        }
+      />
 
       <FilterPanel label="Filter bookings">
-        <form className="grid gap-4 sm:grid-cols-2 xl:grid-cols-[2fr_1.2fr_1fr_1fr_auto] xl:items-start" action="/admin/bookings">
+        <form className="grid grid-cols-[minmax(0,1fr)] gap-4 sm:grid-cols-2 xl:grid-cols-[2fr_1.2fr_1fr_1fr_auto] xl:items-start [&>div]:min-w-0" action="/admin/bookings">
           <div>
             <FilterLabel htmlFor="f-q">Search</FilterLabel>
             <div className="group relative">
               <Search className={filterIcon} aria-hidden="true" />
               <input id="f-q" name="q" defaultValue={filters.q} maxLength={60} className={filterControl} placeholder="e.g. VT7K2M9QXA or 98765" />
             </div>
-            <p className="mt-2 text-xs text-muted">Booking ID, name, phone, email or city</p>
+            <p className="pt-2 text-xs text-muted">Booking ID, name, phone, email or city</p>
           </div>
 
           <div>
@@ -87,6 +101,15 @@ export default async function AdminBookingsPage({ searchParams }: { searchParams
         </form>
       </FilterPanel>
 
+      <nav className="flex flex-wrap gap-2" aria-label="Quick views">
+        <Link href="/admin/bookings" className={`rounded-full border px-3.5 py-1.5 text-sm font-semibold ${!filters.driver ? "border-brand bg-brand/15 text-white" : "border-line text-muted hover:text-white"}`}>
+          All bookings
+        </Link>
+        <Link href="/admin/bookings?driver=none" className={`rounded-full border px-3.5 py-1.5 text-sm font-semibold ${filters.driver ? "border-amber-400 bg-amber-400/15 text-white" : "border-line text-muted hover:text-white"}`}>
+          Needs a driver
+        </Link>
+      </nav>
+
       {!result ? (
         <Alert tone="danger">Could not load bookings. Please refresh in a moment.</Alert>
       ) : result.rows.length === 0 ? (
@@ -111,7 +134,15 @@ export default async function AdminBookingsPage({ searchParams }: { searchParams
             rowKey={(b) => b.id}
             columns={[
               { header: "Booking", primary: true, cell: (b) => <BookingRoute booking={b} /> },
-              { header: "Status", cell: (b) => <StatusBadge status={b.status} /> },
+              {
+                header: "Status",
+                cell: (b) => (
+                  <span className="flex flex-wrap items-center gap-1.5">
+                    <StatusBadge status={b.status} />
+                    {b.status === "confirmed" && !b.driver_name && b.travel_date >= todayIst() ? <Badge tone="warning">no driver</Badge> : null}
+                  </span>
+                ),
+              },
               { header: "Travel", cell: (b) => <TripWhen booking={b} /> },
               {
                 header: "Traveller",

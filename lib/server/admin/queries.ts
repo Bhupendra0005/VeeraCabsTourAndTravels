@@ -48,7 +48,7 @@ export async function getDashboard() {
     return count ?? 0;
   };
 
-  const [total, confirmed, pending, cancelled, completed, todaysNew, upcoming, recent, paidMonth, exposure] = await Promise.all([
+  const [total, confirmed, pending, cancelled, completed, todaysNew, upcoming, recent, paidMonth, exposure, needDriver] = await Promise.all([
     countBy(),
     countBy("confirmed"),
     countBy("pending_payment"),
@@ -66,15 +66,26 @@ export async function getDashboard() {
       .limit(10),
     db().from("bookings").select(BOOKING_COLUMNS).order("created_at", { ascending: false }).limit(8),
     db().from("payments").select("amount").eq("status", "paid").gte("paid_at", monthAgo).limit(5000),
+    // money still to collect: confirmed AND completed trips, whatever their date (a finished trip that was never settled still counts)
     db()
       .from("bookings")
       .select("total, payments(amount, status)")
+      .in("status", ["confirmed", "completed"])
+      .limit(5000),
+    // confirmed trips in the next 7 days that nobody has been assigned to yet
+    db()
+      .from("bookings")
+      .select(BOOKING_COLUMNS)
       .eq("status", "confirmed")
+      .eq("driver_name", "")
       .gte("travel_date", today)
-      .limit(2000),
+      .lte("travel_date", weekEnd)
+      .order("travel_date")
+      .order("travel_time")
+      .limit(30),
   ]);
 
-  for (const result of [todaysNew, upcoming, recent, paidMonth, exposure]) {
+  for (const result of [todaysNew, upcoming, recent, paidMonth, exposure, needDriver]) {
     if (result.error) throw result.error;
   }
 
@@ -95,12 +106,13 @@ export async function getDashboard() {
     recent: (recent.data ?? []) as unknown as BookingRow[],
     revenue30,
     balanceDue,
+    needDriver: (needDriver.data ?? []) as unknown as BookingRow[],
   };
 }
 
 /* ------------------------------- bookings ------------------------------- */
 
-export type BookingFilters = { q?: string; status?: string; from?: string; to?: string; page: number };
+export type BookingFilters = { q?: string; status?: string; from?: string; to?: string; driver?: string; page: number };
 
 const STATUSES = ["pending_payment", "confirmed", "cancelled", "completed", "payment_failed"];
 
@@ -114,6 +126,8 @@ export async function listBookings(filters: BookingFilters) {
     );
   }
   if (filters.status && STATUSES.includes(filters.status)) query = query.eq("status", filters.status);
+  // "driver=none": confirmed trips from today on that still have no driver
+  if (filters.driver === "none") query = query.eq("status", "confirmed").eq("driver_name", "").gte("travel_date", todayIst());
   if (filters.from && /^\d{4}-\d{2}-\d{2}$/.test(filters.from)) query = query.gte("travel_date", filters.from);
   if (filters.to && /^\d{4}-\d{2}-\d{2}$/.test(filters.to)) query = query.lte("travel_date", filters.to);
 
@@ -143,14 +157,14 @@ export async function getBookingWithPayments(id: string) {
 export async function listPayments(filters: { status?: string; kind?: string; page: number }) {
   let query = db()
     .from("payments")
-    .select(`${PAYMENT_COLUMNS}, bookings(ref, traveller_name)`, { count: "exact" });
+    .select(`${PAYMENT_COLUMNS}, bookings(ref, traveller_name, traveller_phone, from_city, to_city, travel_date)`, { count: "exact" });
   if (filters.status && ["created", "paid", "failed", "refunded"].includes(filters.status)) query = query.eq("status", filters.status);
   if (filters.kind && ["advance", "full", "balance"].includes(filters.kind)) query = query.eq("kind", filters.kind);
   const start = (filters.page - 1) * PAGE_SIZE;
   const { data, count, error } = await query.order("created_at", { ascending: false }).range(start, start + PAGE_SIZE - 1);
   if (error) throw error;
   return {
-    rows: (data ?? []) as unknown as (PaymentRow & { bookings: { ref: string; traveller_name: string } | null })[],
+    rows: (data ?? []) as unknown as (PaymentRow & { bookings: { ref: string; traveller_name: string; traveller_phone: string; from_city: string; to_city: string; travel_date: string } | null })[],
     total: count ?? 0,
   };
 }
@@ -174,10 +188,10 @@ export async function getPaymentTotals() {
 
 /* ------------------------------- customers ------------------------------- */
 
-export type CustomerSummary = { id: string; email: string; created_at: string; bookings: number; spent: number };
+export type CustomerSummary = { id: string; email: string; created_at: string; bookings: number; spent: number; blocked: boolean };
 
 export async function listCustomers(filters: { q?: string; page: number }) {
-  let query = db().from("customers").select("id, email, created_at", { count: "exact" });
+  let query = db().from("customers").select("id, email, created_at, blocked", { count: "exact" });
   const q = cleanSearch(filters.q);
   if (q) query = query.ilike("email", `%${q}%`);
   const start = (filters.page - 1) * PAGE_SIZE;
@@ -205,6 +219,7 @@ export async function listCustomers(filters: { q?: string; page: number }) {
     created_at: c.created_at as string,
     bookings: stats.get(c.id as string)?.bookings ?? 0,
     spent: stats.get(c.id as string)?.spent ?? 0,
+    blocked: !!c.blocked,
   }));
   return { rows, total: count ?? 0 };
 }
@@ -228,7 +243,7 @@ export async function getCustomerTotals() {
 }
 
 export async function getCustomerWithBookings(id: string) {
-  const { data: customer, error } = await db().from("customers").select("id, email, created_at").eq("id", id).maybeSingle();
+  const { data: customer, error } = await db().from("customers").select("id, email, created_at, admin_note, blocked, blocked_reason, blocked_at").eq("id", id).maybeSingle();
   if (error) throw error;
   if (!customer) return null;
   const { data: bookings, error: bError } = await db()
@@ -242,14 +257,82 @@ export async function getCustomerWithBookings(id: string) {
 
   // what this customer has actually paid (refunded money is not counted)
   let spent = 0;
+  let payments: PaymentRow[] = [];
   if (rows.length) {
-    const { data: paid, error: pError } = await db()
+    const { data: paymentRows, error: pError } = await db()
       .from("payments")
-      .select("amount")
+      .select(PAYMENT_COLUMNS)
       .in("booking_id", rows.map((b) => b.id))
-      .eq("status", "paid");
+      .order("created_at", { ascending: false });
     if (pError) throw pError;
-    spent = (paid ?? []).reduce((sum, p) => sum + (p.amount as number), 0);
+    payments = (paymentRows ?? []) as unknown as PaymentRow[];
+    spent = payments.filter((p) => p.status === "paid").reduce((sum, p) => sum + p.amount, 0);
   }
-  return { customer, bookings: rows, spent };
+  return { customer, bookings: rows, spent, payments };
+}
+
+/* -------------------------------- drivers -------------------------------- */
+
+export type DriverRow = { id: string; name: string; phone: string; cab_number: string; cab_model: string; note: string; active: boolean; created_at: string };
+export type DriverSummary = DriverRow & { upcoming: number; completed: number; business: number };
+
+const DRIVER_COLUMNS = "id, name, phone, cab_number, cab_model, note, active, created_at";
+
+/** Active drivers for the "choose a driver" dropdown. */
+export async function listActiveDrivers(): Promise<DriverRow[]> {
+  const { data, error } = await db().from("drivers").select(DRIVER_COLUMNS).eq("active", true).order("name");
+  if (error) throw error;
+  return (data ?? []) as DriverRow[];
+}
+
+/** Every driver with how many trips are coming up, how many are done, and the fare value of those trips (confirmed + completed). */
+export async function listDrivers(): Promise<DriverSummary[]> {
+  const [drivers, trips] = await Promise.all([
+    db().from("drivers").select(DRIVER_COLUMNS).order("active", { ascending: false }).order("name"),
+    db().from("bookings").select("driver_id, status, total, travel_date").not("driver_id", "is", null).in("status", ["confirmed", "completed"]).limit(20000),
+  ]);
+  if (drivers.error) throw drivers.error;
+  if (trips.error) throw trips.error;
+  const today = todayIst();
+  const stats = new Map<string, { upcoming: number; completed: number; business: number }>();
+  for (const t of trips.data ?? []) {
+    const entry = stats.get(t.driver_id as string) ?? { upcoming: 0, completed: 0, business: 0 };
+    if (t.status === "completed") entry.completed += 1;
+    else if ((t.travel_date as string) >= today) entry.upcoming += 1;
+    else entry.completed += 1; // a confirmed trip whose day has passed counts as done
+    entry.business += t.total as number;
+    stats.set(t.driver_id as string, entry);
+  }
+  return ((drivers.data ?? []) as DriverRow[]).map((d) => ({ ...d, ...(stats.get(d.id) ?? { upcoming: 0, completed: 0, business: 0 }) }));
+}
+
+export async function getDriverWithTrips(id: string) {
+  const { data: driver, error } = await db().from("drivers").select(DRIVER_COLUMNS).eq("id", id).maybeSingle();
+  if (error) throw error;
+  if (!driver) return null;
+  const { data: trips, error: tError } = await db().from("bookings").select(BOOKING_COLUMNS).eq("driver_id", id).order("travel_date", { ascending: false }).limit(200);
+  if (tError) throw tError;
+  return { driver: driver as DriverRow, trips: (trips ?? []) as unknown as BookingRow[] };
+}
+
+/* ------------------------------- coupon use ------------------------------ */
+
+export type CouponStat = { uses: number; discount: number; lastUsed: string | null; customers: number };
+
+/** How often each coupon code was used by bookings that still stand (confirmed, completed, or an unpaid one from the last 20 minutes). */
+export async function getCouponStats(): Promise<Record<string, CouponStat>> {
+  const { data, error } = await db().from("bookings").select("coupon_code, customer_id, discount, status, created_at").neq("coupon_code", "").in("status", ["confirmed", "completed", "pending_payment"]).limit(20000);
+  if (error) throw error;
+  const out: Record<string, CouponStat & { ids: Set<string> }> = {};
+  const now = Date.now();
+  for (const row of data ?? []) {
+    if (row.status === "pending_payment" && now - new Date(row.created_at as string).getTime() > 20 * 60_000) continue;
+    const code = row.coupon_code as string;
+    const entry = (out[code] ??= { uses: 0, discount: 0, lastUsed: null, customers: 0, ids: new Set() });
+    entry.uses += 1;
+    entry.discount += row.discount as number;
+    entry.ids.add(row.customer_id as string);
+    if (!entry.lastUsed || (row.created_at as string) > entry.lastUsed) entry.lastUsed = row.created_at as string;
+  }
+  return Object.fromEntries(Object.entries(out).map(([code, v]) => [code, { uses: v.uses, discount: v.discount, lastUsed: v.lastUsed, customers: v.ids.size }]));
 }

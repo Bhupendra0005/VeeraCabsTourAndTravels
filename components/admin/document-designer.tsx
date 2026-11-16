@@ -1,9 +1,8 @@
-"use client";
+﻿"use client";
 
 import {
   Check,
   CheckCircle2,
-  Eye,
   ExternalLink,
   FileText,
   Layers,
@@ -12,7 +11,6 @@ import {
   MessageCircle,
   Palette,
   Phone,
-  QrCode,
   RotateCcw,
   RotateCw,
   Ticket,
@@ -33,15 +31,29 @@ import { resetDocAction, saveDocAction } from "@/lib/server/admin/actions/conten
 import { cn } from "@/lib/utils/cn";
 
 type Kind = "invoice" | "ticket";
-type TabId = "look" | "invoice" | "ticket" | "terms" | "footer";
+type TabId = "look" | "invoice" | "ticket";
 
-const TABS: { id: TabId; label: string; icon: LucideIcon; title: string; text: string; preview?: Kind }[] = [
-  { id: "look", label: "Design & Branding", icon: Palette, title: "Look & Branding", text: "Colours and logo used on both the invoice and the ticket." },
-  { id: "invoice", label: "Invoice Settings", icon: FileText, title: "Invoice Settings", text: "Title, sub-title, badge and payments list on the invoice.", preview: "invoice" },
-  { id: "ticket", label: "E-ticket Settings", icon: Ticket, title: "E-ticket Settings", text: "Title, sub-title, QR code and the notes box on the ticket.", preview: "ticket" },
-  { id: "terms", label: "Terms & Messages", icon: MessageCircle, title: "Terms & Messages", text: "Terms on the invoice and the \"Good to know\" points on the ticket." },
-  { id: "footer", label: "Footer", icon: Layers, title: "Footer", text: "Thank-you line, support details and small print on both documents." },
+/** Three tabs, by what they change: both documents, the invoice only, the e-ticket only. */
+const TABS: { id: TabId; label: string; icon: LucideIcon; title: string; text: string; applies: string; preview?: Kind }[] = [
+  { id: "look", label: "Both documents", icon: Palette, title: "Look, header and footer", text: "Colours, logo, the header details and the footer. Whatever you set here appears on the invoice and on the e-ticket.", applies: "Invoice and e-ticket" },
+  { id: "invoice", label: "Invoice only", icon: FileText, title: "Invoice", text: "The title, badge, payments list and terms that appear only on the invoice.", applies: "Invoice only", preview: "invoice" },
+  { id: "ticket", label: "E-ticket only", icon: Ticket, title: "E-ticket", text: "The title and the \"Good to know\" points that appear only on the e-ticket.", applies: "E-ticket only", preview: "ticket" },
 ];
+
+/** A small heading that splits a long tab into clear parts. */
+function SubHeading({ icon: Icon, title, text }: { icon: LucideIcon; title: string; text?: string }) {
+  return (
+    <div className="flex items-start gap-3 border-t border-white/10 pt-6 first:border-t-0 first:pt-0">
+      <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-white/5 text-brand-bright ring-1 ring-white/10 [&>svg]:size-4">
+        <Icon aria-hidden="true" />
+      </span>
+      <div>
+        <h3 className="font-(family-name:--font-display) text-base font-bold">{title}</h3>
+        {text ? <div className="text-[13px] text-muted">{text}</div> : null}
+      </div>
+    </div>
+  );
+}
 
 const themeOptions = THEME_OPTIONS.map((o) => ({ value: o.value, label: o.label, swatch: o.hex || "conic-gradient(#e8660c,#12945a,#1473e0,#7242d6,#e8660c)" }));
 
@@ -56,7 +68,7 @@ function Label({ htmlFor, children, hint }: { htmlFor?: string; children: ReactN
       <label htmlFor={htmlFor} className="text-[13px] font-semibold">
         {children}
       </label>
-      {hint ? <p className="mt-0.5 text-xs text-muted">{hint}</p> : null}
+      {hint ? <div className="mt-0.5 text-xs text-muted">{hint}</div> : null}
     </div>
   );
 }
@@ -198,7 +210,7 @@ export function DocumentDesigner({ initial, customised }: { initial: DocumentLay
   return (
     <div className="grid gap-6 pb-28">
       {/* Section tabs */}
-      <div role="tablist" aria-label="Design sections" className="-mx-1 flex gap-3 overflow-x-auto px-1 pb-1 [scrollbar-width:none] lg:grid lg:grid-cols-5">
+      <div role="tablist" aria-label="Design sections" className="-mx-1 flex gap-3 overflow-x-auto px-1 pb-1 [scrollbar-width:none] lg:grid lg:grid-cols-3">
         {TABS.map(({ id, label, icon: Icon }) => {
           const on = id === tab;
           return (
@@ -230,13 +242,17 @@ export function DocumentDesigner({ initial, customised }: { initial: DocumentLay
                 <active.icon className="size-6" aria-hidden="true" />
               </span>
               <div className="min-w-0">
-                <h2 className="font-(family-name:--font-display) text-xl font-bold">{active.title}</h2>
-                <p className="text-sm text-muted">{active.text}</p>
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                  <h2 className="font-(family-name:--font-display) text-xl font-bold">{active.title}</h2>
+                  <span className="rounded-full bg-brand/15 px-2.5 py-0.5 text-xs font-bold text-brand-bright ring-1 ring-brand-bright/25">Appears on: {active.applies}</span>
+                </div>
+                <div className="text-sm text-muted">{active.text}</div>
               </div>
             </div>
 
             {tab === "look" ? (
               <div className="grid gap-6">
+                <SubHeading icon={Palette} title="Colours and logo" text="The accent colour and the logo at the top of the page." />
                 <div className="grid gap-5 sm:grid-cols-2">
                   <div>
                     <Label htmlFor="dd-theme">Colour theme</Label>
@@ -274,7 +290,7 @@ export function DocumentDesigner({ initial, customised }: { initial: DocumentLay
                       />
                       <Pipette className="size-4 shrink-0 text-white/45" aria-hidden="true" />
                     </div>
-                    {!customOk ? <p className="mt-1.5 text-xs text-red-300">Use the format #RRGGBB, for example #1473e0.</p> : null}
+                    {!customOk ? <div className="mt-1.5 text-xs text-red-300">Use the format #RRGGBB, for example #1473e0.</div> : null}
                   </div>
                 </div>
 
@@ -283,51 +299,48 @@ export function DocumentDesigner({ initial, customised }: { initial: DocumentLay
                   hint="Leave empty to use the built-in logo. A PNG with a transparent background looks best."
                   value={look.logoImage}
                   fit="contain"
+                  fallback="/logoNavbar.png"
                   onChange={(url) => patch("look", "logoImage", url)}
                 />
 
-                <div className="grid divide-y divide-white/8 border-t border-white/10 pt-2">
+                <SubHeading icon={MapPin} title="Header details" text="What is printed next to the logo at the top." />
+                <div className="grid divide-y divide-white/8">
                   <CheckRow checked={look.showVehiclePhoto} onChange={(v) => patch("look", "showVehiclePhoto", v)} icon={Car} title="Show the booked vehicle's photo in the header" />
                   <CheckRow checked={look.showContact} onChange={(v) => patch("look", "showContact", v)} icon={MapPin} title="Show address, phone and email in the header" />
                   <CheckRow checked={look.showGstin} onChange={(v) => patch("look", "showGstin", v)} icon={FileText} title="Print the GSTIN under the logo" hint="Set the GSTIN under Website > Contact & business." />
+                </div>
+
+                <SubHeading icon={Layers} title="Footer" text="The thank-you line and support details at the bottom of the page." />
+                <div className="grid gap-5 sm:grid-cols-2">
+                  <TextInput id="dd-f-thanks" label="Thank-you line" value={draft.footer.thanks} max={40} hint="Your business name is added on the next line." onChange={(v) => patch("footer", "thanks", v)} />
+                  <TextInput id="dd-f-support" label="Support label" value={draft.footer.supportLabel} max={30} onChange={(v) => patch("footer", "supportLabel", v)} />
+                </div>
+                <TextInput id="dd-f-note" label="Small print" value={draft.footer.note} max={120} onChange={(v) => patch("footer", "note", v)} />
+                <div className="grid">
+                  <CheckRow checked={draft.footer.showSupport} onChange={(v) => patch("footer", "showSupport", v)} icon={Phone} title="Show the support phone numbers" />
                 </div>
               </div>
             ) : null}
 
             {tab === "invoice" ? (
-              <div className="grid gap-5">
+              <div className="grid gap-6">
+                <SubHeading icon={FileText} title="Title and badge" />
                 <div className="grid gap-5 sm:grid-cols-2">
                   <TextInput id="dd-i-title" label="Title" value={draft.invoice.title} max={24} placeholder="TAX INVOICE" onChange={(v) => patch("invoice", "title", v)} />
                   <TextInput id="dd-i-sub" label="Sub-title" value={draft.invoice.subtitle} max={60} onChange={(v) => patch("invoice", "subtitle", v)} />
                 </div>
-                <div className="grid divide-y divide-white/8 border-t border-white/10 pt-2">
+                <div className="grid divide-y divide-white/8">
                   <CheckRow checked={draft.invoice.showStatus} onChange={(v) => patch("invoice", "showStatus", v)} icon={CheckCircle2} title="Show the Paid / Unpaid badge" />
                   <CheckRow checked={draft.invoice.showPayments} onChange={(v) => patch("invoice", "showPayments", v)} icon={CreditCard} title="List the payments received" />
                 </div>
-              </div>
-            ) : null}
 
-            {tab === "ticket" ? (
-              <div className="grid gap-5">
-                <div className="grid gap-5 sm:grid-cols-2">
-                  <TextInput id="dd-t-title" label="Title" value={draft.ticket.title} max={24} placeholder="E-TICKET" onChange={(v) => patch("ticket", "title", v)} />
-                  <TextInput id="dd-t-sub" label="Sub-title (confirmed bookings)" value={draft.ticket.subtitle} max={60} onChange={(v) => patch("ticket", "subtitle", v)} />
-                </div>
-                <div className="grid divide-y divide-white/8 border-t border-white/10 pt-2">
-                  <CheckRow checked={draft.ticket.showQr} onChange={(v) => patch("ticket", "showQr", v)} icon={QrCode} title="Show the QR code" />
-                  <CheckRow checked={draft.ticket.showNotes} onChange={(v) => patch("ticket", "showNotes", v)} icon={Info} title={'Show the "Good to know" box'} />
-                </div>
-              </div>
-            ) : null}
-
-            {tab === "terms" ? (
-              <div className="grid gap-6">
+                <SubHeading icon={MessageCircle} title="Terms or bank details" text="An optional note printed at the bottom of the invoice." />
                 <div>
                   <Label
                     htmlFor="dd-terms"
-                    hint="Optional. Payment terms, bank account for transfers or a GST note. Keep it short: about 2 lines fit when payments are listed, more if you hide the payments list."
+                    hint="Payment terms, bank account for transfers or a GST note. Keep it short: about 2 lines fit when payments are listed, more if you hide the payments list."
                   >
-                    Invoice: terms or bank details
+                    Text on the invoice
                   </Label>
                   <textarea
                     id="dd-terms"
@@ -338,8 +351,23 @@ export function DocumentDesigner({ initial, customised }: { initial: DocumentLay
                     className={cn(inputCls, "h-auto resize-y py-3 leading-relaxed")}
                   />
                 </div>
+              </div>
+            ) : null}
+
+            {tab === "ticket" ? (
+              <div className="grid gap-6">
+                <SubHeading icon={Ticket} title="Title" />
+                <div className="grid gap-5 sm:grid-cols-2">
+                  <TextInput id="dd-t-title" label="Title" value={draft.ticket.title} max={24} placeholder="E-TICKET" onChange={(v) => patch("ticket", "title", v)} />
+                  <TextInput id="dd-t-sub" label="Sub-title (confirmed bookings)" value={draft.ticket.subtitle} max={60} onChange={(v) => patch("ticket", "subtitle", v)} />
+                </div>
+
+                <SubHeading icon={Info} title={'"Good to know" box'} text="Short reminders for the traveller, shown on the e-ticket." />
+                <div className="grid">
+                  <CheckRow checked={draft.ticket.showNotes} onChange={(v) => patch("ticket", "showNotes", v)} icon={Info} title={'Show the "Good to know" box'} />
+                </div>
                 <StringsEditor
-                  label={'Ticket: "Good to know" points'}
+                  label="Points in the box"
                   hint="Up to 4 short points. Use {freeCancel} and {balanceCutoff} to insert the times from Booking settings."
                   items={draft.ticket.notes}
                   max={150}
@@ -349,68 +377,49 @@ export function DocumentDesigner({ initial, customised }: { initial: DocumentLay
                 />
               </div>
             ) : null}
-
-            {tab === "footer" ? (
-              <div className="grid gap-5">
-                <div className="grid gap-5 sm:grid-cols-2">
-                  <TextInput id="dd-f-thanks" label="Thank-you line" value={draft.footer.thanks} max={40} hint="Your business name is added on the next line." onChange={(v) => patch("footer", "thanks", v)} />
-                  <TextInput id="dd-f-support" label="Support label" value={draft.footer.supportLabel} max={30} onChange={(v) => patch("footer", "supportLabel", v)} />
-                </div>
-                <TextInput id="dd-f-note" label="Small print" value={draft.footer.note} max={120} onChange={(v) => patch("footer", "note", v)} />
-                <div className="grid border-t border-white/10 pt-2">
-                  <CheckRow checked={draft.footer.showSupport} onChange={(v) => patch("footer", "showSupport", v)} icon={Phone} title="Show the support phone numbers" />
-                </div>
-              </div>
-            ) : null}
           </section>
 
-          {/* Quick preview controls */}
-          <section className="flex flex-wrap items-center gap-4 rounded-2xl border border-white/10 bg-linear-to-b from-[#0b1620] to-panel p-4 sm:p-5">
-            <span className="grid size-12 shrink-0 place-items-center rounded-2xl bg-white/5 text-brand-bright ring-1 ring-white/10">
-              <Eye className="size-6" aria-hidden="true" />
-            </span>
-            <div className="min-w-0 flex-1 basis-48">
-              <h2 className="font-(family-name:--font-display) text-lg font-bold">Quick Preview Controls</h2>
-              <p className="text-[13px] text-muted">Preview how your invoice and e-ticket will look.</p>
-            </div>
-            <div role="tablist" aria-label="Document" className="inline-grid grid-cols-2 gap-1 rounded-xl border border-white/10 bg-black/25 p-1">
-              {([["invoice", "Invoice", FileText], ["ticket", "E-ticket", Ticket]] as const).map(([id, label, Icon]) => (
-                <button
-                  key={id}
-                  type="button"
-                  role="tab"
-                  aria-selected={kind === id}
-                  onClick={() => setKind(id)}
-                  className={cn(
-                    "inline-flex h-10 items-center justify-center gap-2 rounded-lg px-4 text-sm font-bold transition [&>svg]:size-4",
-                    kind === id ? "border border-brand-bright/40 bg-brand/20 text-white" : "text-white/70 hover:text-white",
-                  )}
-                >
-                  <Icon aria-hidden="true" /> {label}
-                </button>
-              ))}
-            </div>
-            {src ? (
-              <a href={src} target="_blank" rel="noopener noreferrer" className="inline-flex h-10 items-center gap-2 rounded-xl border border-white/15 bg-white/5 px-4 text-sm font-semibold transition hover:bg-white/10">
-                <ExternalLink className="size-4" aria-hidden="true" /> Open full size
-              </a>
-            ) : null}
-          </section>
         </div>
 
         {/* Live preview */}
         <aside aria-label="Live preview" className="rounded-2xl border border-brand-bright/25 bg-linear-to-b from-[#0b1620] to-panel p-4 shadow-[0_0_44px_-20px_rgba(0,150,219,0.5)] sm:p-5 xl:sticky xl:top-6">
-          <div className="mb-4 flex items-center justify-between gap-3">
-            <h2 className="flex items-center gap-2.5 font-(family-name:--font-display) text-lg font-bold">
-              <span className="size-2.5 rounded-full bg-emerald-400 shadow-[0_0_10px_rgba(52,211,153,0.9)]" aria-hidden="true" />
-              Live Preview <span className="text-white/50">-</span> {kind === "invoice" ? "Invoice" : "E-ticket"}
-            </h2>
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-400/10 px-3 py-1 text-xs font-bold text-emerald-300 ring-1 ring-emerald-400/25">
-              <FileText className="size-3.5" aria-hidden="true" /> PDF Preview
-            </span>
+          <div className="mb-4 grid gap-3">
+            <div className="flex items-center justify-between gap-3">
+              <h2 className="flex items-center gap-2.5 font-(family-name:--font-display) text-lg font-bold">
+                <span className="size-2.5 rounded-full bg-emerald-400 shadow-[0_0_10px_rgba(52,211,153,0.9)]" aria-hidden="true" />
+                Live Preview
+              </h2>
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-400/10 px-3 py-1 text-xs font-bold text-emerald-300 ring-1 ring-emerald-400/25">
+                <FileText className="size-3.5" aria-hidden="true" /> PDF Preview
+              </span>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <div role="tablist" aria-label="Document" className="inline-grid flex-1 grid-cols-2 gap-1 rounded-xl border border-white/10 bg-black/25 p-1 sm:max-w-xs">
+                {([["invoice", "Invoice", FileText], ["ticket", "E-ticket", Ticket]] as const).map(([id, label, Icon]) => (
+                  <button
+                    key={id}
+                    type="button"
+                    role="tab"
+                    aria-selected={kind === id}
+                    onClick={() => setKind(id)}
+                    className={cn(
+                      "inline-flex h-10 items-center justify-center gap-2 rounded-lg px-4 text-sm font-bold transition [&>svg]:size-4",
+                      kind === id ? "border border-brand-bright/40 bg-brand/20 text-white" : "text-white/70 hover:text-white",
+                    )}
+                  >
+                    <Icon aria-hidden="true" /> {label}
+                  </button>
+                ))}
+              </div>
+              {src ? (
+                <a href={src} target="_blank" rel="noopener noreferrer" className="inline-flex h-12 items-center gap-2 rounded-xl border border-white/15 bg-white/5 px-4 text-sm font-semibold transition hover:bg-white/10">
+                  <ExternalLink className="size-4" aria-hidden="true" /> Open full size
+                </a>
+              ) : null}
+            </div>
           </div>
 
-          <div className="relative aspect-[595/842] w-full overflow-hidden rounded-xl border border-white/10 bg-white">
+          <div className="relative aspect-595/842 w-full overflow-hidden rounded-xl border border-white/10 bg-white">
             {src ? (
               <iframe title={`${kind === "invoice" ? "Invoice" : "E-ticket"} preview`} src={`${src}#toolbar=0&navpanes=0&scrollbar=0&view=Fit`} className="absolute inset-0 size-full border-0" />
             ) : null}
@@ -424,23 +433,23 @@ export function DocumentDesigner({ initial, customised }: { initial: DocumentLay
           </div>
 
           {error ? (
-            <p role="alert" className="mt-3 flex items-start gap-2 rounded-xl border border-red-400/25 bg-red-400/10 px-3.5 py-2.5 text-sm text-red-200">
+            <div role="alert" className="mt-5 flex items-start gap-2 rounded-xl border border-red-400/25 bg-red-400/10 px-3.5 py-2.5 text-sm text-red-200">
               <TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden="true" /> <span className="wrap-anywhere">{error}</span>
-            </p>
+            </div>
           ) : (
-            <p className="mt-3 text-xs text-muted">Sample booking details, with your changes shown before you save. Real invoices and tickets use this design once saved.</p>
+            <div className="mt-5 px-1 pb-1 text-xs leading-relaxed text-muted">Sample booking details, with your changes shown before you save. Real invoices and tickets use this design once saved.</div>
           )}
         </aside>
       </div>
 
       {/* Action bar */}
-      <div className="fixed inset-x-0 bottom-0 z-20 border-t border-white/10 bg-[#0a0d0e]/95 px-4 py-3 backdrop-blur-xl lg:left-[264px]">
-        <div className="mx-auto flex w-full max-w-7xl flex-wrap items-center gap-3 sm:px-2">
+      <div className="fixed inset-x-0 bottom-0 z-20 border-t border-white/10 bg-[#0a0d0e]/95 px-4 py-3 backdrop-blur-xl lg:left-66">
+        <div className="mx-auto flex w-full max-w-7xl flex-wrap items-center gap-2 sm:gap-3 sm:px-2">
           <button
             type="button"
             onClick={save}
             disabled={pending || !dirty}
-            className="inline-flex h-12 items-center gap-2 rounded-xl bg-linear-to-r from-brand to-brand-bright px-7 text-sm font-bold text-white shadow-[0_10px_28px_-10px_rgba(0,150,219,0.85)] transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50 disabled:shadow-none"
+            className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-linear-to-r from-brand to-brand-bright px-7 text-sm font-bold text-white shadow-[0_10px_28px_-10px_rgba(0,150,219,0.85)] transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50 disabled:shadow-none max-sm:h-11 max-sm:flex-1 max-sm:px-3"
           >
             {pending ? <Loader2 className="size-4 animate-spin" aria-hidden="true" /> : <Check className="size-4" aria-hidden="true" />}
             {pending ? "Saving..." : "Save Changes"}
@@ -449,13 +458,20 @@ export function DocumentDesigner({ initial, customised }: { initial: DocumentLay
             type="button"
             onClick={discard}
             disabled={pending || !dirty}
-            className="inline-flex h-12 items-center gap-2 rounded-xl border border-white/15 bg-white/5 px-6 text-sm font-semibold transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50"
+            className="inline-flex h-12 items-center justify-center gap-2 rounded-xl border border-white/15 bg-white/5 px-6 text-sm font-semibold transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50 max-sm:h-11 max-sm:flex-1 max-sm:px-3"
           >
             <RotateCw className="size-4" aria-hidden="true" /> Discard
           </button>
           {customised && !confirmReset ? (
-            <button type="button" onClick={() => setConfirmReset(true)} disabled={pending} className="inline-flex h-12 items-center gap-2 rounded-xl px-4 text-sm font-semibold text-muted transition hover:bg-white/5 hover:text-white">
-              <RotateCcw className="size-4" aria-hidden="true" /> Restore original
+            <button
+              type="button"
+              onClick={() => setConfirmReset(true)}
+              disabled={pending}
+              aria-label="Restore original"
+              title="Restore original"
+              className="inline-flex h-12 items-center gap-2 rounded-xl px-4 text-sm font-semibold text-muted transition hover:bg-white/5 hover:text-white max-sm:h-11 max-sm:px-3"
+            >
+              <RotateCcw className="size-4" aria-hidden="true" /> <span className="max-sm:sr-only">Restore original</span>
             </button>
           ) : null}
           {confirmReset ? (
@@ -470,7 +486,7 @@ export function DocumentDesigner({ initial, customised }: { initial: DocumentLay
             </span>
           ) : null}
 
-          <p className="ml-auto flex items-center gap-2 text-sm" aria-live="polite">
+          <p className="ml-auto flex items-center gap-2 text-sm max-sm:order-last max-sm:m-0 max-sm:basis-full max-sm:text-xs" aria-live="polite">
             {result?.error ? (
               <span className="flex items-start gap-2 text-red-300">
                 <TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden="true" /> <span className="wrap-anywhere">{result.error}</span>

@@ -1,4 +1,4 @@
-import { TRIP_TYPES, type BookingTripType } from "@/lib/booking/config";
+import { TRIP_TYPES, isAirport, isOutstation, type BookingTripType } from "@/lib/booking/config";
 
 /** The trip the visitor searched for. Lives in the URL so results and review pages are shareable. */
 export type SearchParams = {
@@ -9,6 +9,15 @@ export type SearchParams = {
   time: string; // HH:MM
   returnDate: string;
   passengers: number;
+  /** Pieces of luggage; used to pick the right cab and to suggest a roof carrier. */
+  bags: number;
+  /** Airport transfers: the airport, and the customer's own address in the city. */
+  airport: string;
+  address: string;
+  /** Hourly rentals: the package name ("4 hrs / 40 km"); the city is `from`. */
+  pkg: string;
+  /** Outstation: extra stops on the way. */
+  stops: string[];
 };
 
 type Raw = Record<string, string | string[] | undefined>;
@@ -22,6 +31,7 @@ export function parseSearch(raw: Raw): SearchParams {
   const returnDate = first(raw.returnDate);
   const time = first(raw.time);
   const passengers = Number.parseInt(first(raw.passengers), 10);
+  const bags = Number.parseInt(first(raw.bags), 10);
   return {
     tripType: TRIP_TYPES.includes(tripType) ? tripType : "one_way",
     from: first(raw.from).slice(0, 60),
@@ -29,19 +39,35 @@ export function parseSearch(raw: Raw): SearchParams {
     date: /^\d{4}-\d{2}-\d{2}$/.test(date) ? date : "",
     time: /^([01]\d|2[0-3]):[0-5]\d$/.test(time) ? time : "",
     returnDate: /^\d{4}-\d{2}-\d{2}$/.test(returnDate) ? returnDate : "",
-    passengers: Number.isInteger(passengers) && passengers >= 1 && passengers <= 17 ? passengers : 2,
+    passengers: Number.isInteger(passengers) && passengers >= 1 && passengers <= 17 ? passengers : 1,
+    bags: Number.isInteger(bags) && bags >= 0 && bags <= 20 ? bags : 0,
+    airport: first(raw.airport).slice(0, 60),
+    address: first(raw.address).slice(0, 120),
+    pkg: first(raw.pkg).slice(0, 30),
+    stops: first(raw.stops)
+      .split(",")
+      .map((stop) => stop.trim().slice(0, 60))
+      .filter(Boolean)
+      .slice(0, 3),
   };
 }
 
 export function isSearchComplete(s: SearchParams): boolean {
-  return !!(s.from && s.to && s.date && s.time && (s.tripType === "one_way" || s.returnDate));
+  if (!s.date || !s.time) return false;
+  if (isOutstation(s.tripType)) return !!(s.from && s.to && (s.tripType === "one_way" || s.returnDate));
+  if (isAirport(s.tripType)) return !!(s.airport && s.address);
+  return !!(s.from && s.pkg); // hourly rental
 }
 
 /** Builds a query string from the search plus any extra keys (routeId, vehicle). Empty values are dropped. */
 export function searchToQuery(s: Partial<SearchParams> & { routeId?: string; vehicle?: string }): string {
   const q = new URLSearchParams();
   for (const [key, value] of Object.entries(s)) {
-    if (value !== undefined && value !== "") q.set(key, String(value));
+    if (Array.isArray(value)) {
+      if (value.length) q.set(key, value.join(","));
+    } else if (value !== undefined && value !== "") {
+      q.set(key, String(value));
+    }
   }
   return q.toString();
 }

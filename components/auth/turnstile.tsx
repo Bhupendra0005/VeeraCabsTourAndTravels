@@ -9,9 +9,10 @@ type TurnstileApi = {
     options: {
       sitekey: string;
       theme: "dark";
+      appearance: "always";
       callback: (token: string) => void;
- "expired-callback": () => void;
- "error-callback": () => void;
+      "expired-callback": () => void;
+      "error-callback": () => void;
     },
   ) => string;
   remove: (id: string) => void;
@@ -41,9 +42,11 @@ export function Turnstile({ onToken }: { onToken: (token: string) => void }) {
       widgetId = window.turnstile.render(el, {
         sitekey: SITE_KEY,
         theme: "dark",
+        // always show the widget, so visitors can see the check is running (it used to stay hidden until interaction was needed)
+        appearance: "always",
         callback: onToken,
- "expired-callback": () => onToken(""),
- "error-callback": () => onToken(""),
+        "expired-callback": () => onToken(""),
+        "error-callback": () => onToken(""),
       });
     };
 

@@ -14,6 +14,10 @@ const securityHeaders = [
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,
+  // the Rate Card page was retired: fares are shown on the Book Online page
+  async redirects() {
+    return [{ source: "/rate-card", destination: "/book", permanent: true }];
+  },
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];
   },

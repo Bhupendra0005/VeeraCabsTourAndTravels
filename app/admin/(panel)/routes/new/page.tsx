@@ -21,7 +21,7 @@ export default async function NewRoutePage() {
       </div>
       <RouteForm
         route={{ id: null, fromCity: "", toCity: "", distanceKm: "", durationHours: "", active: true }}
-        fares={fleet.map((v) => ({ vehicle: v.title, hidden: !v.active, oneWay: "", roundTrip: "" }))}
+        fares={fleet.map((v) => ({ vehicle: v.title, photo: v.photo, hidden: !v.active, oneWay: "", roundTrip: "" }))}
       />
     </div>
   );

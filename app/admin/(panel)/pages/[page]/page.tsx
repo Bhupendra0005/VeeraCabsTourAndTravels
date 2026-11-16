@@ -71,6 +71,7 @@ export default async function EditPagePage({
   const asked = (await searchParams).tab;
   const tabId = Array.isArray(asked) ? asked[0] : asked;
   const section = page.sections.find((s) => s.id === tabId) ?? page.sections[0];
+  const sectionNumber = page.sections.indexOf(section) + 1;
 
   const definition = getDocDefinition(section.doc);
   if (!definition) notFound();
@@ -123,17 +124,22 @@ export default async function EditPagePage({
         </nav>
       ) : null}
 
-      <div className="flex items-center gap-4 rounded-2xl border border-brand-bright/25 bg-linear-to-b from-[#0c1a24] to-panel p-4 sm:p-5">
-        <span className="grid size-12 shrink-0 place-items-center rounded-2xl bg-linear-to-br from-brand/25 to-brand/5 text-brand-bright ring-1 ring-brand-bright/25">
+      <div className="relative flex items-center gap-4 overflow-hidden rounded-2xl border border-brand-bright/25 bg-linear-to-br from-[#0c1a24] via-panel to-panel p-4 sm:p-5">
+        <div aria-hidden="true" className="pointer-events-none absolute -right-12 -top-12 size-40 rounded-full bg-brand opacity-[0.12] blur-3xl" />
+        <span className="relative grid size-12 shrink-0 place-items-center rounded-2xl bg-linear-to-br from-brand/25 to-brand/5 text-brand-bright ring-1 ring-brand-bright/25">
           <SectionIcon className="size-6" aria-hidden="true" />
         </span>
-        <div className="min-w-0 flex-1">
-          <h2 className="font-(family-name:--font-display) text-lg font-bold">{section.label}</h2>
-          <p className="text-sm text-muted">{section.text}</p>
+        <div className="relative min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+            <h2 className="font-(family-name:--font-display) text-lg font-bold">{section.label}</h2>
+            {page.sections.length > 1 ? (
+              <span className="rounded-full bg-white/10 px-2.5 py-0.5 text-xs font-bold text-white/70">
+                {sectionNumber} of {page.sections.length}
+              </span>
+            ) : null}
+          </div>
+          <div className="text-sm text-muted">{section.text}</div>
         </div>
-        <Link href={view} target="_blank" className="hidden items-center gap-1.5 text-sm font-semibold text-brand-bright hover:underline sm:inline-flex">
-          <ExternalLink className="size-4" aria-hidden="true" /> See it live
-        </Link>
       </div>
 
       <DocumentEditor

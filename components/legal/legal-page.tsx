@@ -41,7 +41,11 @@ function iconsFor(title: string): [LucideIcon, LucideIcon] {
   if (t.includes("pickup") || t.includes("waiting") || t.includes("trip")) return [Car, MapPin];
   if (t.includes("protection") || t.includes("insurance")) return [Umbrella, ShieldCheck];
   if (t.includes("liab") || t.includes("responsib") || t.includes("safety")) return [ShieldAlert, Scale];
-  if (t.includes("privacy") || t.includes("data")) return [Fingerprint, Lock];
+  if (t.includes("privacy") || t.includes("data") || t.includes("information") || t.includes("who we are")) return [Fingerprint, Lock];
+  if (t.includes("cookie") || t.includes("security")) return [Lock, ShieldCheck];
+  if (t.includes("share")) return [ShieldCheck, Lock];
+  if (t.includes("contact") || t.includes("complaint")) return [Headset, Phone];
+  if (t.includes("rights") || t.includes("choices")) return [Scale, ShieldCheck];
   if (t.includes("law") || t.includes("jurisdiction")) return [Scale, Gavel];
   return [FileText, CircleCheck];
 }

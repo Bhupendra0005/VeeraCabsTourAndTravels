@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { CheckCircle2, Clock3, CreditCard, Layers, RotateCcw, SlidersHorizontal, Tag, Wallet } from "lucide-react";
 import Link from "next/link";
 import { money } from "@/components/admin/booking-bits";
+import { DetailModal } from "@/components/admin/detail-modal";
 import {
   ClearFiltersLink,
   EmptyPanel,
@@ -12,7 +13,7 @@ import {
   StatTile,
 } from "@/components/admin/list-parts";
 import { SelectMenu } from "@/components/admin/pickers";
-import { Alert, Badge, DataTable, PageHeader, Pagination } from "@/components/admin/ui";
+import { Alert, Badge, ButtonLink, DataTable, PageHeader, Pagination } from "@/components/admin/ui";
 import { requireAdminPage } from "@/lib/server/admin/guard";
 import { PAGE_SIZE, getPaymentTotals, listPayments, pageParam } from "@/lib/server/admin/queries";
 
@@ -67,7 +68,7 @@ export default async function AdminPaymentsPage({ searchParams }: { searchParams
       <PageHeader icon={<CreditCard />} title="Payments" description="Every payment attempt made through Razorpay, with refunds." />
 
       {totals ? (
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
           <StatTile tone="blue" icon={<Wallet />} label="Total payments" value={money(totals.sum.all)} hint={plural(totals.count.all, "payment")} />
           <StatTile tone="green" icon={<CheckCircle2 />} label="Successful" value={money(totals.sum.paid)} hint={plural(totals.count.paid, "payment")} />
           <StatTile tone="amber" icon={<Clock3 />} label="Pending" value={money(totals.sum.created)} hint={`${plural(totals.count.created, "payment")} not paid`} />
@@ -128,6 +129,41 @@ export default async function AdminPaymentsPage({ searchParams }: { searchParams
               },
               { header: "Razorpay", cell: (p) => <span className="font-mono text-xs">{p.razorpay_payment_id ?? p.razorpay_order_id}</span> },
               { header: "When", cell: (p) => stamp(p.paid_at ?? p.created_at) },
+              {
+                header: "",
+                align: "right",
+                cell: (p) => (
+                  <DetailModal
+                    title={`${money(p.amount)} · ${p.kind}`}
+                    subtitle={p.bookings ? `Booking ${p.bookings.ref}` : "No booking attached"}
+                    badge={
+                      <Badge tone={p.status === "paid" ? "success" : p.status === "refunded" ? "info" : p.status === "failed" ? "danger" : "warning"}>
+                        {p.status === "created" ? "not paid" : p.status}
+                      </Badge>
+                    }
+                    rows={[
+                      ["Amount", money(p.amount)],
+                      ["Type", <span key="k" className="capitalize">{p.kind === "full" ? "Full payment" : p.kind}</span>],
+                      ["Status", p.status === "created" ? "Started, not paid" : p.status],
+                      ["Customer", p.bookings?.traveller_name ?? ""],
+                      ["Phone", p.bookings?.traveller_phone ? `+91 ${p.bookings.traveller_phone}` : ""],
+                      ["Trip", p.bookings ? `${p.bookings.from_city} to ${p.bookings.to_city}` : ""],
+                      ["Travel date", p.bookings?.travel_date ?? ""],
+                      ["Started", stamp(p.created_at)],
+                      ["Paid at", stamp(p.paid_at)],
+                      ["Razorpay order id", <span key="o" className="font-mono text-xs">{p.razorpay_order_id}</span>],
+                      ["Razorpay payment id", <span key="r" className="font-mono text-xs">{p.razorpay_payment_id ?? "-"}</span>],
+                      ["Refund id", <span key="f" className="font-mono text-xs">{p.refund_id ?? "-"}</span>],
+                    ]}
+                  >
+                    {p.booking_id ? (
+                      <ButtonLink variant="secondary" size="sm" href={`/admin/bookings/${p.booking_id}`}>
+                        Open booking
+                      </ButtonLink>
+                    ) : null}
+                  </DetailModal>
+                ),
+              },
             ]}
           />
           <Pagination page={filters.page} pageSize={PAGE_SIZE} total={result.total} hrefFor={hrefFor} />

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { ArrowUp, ArrowUpRight, Mail, MapPin, Phone } from "lucide-react";
 import { openBooking } from "@/components/site/booking";
 import { BookButton } from "@/components/site/book-button";
@@ -34,8 +35,12 @@ function InstagramIcon() {
 
 export function FloatingActions() {
   const { site, whatsappLink } = useSite();
+  const pathname = usePathname() || "/";
+  // on phones these pages either pin a bar to the bottom (cab search/review) or already have their own
+  // help card (booking tickets): the floating buttons would sit on top of prices, so they are hidden there
+  const aboveBottomBar = pathname === "/book" || pathname.startsWith("/book/") || pathname.startsWith("/bookings/");
   return (
-    <div className="floating-actions">
+    <div className={aboveBottomBar ? "floating-actions floating-actions-lifted" : "floating-actions"}>
       <a
         className="float-btn float-whatsapp"
         href={whatsappLink()}
@@ -180,6 +185,7 @@ export function SiteFooter() {
           <Link href="/payment-options">Payment Options</Link>
           <Link href="/terms">Terms &amp; Conditions</Link>
           <Link href="/cancellation-policy">Cancellation Policy</Link>
+          <Link href="/privacy-policy">Privacy Policy</Link>
           <Link href="/#faqs">FAQs</Link>
         </nav>
 
@@ -204,7 +210,7 @@ export function SiteFooter() {
           <button
             type="button"
             className="footer-route-link"
-            onClick={() => openBooking({ notes: "Footer route enquiry" })}
+            onClick={() => openBooking({ enquiry: true, notes: "Route enquiry from the footer" })}
           >
             Ask about another route
             <ArrowUpRight aria-hidden="true" />

@@ -45,8 +45,12 @@ export async function generateMetadata({
   const destination = await getDestinationBySlug(slug);
   if (!destination) return {};
   return {
-    title: `Pune to ${destination.name} Taxi & Tour Package`,
-    description: `${destination.tagline} Book a chauffeur-driven cab from Pune to ${destination.name} (${destination.distance}, ${destination.duration}) with Veera Tours & Travels.`,
+    title: `Pune to ${destination.name} Taxi`,
+    // search results show about 160 characters, so the booking line is dropped when the tagline already fills most of it
+    description: (() => {
+      const full = `${destination.tagline} Book a chauffeur-driven cab from Pune to ${destination.name} (${destination.distance}, ${destination.duration}).`;
+      return full.length <= 160 ? full : `${destination.tagline} Cab from Pune to ${destination.name}, ${destination.distance}, ${destination.duration}.`.slice(0, 160);
+    })(),
     alternates: { canonical: `/destinations/${destination.slug}` },
   };
 }

@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+﻿import type { Metadata } from "next";
 import { ArrowUpDown, CheckCircle2, Clock, Layers, ListFilter, MapPin, Milestone, Pencil, Plus, Route, Search } from "lucide-react";
 import Link from "next/link";
 import {
@@ -14,7 +14,7 @@ import {
 } from "@/components/admin/list-parts";
 import { SelectMenu } from "@/components/admin/pickers";
 import { vehicleIcon } from "@/components/admin/vehicle-icon";
-import { Alert, ButtonLink, PageHeader } from "@/components/admin/ui";
+import { Alert, ButtonLink, DataTable, PageHeader } from "@/components/admin/ui";
 import { formatINR } from "@/lib/booking/config";
 import { requireAdminPage } from "@/lib/server/admin/guard";
 import { db } from "@/lib/server/core/db";
@@ -53,7 +53,7 @@ const hrs = (n: number) => `${Number.isInteger(n) ? n : n.toFixed(1)} hrs`;
 
 function FareChips({ route }: { route: RouteRow }) {
   if (route.route_fares.length === 0) {
-    return <span className="rounded-lg bg-amber-400/10 px-2.5 py-1.5 text-xs font-semibold text-amber-300 ring-1 ring-amber-400/20">No fares set</span>;
+    return <span className="inline-block rounded-lg bg-amber-400/10 px-2.5 py-1.5 text-xs font-semibold text-amber-300 ring-1 ring-amber-400/20">No fares set</span>;
   }
   return (
     <ul className="flex flex-wrap gap-2">
@@ -73,6 +73,20 @@ function FareChips({ route }: { route: RouteRow }) {
           </li>
         ))}
     </ul>
+  );
+}
+
+function StatusPill({ active }: { active: boolean }) {
+  return (
+    <span
+      className={cn(
+        "inline-flex w-fit items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold ring-1",
+        active ? "bg-emerald-400/10 text-emerald-300 ring-emerald-400/25" : "bg-white/6 text-white/60 ring-white/10",
+      )}
+    >
+      <span className={cn("size-1.5 rounded-full", active ? "bg-emerald-400" : "bg-white/40")} aria-hidden="true" />
+      {active ? "Bookable" : "Off"}
+    </span>
   );
 }
 
@@ -108,7 +122,7 @@ export default async function AdminRoutesPage({ searchParams }: { searchParams: 
   const avgHours = all.length ? all.reduce((sum, r) => sum + Number(r.duration_hours), 0) / all.length : 0;
 
   return (
-    <div className="grid gap-6">
+    <div className="grid grid-cols-[minmax(0,1fr)] gap-6">
       <PageHeader
         icon={<Route />}
         title="Routes & fares"
@@ -123,7 +137,7 @@ export default async function AdminRoutesPage({ searchParams }: { searchParams: 
       {error ? <Alert tone="danger">Could not load routes. Please refresh.</Alert> : null}
 
       {all.length > 0 ? (
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
           <StatTile tone="blue" icon={<MapPin />} label="Total routes" value={all.length} />
           <StatTile tone="green" icon={<CheckCircle2 />} label="Bookable routes" value={bookable} />
           <StatTile tone="violet" icon={<Milestone />} label="Total distance" value={`${totalKm.toLocaleString("en-IN")} km`} />
@@ -170,77 +184,96 @@ export default async function AdminRoutesPage({ searchParams }: { searchParams: 
           }
         />
       ) : (
-        <section className="overflow-hidden rounded-2xl border border-brand-bright/25 bg-linear-to-b from-[#0b1620] to-panel shadow-[0_0_44px_-22px_rgba(0,150,219,0.5)]">
-          <div className="hidden grid-cols-[44px_minmax(0,1.3fr)_150px_minmax(0,2.4fr)_112px_56px] items-center gap-4 border-b border-white/10 bg-white/4 px-5 py-3.5 text-xs font-semibold tracking-wide text-muted uppercase xl:grid">
-            <span>#</span>
-            <span>Route</span>
-            <span>Distance &amp; time</span>
-            <span>One-way fares (per vehicle)</span>
-            <span>Status</span>
-            <span className="text-right">Edit</span>
-          </div>
-
-          <ul className="divide-y divide-white/5">
-            {routes.map((r, index) => (
-              <li
-                key={r.id}
-                className="grid items-center gap-x-4 gap-y-3 px-4 py-4 transition hover:bg-white/3 sm:px-5 xl:grid-cols-[44px_minmax(0,1.3fr)_150px_minmax(0,2.4fr)_112px_56px]"
-              >
-                <span className="hidden size-10 place-items-center rounded-xl border border-white/10 bg-white/4 text-sm font-bold text-white/80 xl:grid">
-                  {String(index + 1).padStart(2, "0")}
-                </span>
-
-                <div className="flex min-w-0 items-center gap-3">
-                  <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-linear-to-br from-brand/25 to-brand/5 text-brand-bright ring-1 ring-brand-bright/20">
+        <DataTable
+          rows={routes}
+          rowKey={(r) => r.id}
+          columns={[
+            {
+              header: "Route",
+              primary: true,
+              cell: (r) => (
+                <span className="flex min-w-0 items-center gap-3">
+                  <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-linear-to-br from-brand/25 to-brand/5 text-brand-bright ring-1 ring-brand-bright/20">
                     <Route className="size-5" aria-hidden="true" />
                   </span>
-                  <div className="min-w-0">
+                  <span className="min-w-0">
                     <Link href={`/admin/routes/${r.id}`} className="font-semibold wrap-anywhere hover:text-brand-bright hover:underline">
                       {r.from_city} to {r.to_city}
                     </Link>
-                    <p className="mt-0.5 flex items-center gap-1 text-xs text-muted">
-                      <MapPin className="size-3 shrink-0" aria-hidden="true" />
-                      <span className="wrap-anywhere">
-                        {r.from_city} → {r.to_city}
-                      </span>
-                    </p>
-                  </div>
-                </div>
-
-                <div className="grid gap-1 text-sm text-white/85">
+                    <span className="block text-xs font-normal text-muted">{r.route_fares.length ? `From ${formatINR(minFare(r))}` : "No fares set"}</span>
+                  </span>
+                </span>
+              ),
+            },
+            {
+              header: "Distance & time",
+              cell: (r) => (
+                <span className="grid gap-1 whitespace-nowrap text-sm text-white/85">
                   <span className="flex items-center gap-2">
                     <Milestone className="size-4 text-white/45" aria-hidden="true" /> {Number(r.distance_km).toLocaleString("en-IN")} km
                   </span>
                   <span className="flex items-center gap-2">
                     <Clock className="size-4 text-white/45" aria-hidden="true" /> ~{hrs(Number(r.duration_hours))}
                   </span>
-                </div>
-
-                <FareChips route={r} />
-
-                <span
-                  className={cn(
-                    "inline-flex w-fit items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold ring-1",
-                    r.active ? "bg-emerald-400/10 text-emerald-300 ring-emerald-400/25" : "bg-white/6 text-white/60 ring-white/10",
-                  )}
-                >
-                  <span className={cn("size-1.5 rounded-full", r.active ? "bg-emerald-400" : "bg-white/40")} aria-hidden="true" />
-                  {r.active ? "Bookable" : "Off"}
                 </span>
-
-                <div className="xl:text-right">
-                  <Link
-                    href={`/admin/routes/${r.id}`}
-                    aria-label={`Edit ${r.from_city} to ${r.to_city}`}
-                    className="inline-grid size-9 place-items-center rounded-lg border border-white/10 bg-white/4 text-white/70 transition hover:border-brand-bright/40 hover:text-white"
-                  >
-                    <Pencil className="size-4" aria-hidden="true" />
+              ),
+            },
+            { header: "One-way fares", cell: (r) => <FareChips route={r} /> },
+            { header: "Status", cell: (r) => <StatusPill active={r.active} /> },
+            {
+              header: "",
+              align: "right",
+              cell: (r) => (
+                <ButtonLink href={`/admin/routes/${r.id}`} variant="secondary" size="sm" aria-label={`Edit ${r.from_city} to ${r.to_city}`}>
+                  <Pencil aria-hidden="true" /> Edit
+                </ButtonLink>
+              ),
+            },
+          ]}
+          card={(r) => (
+            <div className={cn("flex h-full flex-col rounded-2xl border bg-panel p-4 sm:p-5", r.active ? "border-line" : "border-dashed border-white/15 opacity-85")}>
+              <div className="flex items-start gap-3">
+                <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-linear-to-br from-brand/25 to-brand/5 text-brand-bright ring-1 ring-brand-bright/20">
+                  <Route className="size-5" aria-hidden="true" />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <Link href={`/admin/routes/${r.id}`} className="font-(family-name:--font-display) text-lg leading-snug font-bold wrap-anywhere hover:text-brand-bright">
+                    {r.from_city} to {r.to_city}
                   </Link>
+                  <div className="mt-1">
+                    <StatusPill active={r.active} />
+                  </div>
                 </div>
-              </li>
-            ))}
-          </ul>
-        </section>
+              </div>
+
+              <div className="mt-4 grid grid-cols-2 gap-2">
+                <div className="min-w-0 rounded-xl border border-line bg-white/3 px-3 py-2.5">
+                  <div className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted">
+                    <Milestone className="size-3.5" aria-hidden="true" /> Distance
+                  </div>
+                  <div className="mt-1 font-(family-name:--font-display) text-lg font-bold">{Number(r.distance_km).toLocaleString("en-IN")} km</div>
+                </div>
+                <div className="min-w-0 rounded-xl border border-line bg-white/3 px-3 py-2.5">
+                  <div className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted">
+                    <Clock className="size-3.5" aria-hidden="true" /> Drive time
+                  </div>
+                  <div className="mt-1 font-(family-name:--font-display) text-lg font-bold">~{hrs(Number(r.duration_hours))}</div>
+                </div>
+              </div>
+
+              <div className="mt-4 flex-1">
+                <div className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-muted">One-way fares</div>
+                <FareChips route={r} />
+              </div>
+
+              <div className="mt-4 border-t border-line pt-4">
+                <ButtonLink href={`/admin/routes/${r.id}`} variant="secondary" size="sm" className="min-h-10 w-full sm:w-auto">
+                  <Pencil aria-hidden="true" /> Edit route
+                </ButtonLink>
+              </div>
+            </div>
+          )}
+        />
       )}
     </div>
   );

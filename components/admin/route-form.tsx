@@ -1,6 +1,6 @@
 "use client";
 
-import { CarFront, Clock, IndianRupee, MapPin, Milestone, Navigation, Repeat2, Route, Trash2, TriangleAlert } from "lucide-react";
+import { CarFront, Clock, EyeOff, IndianRupee, MapPin, Milestone, Navigation, Repeat2, Route, Trash2, TriangleAlert } from "lucide-react";
 import { useActionState, useState, useTransition, type ChangeEvent, type ReactNode } from "react";
 import { FormMessage, SubmitButton } from "@/components/admin/form-parts";
 import { filterIcon } from "@/components/admin/list-parts";
@@ -19,10 +19,10 @@ export type RouteFormData = {
   active: boolean;
 };
 
-export type FareRow = { vehicle: string; hidden: boolean; oneWay: string; roundTrip: string };
+export type FareRow = { vehicle: string; photo?: string; hidden: boolean; oneWay: string; roundTrip: string };
 
 const input =
-  "h-12 w-full rounded-xl border border-white/10 bg-black/30 pl-10 pr-3 text-sm text-(--text) outline-none transition placeholder:text-white/35 hover:border-white/20 focus:border-brand focus:ring-4 focus:ring-brand/15 [color-scheme:dark]";
+  "h-12 w-full rounded-xl border border-white/10 bg-black/30 pl-10 pr-3 text-sm text-(--text) outline-none transition placeholder:text-white/35 hover:border-white/20 focus:border-brand focus:ring-4 focus:ring-brand/15 [color-scheme:dark] [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none";
 
 function Panel({ icon, title, description, children }: { icon: ReactNode; title: string; description?: string; children: ReactNode }) {
   return (
@@ -70,7 +70,7 @@ function TextField({
 }
 
 /** A checkbox styled as a switch. Still a plain checkbox, so the form submits it as before. */
-function Switch({ name, defaultChecked, title, text, icon }: { name: string; defaultChecked?: boolean; title: string; text: string; icon: ReactNode }) {
+function Switch({ name, checked, onChange, title, text, icon }: { name: string; checked: boolean; onChange: (value: boolean) => void; title: string; text: string; icon: ReactNode }) {
   return (
     <label className="flex cursor-pointer items-center gap-4 rounded-xl border border-white/10 bg-white/3 p-4 transition hover:border-white/20 has-checked:border-brand-bright/40 has-checked:bg-brand/8">
       <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-white/6 text-white/60 [&>svg]:size-5">{icon}</span>
@@ -78,7 +78,7 @@ function Switch({ name, defaultChecked, title, text, icon }: { name: string; def
         <b className="block text-sm">{title}</b>
         <span className="block text-[13px] text-muted">{text}</span>
       </span>
-      <input type="checkbox" name={name} defaultChecked={defaultChecked} className="peer sr-only" />
+      <input type="checkbox" name={name} checked={checked} onChange={(event) => onChange(event.target.checked)} className="peer sr-only" />
       <span
         aria-hidden="true"
         className="relative h-7 w-12 shrink-0 rounded-full bg-white/15 transition-colors after:absolute after:left-1 after:top-1 after:size-5 after:rounded-full after:bg-white after:shadow after:transition-transform peer-checked:bg-brand peer-checked:after:translate-x-5 peer-focus-visible:ring-4 peer-focus-visible:ring-brand/30"
@@ -88,7 +88,7 @@ function Switch({ name, defaultChecked, title, text, icon }: { name: string; def
 }
 
 /** Shown while adding a route: mirrors what is typed so the result is visible before saving. */
-function LivePreview({ from, to, km, hours }: { from: string; to: string; km: string; hours: string }) {
+function LivePreview({ from, to, km, hours, priced, total, start }: { from: string; to: string; km: string; hours: string; priced: number; total: number; start: number | null }) {
   const empty = !from.trim() && !to.trim();
   return (
     <section className="relative overflow-hidden rounded-2xl border border-brand-bright/25 bg-linear-to-br from-[#0a2a3d] via-[#0b1a24] to-panel p-5 sm:p-6" aria-label="Route preview">
@@ -116,6 +116,12 @@ function LivePreview({ from, to, km, hours }: { from: string; to: string; km: st
         <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-black/25 px-3.5 py-1.5">
           <Clock className="size-4 text-brand-bright" aria-hidden="true" /> {hours ? `~${hours} hrs` : "- hrs"}
         </span>
+        <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-black/25 px-3.5 py-1.5">
+          <CarFront className="size-4 text-brand-bright" aria-hidden="true" /> {priced} of {total} vehicles priced
+        </span>
+        <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-black/25 px-3.5 py-1.5">
+          <IndianRupee className="size-4 text-brand-bright" aria-hidden="true" /> {start === null ? "Starting fare not set" : `From ₹${start.toLocaleString("en-IN")}`}
+        </span>
         {empty ? <span className="self-center text-xs text-muted">Fill in the cities below to see them here.</span> : null}
       </div>
     </section>
@@ -126,37 +132,46 @@ export function RouteForm({ route, fares }: { route: RouteFormData; fares: FareR
   const [state, action] = useActionState(saveRouteAction.bind(null, route.id), idle);
   const [live, setLive] = useState({ from: route.fromCity, to: route.toCity, km: String(route.distanceKm), hours: String(route.durationHours) });
   const track = (key: keyof typeof live) => (event: ChangeEvent<HTMLInputElement>) => setLive((current) => ({ ...current, [key]: event.target.value }));
+  const [flags, setFlags] = useState({ active: route.active, reverse: false });
+  const [fareValues, setFareValues] = useState(() => fares.map((fare) => ({ oneWay: String(fare.oneWay ?? ""), roundTrip: String(fare.roundTrip ?? "") })));
+  const setFare = (index: number, key: "oneWay" | "roundTrip", value: string) => setFareValues((current) => current.map((row, i) => (i === index ? { ...row, [key]: value } : row)));
+  const [bulk, setBulk] = useState("");
+  const offered = fareValues.map((row) => Number(row.oneWay)).filter((n) => n > 0);
+  const startFare = offered.length ? Math.min(...offered) : null;
 
   return (
     <form action={action} className="grid gap-6">
-      {route.id === null ? <LivePreview {...live} /> : null}
+      {route.id === null ? <LivePreview {...live} priced={offered.length} total={fares.length} start={startFare} /> : null}
 
       <Panel icon={<Route />} title="Route" description="The two cities and how far apart they are.">
         <div className="grid gap-5 sm:grid-cols-2">
           <TextField label="From city" htmlFor="r-from" icon={<Navigation />}>
-            <input id="r-from" name="fromCity" defaultValue={route.fromCity} onChange={track("from")} required minLength={2} maxLength={60} className={input} placeholder="Pune" />
+            <input id="r-from" name="fromCity" value={live.from} onChange={track("from")} required minLength={2} maxLength={60} className={input} placeholder="Pune" />
           </TextField>
           <TextField label="To city" htmlFor="r-to" icon={<MapPin />}>
-            <input id="r-to" name="toCity" defaultValue={route.toCity} onChange={track("to")} required minLength={2} maxLength={60} className={input} placeholder="Mumbai" />
+            <input id="r-to" name="toCity" value={live.to} onChange={track("to")} required minLength={2} maxLength={60} className={input} placeholder="Mumbai" />
           </TextField>
           <TextField label="Distance" htmlFor="r-km" icon={<Milestone />} suffix="km">
-            <input id="r-km" name="distanceKm" type="number" min={1} max={5000} step={1} defaultValue={route.distanceKm} onChange={track("km")} required className={cn(input, "pr-12")} />
+            <input id="r-km" name="distanceKm" type="number" min={1} max={5000} step={1} value={live.km} onChange={track("km")} required className={cn(input, "pr-12")} />
           </TextField>
           <TextField label="Drive time" htmlFor="r-hours" icon={<Clock />} suffix="hours">
-            <input id="r-hours" name="durationHours" type="number" min={0.1} max={99} step={0.1} defaultValue={route.durationHours} onChange={track("hours")} required className={cn(input, "pr-16")} />
+            <input id="r-hours" name="durationHours" type="number" min={0.1} max={99} step={0.1} value={live.hours} onChange={track("hours")} required className={cn(input, "pr-16")} />
           </TextField>
         </div>
 
         <div className="mt-5 grid gap-3 lg:grid-cols-2">
           <Switch
             name="active"
-            defaultChecked={route.active}
+            checked={flags.active}
+            onChange={(value) => setFlags((current) => ({ ...current, active: value }))}
             icon={<Route />}
             title="Bookable online"
             text="Switch off to hide this route from the booking page without deleting it."
           />
           <Switch
             name="alsoReverse"
+            checked={flags.reverse}
+            onChange={(value) => setFlags((current) => ({ ...current, reverse: value }))}
             icon={<Repeat2 />}
             title="Also save the return direction"
             text="Creates or updates the opposite route (To to From) with the same fares."
@@ -169,6 +184,30 @@ export function RouteForm({ route, fares }: { route: RouteFormData; fares: FareR
           <Alert tone="warning">Add vehicles under Website &gt; Fleet first.</Alert>
         ) : (
           <div className="grid gap-3">
+            {fares.length > 1 ? (
+              <div className="flex flex-wrap items-end gap-3 rounded-2xl border border-dashed border-brand-bright/30 bg-brand/5 p-4">
+                <div className="grid min-w-44 flex-1 content-start gap-2">
+                  <label htmlFor="bulk-fare" className="text-[13px] font-semibold">
+                    Quick fill: same one-way fare for every vehicle
+                  </label>
+                  <div className="group relative">
+                    <span className={cn(filterIcon, "[&>svg]:size-4")}>
+                      <IndianRupee />
+                    </span>
+                    <input id="bulk-fare" type="number" min={1} max={1000000} step="any" value={bulk} onChange={(event) => setBulk(event.target.value)} className={input} placeholder="e.g. 2500" />
+                  </div>
+                </div>
+                <Button
+                  variant="secondary"
+                  className="h-12 rounded-xl"
+                  disabled={!(Number(bulk) > 0)}
+                  onClick={() => setFareValues((current) => current.map((row) => ({ ...row, oneWay: bulk })))}
+                >
+                  Apply to all
+                </Button>
+                <p className="basis-full text-xs text-muted">You can still change any vehicle below. Round trip stays empty (2 x one way) unless you type one.</p>
+              </div>
+            ) : null}
             {fares.map((fare, index) => (
               <div
                 key={fare.vehicle}
@@ -176,23 +215,35 @@ export function RouteForm({ route, fares }: { route: RouteFormData; fares: FareR
               >
                 <input type="hidden" name={`vehicle_${index}`} value={fare.vehicle} />
                 <div className="flex items-center gap-3 sm:pt-6">
-                  <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-linear-to-br from-brand/25 to-brand/5 text-brand-bright ring-1 ring-brand-bright/20 [&>svg]:size-5">
-                    {vehicleIcon(fare.vehicle)}
-                  </span>
+                  {fare.photo ? (
+                    <span className="grid h-16 w-28 shrink-0 place-items-center overflow-hidden rounded-xl bg-white ring-1 ring-white/10">
+                      {/* eslint-disable-next-line @next/next/no-img-element -- small admin thumbnail, may be an ImageKit URL */}
+                      <img src={fare.photo} alt={fare.vehicle} loading="lazy" decoding="async" className="size-full object-contain p-0.5" />
+                    </span>
+                  ) : (
+                    <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-linear-to-br from-brand/25 to-brand/5 text-brand-bright ring-1 ring-brand-bright/20 [&>svg]:size-5">
+                      {vehicleIcon(fare.vehicle)}
+                    </span>
+                  )}
                   <div className="min-w-0">
-                    <p className="font-semibold wrap-anywhere">{fare.vehicle}</p>
+                    <div className="font-semibold wrap-anywhere">{fare.vehicle}</div>
                     {fare.hidden ? (
-                      <p className="mt-0.5 inline-flex items-center gap-1 text-xs text-amber-300">
+                      <div className="mt-0.5 inline-flex items-center gap-1 text-xs text-amber-300">
                         <TriangleAlert className="size-3" aria-hidden="true" /> Hidden on the website
-                      </p>
+                      </div>
+                    ) : null}
+                    {String(fareValues[index]?.oneWay ?? "").trim() === "" ? (
+                      <div className="mt-0.5 inline-flex items-center gap-1 text-xs text-muted">
+                        <EyeOff className="size-3" aria-hidden="true" /> Not shown on this route
+                      </div>
                     ) : null}
                   </div>
                 </div>
-                <TextField label="One way" htmlFor={`ow-${index}`} icon={<IndianRupee />}>
-                  <input id={`ow-${index}`} name={`oneWay_${index}`} type="number" min={1} max={1000000} step="any" defaultValue={fare.oneWay} className={input} placeholder="Not offered" />
+                <TextField label="One way" htmlFor={`ow-${index}`} icon={<IndianRupee />} hint="Leave empty to hide this vehicle on this route">
+                  <input id={`ow-${index}`} name={`oneWay_${index}`} type="number" min={1} max={1000000} step="any" value={fareValues[index]?.oneWay ?? ""} onChange={(event) => setFare(index, "oneWay", event.target.value)} className={input} placeholder="Not offered" />
                 </TextField>
                 <TextField label="Round trip" htmlFor={`rt-${index}`} icon={<IndianRupee />} hint="Empty means 2 x one way">
-                  <input id={`rt-${index}`} name={`roundTrip_${index}`} type="number" min={1} max={1000000} step="any" defaultValue={fare.roundTrip} className={input} placeholder="Auto" />
+                  <input id={`rt-${index}`} name={`roundTrip_${index}`} type="number" min={1} max={1000000} step="any" value={fareValues[index]?.roundTrip ?? ""} onChange={(event) => setFare(index, "roundTrip", event.target.value)} className={input} placeholder="Auto" />
                 </TextField>
               </div>
             ))}

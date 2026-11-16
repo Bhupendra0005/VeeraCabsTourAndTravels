@@ -12,9 +12,10 @@ type Props = {
   bookingId: string;
   payLabel: string | null;
   canCancel: boolean;
-  refundable: boolean;
+  /** 0-100: how much of what was paid goes back if cancelled right now. */
+  refundPercent: number;
   paidAmount: number;
-  /** e.g. "1 hour": how long before pickup free cancellation ends. */
+  /** e.g. "1 hour": how long before pickup the last refund step ends (nothing is returned after that). */
   cutoffLabel: string;
   canDownloadTicket: boolean;
   canDownloadInvoice: boolean;
@@ -93,11 +94,13 @@ export function BookingActions(props: Props) {
       {confirming ? (
         <div className={ui.confirm} role="alertdialog" aria-label="Confirm cancellation">
           <p>
-            {props.refundable
-              ? props.paidAmount > 0
-                ? `You will get a full refund of ${formatINR(props.paidAmount)} to your original payment method.`
-                : "Nothing has been charged, so no refund is needed."
-              : `Departure is less than ${props.cutoffLabel} away: a 100% penalty applies and no refund will be given.`}{" "}
+            {props.paidAmount <= 0
+              ? "Nothing has been charged, so no refund is needed."
+              : props.refundPercent >= 100
+                ? `Full refund of ${formatINR(props.paidAmount)}.`
+                : props.refundPercent > 0
+                  ? `${props.refundPercent}% refund: ${formatINR(Math.floor((props.paidAmount * props.refundPercent) / 100))} goes back to your original payment method. The rest, ${formatINR(props.paidAmount - Math.floor((props.paidAmount * props.refundPercent) / 100))}, is kept as a cancellation charge.`
+                  : `Departure is less than ${props.cutoffLabel} away: a 100% penalty applies and no refund will be given.`}<br />
             Cancel this booking?
           </p>
           <div className={ui.actionRow}>

@@ -80,11 +80,17 @@ async function drawInvoice(b: BookingRow, payments: PaymentRow[], ctx: PdfContex
   const leftX = X(42);
   const leftW = u(471);
   band(leftX, metaTop, leftW, metaH, "user", "BILLED TO");
-  const billed: [string, string, boolean][] = [
-    ["user", b.traveller_name, true],
-    ["mail", b.traveller_email, false],
-    ["phone", `+91 ${b.traveller_phone}`, false],
-  ];
+  const billed: [string, string, boolean][] = b.gstin
+    ? [
+        ["user", b.gst_company || b.traveller_name, true],
+        ["file-text", `GSTIN ${b.gstin}`, false],
+        ["phone", `${b.traveller_name} | +91 ${b.traveller_phone}`, false],
+      ]
+    : [
+        ["user", b.traveller_name, true],
+        ["mail", b.traveller_email, false],
+        ["phone", `+91 ${b.traveller_phone}`, false],
+      ];
   billed.forEach(([icon, value, bold], index) => {
     const centre = metaTop + u(96) + index * u(46);
     c.icon(icon, leftX + u(36), centre - u(13), u(26), C.navy, 1.9);
@@ -116,7 +122,10 @@ async function drawInvoice(b: BookingRow, payments: PaymentRow[], ctx: PdfContex
       detail: `${b.from_city} to ${b.to_city}  |  ${TRIP_TYPE_LABEL[b.trip_type]}  |  ${b.vehicle_type}  |  Travel date ${formatDate(b.travel_date)}`,
       amount: b.base_fare,
     },
+    ...(b.addons_total > 0 ? [{ icon: "layers", title: `Special requests${b.addons ? ` (${b.addons})` : ""}`, amount: b.addons_total }] : []),
+    ...(b.discount > 0 ? [{ icon: "layers", title: `Coupon discount${b.coupon_code ? ` (${b.coupon_code})` : ""}`, amount: -b.discount }] : []),
     { icon: "layers", title: `GST @ ${rules.gstPercent}%`, amount: b.gst },
+    ...(b.service_fee > 0 ? [{ icon: "layers", title: "Service fee", amount: b.service_fee }] : []),
     ...(b.insurance > 0 ? [{ icon: "shield-check", title: "Trip protection (optional)", amount: b.insurance }] : []),
   ];
   // owner's terms / bank details: wrapped now so the spacing above can tighten when they share the page with payments
@@ -167,7 +176,7 @@ async function drawInvoice(b: BookingRow, payments: PaymentRow[], ctx: PdfContex
   const note = cancelled
     ? b.refund_amount > 0
       ? `This booking was cancelled. ${money(b.refund_amount)} has been refunded to the original payment method.`
-      : `This booking was cancelled. No refund applies (free cancellation ends ${describeMinutes(rules.freeCancelMinutes)} before departure).`
+      : "This booking was cancelled. No refund applies (it was too close to departure for a refund)."
     : due > 0
       ? `The balance can be paid online until ${describeMinutes(rules.balanceCutoffHours * 60)} before departure, or to the driver at the end of the trip.`
       : "This booking is fully paid. Thank you for choosing us!";
