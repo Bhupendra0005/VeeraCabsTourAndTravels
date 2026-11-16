@@ -128,7 +128,8 @@ export default async function LoginPage({
             </ul>
           </div>
 
-          <div className="lg:order-2">
+          {/* phones and tablets: the form comes first, above the headline and benefits */}
+          <div className="order-first lg:order-2">
             <LoginForm key={mode} next={next} mode={mode} />
           </div>
         </div>
