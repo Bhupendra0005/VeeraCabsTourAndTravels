@@ -1,4 +1,5 @@
 import type { MetadataRoute } from "next";
+import { SITE_URL } from "@/lib/site-url";
 
 export default function robots(): MetadataRoute.Robots {
   return {
@@ -8,6 +9,7 @@ export default function robots(): MetadataRoute.Robots {
       // private areas: the admin panel, APIs and anything tied to a signed-in customer
       disallow: ["/admin", "/api/", "/bookings", "/book/review", "/login", "/profile"],
     },
-    sitemap: "https://veera-cabs.com/sitemap.xml",
+    sitemap: `${SITE_URL}/sitemap.xml`,
+    host: SITE_URL,
   };
 }

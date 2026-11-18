@@ -3,6 +3,7 @@ import { SiteProvider } from "@/components/site/site-context";
 import { ikUrl } from "@/lib/cms/images";
 import { getHome, getSeo, getFleet, getServices, getSite } from "@/lib/server/cms/content";
 import type { SiteData } from "@/lib/site";
+import { SITE_URL } from "@/lib/site-url";
 import "./globals.css";
 
 /** Google shows about 160 characters of a description: cut longer ones at a word instead of in the middle of one. */
@@ -17,7 +18,7 @@ export async function generateMetadata(): Promise<Metadata> {
   const description = clip(seo.description);
   const shareImage = seo.shareImage ? ikUrl(seo.shareImage, 1200) : "/logo.png";
   return {
-    metadataBase: new URL("https://veera-cabs.com"),
+    metadataBase: new URL(SITE_URL),
     title: { default: seo.title, template: `%s | ${site.name}` },
     description,
     applicationName: site.name,
@@ -35,7 +36,12 @@ export async function generateMetadata(): Promise<Metadata> {
       images: [{ url: shareImage, alt: site.name }],
     },
     twitter: { card: seo.shareImage ? "summary_large_image" : "summary", title: seo.title, description, images: [shareImage] },
-    robots: { index: true, follow: true },
+    robots: {
+      index: true,
+      follow: true,
+      googleBot: { index: true, follow: true, "max-image-preview": "large", "max-snippet": -1, "max-video-preview": -1 },
+    },
+    formatDetection: { telephone: true, email: false, address: false },
   };
 }
 
@@ -50,13 +56,15 @@ function buildJsonLd(site: SiteData) {
   return {
   "@context": "https://schema.org",
   "@type": "TaxiService",
+  "@id": `${SITE_URL}/#business`,
   name: site.name,
+  logo: `${SITE_URL}/logo.png`,
   description:
     "Taxi and cab service based in Hadapsar, Pune offering airport transfers, one-way cabs, outstation journeys and tour packages across Maharashtra and India.",
   telephone: site.primaryPhone.href.replace("tel:", ""),
   email: site.email,
-  url: "https://veera-cabs.com",
-  image: "https://veera-cabs.com/logo.png",
+  url: SITE_URL,
+  image: `${SITE_URL}/logo.png`,
   priceRange: "₹₹",
   address: {
     "@type": "PostalAddress",
@@ -135,6 +143,20 @@ export default async function RootLayout({
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              "@context": "https://schema.org",
+              "@type": "WebSite",
+              "@id": `${SITE_URL}/#website`,
+              url: SITE_URL,
+              name: site.name,
+              inLanguage: "en-IN",
+              publisher: { "@id": `${SITE_URL}/#business` },
+            }),
+          }}
         />
       </head>
       <body>
