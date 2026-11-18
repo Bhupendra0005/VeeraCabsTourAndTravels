@@ -14998,8 +14998,19 @@ a.service-link:hover {
   min-height: 0;
   margin-top: -36px;
   padding: 0 16px 8px;
+  overflow-x: hidden;
   overflow-y: auto;
   overscroll-behavior: contain;
+}
+
+/* grid children may shrink below their content, so a long email or name wraps instead of pushing the card sideways (that made the sideways scrollbar) */
+.bk-success-scroll > * {
+  min-width: 0;
+}
+
+.bk-success-scroll b,
+.bk-success-mail p {
+  overflow-wrap: anywhere;
 }
 
 .bk-success-actions {
