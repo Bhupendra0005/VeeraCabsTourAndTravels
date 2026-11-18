@@ -7,8 +7,10 @@ import { filterControl, filterIcon } from "@/components/admin/list-parts";
 import { SelectMenu } from "@/components/admin/pickers";
 import { Alert, Button } from "@/components/admin/ui";
 import { idle, type ActionState } from "@/lib/admin/action-state";
+import { ConfirmDelete } from "@/components/admin/confirm-delete";
 import {
   createAdminAction,
+  deleteAdminAction,
   resetAdminPasswordAction,
   setAdminActiveAction,
   setAdminRoleAction,
@@ -431,6 +433,7 @@ export function TeamRow({ member }: { member: TeamMember }) {
         <button type="button" onClick={() => setResetting((v) => !v)} className={ghostBtn}>
           <KeyRound aria-hidden="true" /> Reset password
         </button>
+        <ConfirmDelete id={member.id} action={deleteAdminAction} what="team member" summary={`${member.name || member.email} (${member.email})`} />
       </div>
 
       {resetting ? <ResetForm member={member} state={resetState} action={resetAction} /> : null}

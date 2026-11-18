@@ -72,7 +72,8 @@ export function TravellersField({ id, travellers, bags, onChange }: Props) {
     };
   }, [open]);
 
-  const summary = `${travellers} ${travellers === 1 ? "Traveller" : "Travellers"}, ${bags} ${bags === 1 ? "Bag" : "Bags"}`;
+  const people = `${travellers} ${travellers === 1 ? "Traveller" : "Travellers"}`;
+  const luggage = `${bags} ${bags === 1 ? "Bag" : "Bags"}`;
 
   return (
     <div className="sf" ref={rootRef}>
@@ -84,7 +85,14 @@ export function TravellersField({ id, travellers, bags, onChange }: Props) {
         aria-expanded={open}
         onClick={() => setOpen((current) => !current)}
       >
-        <span className="sf-value">{summary}</span>
+        {/* two lines when the column is narrow (desktop), one line on phones: it used to be cut to "2 Travellers, 0 B..." */}
+        <span className="sf-value tf-summary">
+          <span className="tf-people">{people}</span>
+          <span className="tf-bags">
+            <span className="tf-comma">, </span>
+            {luggage}
+          </span>
+        </span>
         <ChevronDown className="sf-chevron" aria-hidden="true" />
       </button>
       {open ? (

@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { CheckCheck, Clock, Inbox, MessageSquareText, Phone, PhoneCall, Tag } from "lucide-react";
 import Link from "next/link";
+import { ConfirmDelete } from "@/components/admin/confirm-delete";
+import { deleteEnquiryAction } from "@/lib/server/admin/actions/enquiries";
 import { DetailModal } from "@/components/admin/detail-modal";
 import { EnquiryStatusButton } from "@/components/admin/enquiry-status";
 import { StatTile } from "@/components/admin/list-parts";
@@ -76,6 +78,7 @@ export default async function AdminEnquiriesPage({ searchParams }: { searchParam
         <WhatsAppIcon aria-hidden="true" className="text-emerald-400" /> WhatsApp
       </ButtonLink>
       <EnquiryStatusButton id={r.id} status={r.status} canManage={canManage} />
+      {canManage ? <ConfirmDelete id={r.id} action={deleteEnquiryAction} what="enquiry" summary={`The enquiry from ${r.name}`} /> : null}
     </DetailModal>
   );
 
@@ -221,6 +224,7 @@ export default async function AdminEnquiriesPage({ searchParams }: { searchParam
                   </ButtonLink>
                   <EnquiryStatusButton id={r.id} status={r.status} canManage={canManage} />
                   {modal(r)}
+                  {canManage ? <ConfirmDelete id={r.id} action={deleteEnquiryAction} what="enquiry" summary={`The enquiry from ${r.name}`} /> : null}
                 </div>
               </div>
             );

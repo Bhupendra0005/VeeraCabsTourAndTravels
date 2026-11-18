@@ -1,5 +1,6 @@
 import "server-only";
 import { randomInt } from "node:crypto";
+import { after } from "next/server";
 import {
   buildQuote,
   cancellationOutcome,
@@ -72,9 +73,13 @@ type FareJoin = {
   routes: { id: string; from_city: string; to_city: string; distance_km: number; duration_hours: number } | null;
 };
 
-function toRouteFare(row: FareJoin, tripType: BookingTripType): RouteFare | null {
+function toRouteFare(row: FareJoin, tripType: BookingTripType, oneWayReturnPercent: number): RouteFare | null {
   if (!row.routes) return null;
-  const fare = tripType === "round_trip" ? (row.fare_round_trip ?? row.fare_one_way * 2) : row.fare_one_way;
+  // one-way: the driver also has to drive back, so a share of the fare (default 80%) is added; fares are in paise
+  const fare =
+    tripType === "round_trip"
+      ? (row.fare_round_trip ?? row.fare_one_way * 2)
+      : Math.round(row.fare_one_way * (1 + Math.max(0, oneWayReturnPercent) / 100));
   return {
     routeId: row.routes.id,
     fromCity: row.routes.from_city,
@@ -99,7 +104,8 @@ export async function lookupFare(routeId: string, vehicle: string, tripType: Boo
     .eq("routes.active", true)
     .maybeSingle();
   if (error) throw error;
-  return data ? toRouteFare(data as unknown as FareJoin, tripType) : null;
+  const { oneWayReturnPercent } = await getBookingSettings();
+  return data ? toRouteFare(data as unknown as FareJoin, tripType, oneWayReturnPercent) : null;
 }
 
 /** All vehicle fares for an outstation from/to pair. */
@@ -119,8 +125,9 @@ async function searchOutstationFares(from: string, to: string, tripType: Booking
     .select(FARE_SELECT)
     .eq("route_id", route.id);
   if (fareError) throw fareError;
+  const { oneWayReturnPercent } = await getBookingSettings();
   return (data as unknown as FareJoin[])
-    .map((row) => toRouteFare(row, tripType))
+    .map((row) => toRouteFare(row, tripType, oneWayReturnPercent))
     .filter((fare): fare is RouteFare => fare !== null);
 }
 
@@ -709,7 +716,16 @@ export async function confirmPayment(orderId: string, razorpayPaymentId: string,
       .select(BOOKING_COLUMNS);
     if (confirmError) throw confirmError;
     if (confirmed?.length) {
-      void sendConfirmation(confirmed[0] as unknown as BookingRow);
+      const confirmedBooking = confirmed[0] as unknown as BookingRow;
+      // `after` keeps the request alive until the ticket and invoice are generated and sent. A bare `void sendConfirmation()` is
+      // cut off as soon as the response goes out (the customer then never got the mail), and Razorpay's webhook answers fast.
+      after(async () => {
+        if (!(await sendConfirmation(confirmedBooking))) {
+          // one more try a few seconds later: a first failure is usually a short Brevo or network hiccup
+          await new Promise((resolve) => setTimeout(resolve, 4000));
+          await sendConfirmation(confirmedBooking);
+        }
+      });
     }
   }
 }

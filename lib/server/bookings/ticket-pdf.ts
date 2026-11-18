@@ -87,10 +87,11 @@ async function drawTicket(b: BookingRow, payments: PaymentRow[], ctx: PdfContext
     const first = u(368) - ((lines.length - 1) * step) / 2 + (lines.length > 1 ? u(8) : 0);
     lines.forEach((line, index) => c.text(line, x, first + index * step, { size, bold: true, color: C.white }));
   };
-  c.icon("map-pin", X(144), u(342), u(38), C.white, 2.2);
-  city(b.from_city, X(190), u(196));
-  c.icon("map-pin", X(692), u(342), u(38), C.white, 2.2);
-  city(b.to_city, X(738), u(256));
+  // the middle (x 372..628) belongs to the trip-type pill and arrow, so each city keeps to its own side of it
+  c.icon("map-pin", X(76), u(342), u(38), C.white, 2.2);
+  city(b.from_city, X(122), u(240));
+  c.icon("map-pin", X(650), u(342), u(38), C.white, 2.2);
+  city(b.to_city, X(696), u(300));
 
   // trip type pill + arrow
   const tripLabel = TRIP_TYPE_LABEL[b.trip_type].toUpperCase();

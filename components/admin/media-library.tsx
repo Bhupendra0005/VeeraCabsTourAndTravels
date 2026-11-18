@@ -153,10 +153,10 @@ export function MediaLibrary({ mode, onPick, initialFolder = "all" }: { mode: "m
   const shown = needle ? files.filter((file) => file.name.toLowerCase().includes(needle)) : files;
 
   return (
-    <div className="grid gap-5">
+    <div className="grid grid-cols-[minmax(0,1fr)] gap-5">
       {/* Folders as tabs */}
       <div className="flex flex-wrap items-center gap-x-4 gap-y-3">
-        <nav className="-mx-1 flex min-w-0 flex-1 gap-2 overflow-x-auto px-1 pb-1 [scrollbar-width:none]" aria-label="Folders">
+        <nav className="-mx-1 flex min-w-0 basis-full gap-2 overflow-x-auto px-1 pb-1 [scrollbar-width:none] max-sm:[mask-image:linear-gradient(to_right,black_calc(100%-28px),transparent)] max-sm:pr-8 sm:flex-1 sm:basis-0" aria-label="Folders">
           {FOLDERS.map((f) => {
             const on = folder === f.value;
             return (
@@ -212,8 +212,8 @@ export function MediaLibrary({ mode, onPick, initialFolder = "all" }: { mode: "m
         <span className="grid size-14 shrink-0 place-items-center rounded-2xl bg-linear-to-br from-brand/25 to-brand/5 text-brand-bright ring-1 ring-brand-bright/25">
           {uploading ? <Loader2 className="size-7 animate-spin" aria-hidden="true" /> : <UploadCloud className="size-7" aria-hidden="true" />}
         </span>
-        <span className="grid gap-0.5">
-          <span className="font-(family-name:--font-display) text-lg font-bold">{uploading || (dragging ? "Drop to upload" : "Drag photos here, or click to upload")}</span>
+        <span className="grid min-w-0 gap-0.5">
+          <span className="font-(family-name:--font-display) text-base font-bold sm:text-lg">{uploading || (dragging ? "Drop to upload" : "Drag photos here, or click to upload")}</span>
           <span className="max-w-xl text-xs text-muted">JPG, PNG or WebP, up to 10 at a time. Large photos are resized automatically. Uploads go to {folderLabel}.</span>
         </span>
       </button>

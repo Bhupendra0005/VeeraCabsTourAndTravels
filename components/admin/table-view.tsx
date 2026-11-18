@@ -54,7 +54,8 @@ export function ListViews({ table, grid }: { table: ReactNode; grid: ReactNode }
 
   return (
     <div data-view={view} className="group grid gap-3">
-      <div className="flex justify-end">
+      {/* phones always get the card grid (a wide table is unusable there), so the switch only shows from md up */}
+      <div className="flex justify-end max-md:hidden">
         <div role="group" aria-label="List view" className="inline-flex gap-1 rounded-xl border border-line bg-white/3 p-1">
           <button
             type="button"

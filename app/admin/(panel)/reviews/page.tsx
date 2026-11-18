@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { Car, ExternalLink, MessageSquareQuote, Star, UserRound } from "lucide-react";
 import Link from "next/link";
+import { ConfirmDelete } from "@/components/admin/confirm-delete";
+import { deleteReviewAction } from "@/lib/server/admin/actions/reviews";
 import { DetailModal } from "@/components/admin/detail-modal";
 import { StatTile } from "@/components/admin/list-parts";
 import { ReviewToggle } from "@/components/admin/review-toggle";
@@ -68,6 +70,7 @@ export default async function AdminReviewsPage({ searchParams }: { searchParams:
         <ExternalLink aria-hidden="true" /> Open booking
       </ButtonLink>
       <ReviewToggle id={r.id} published={r.published} canManage={canManage} />
+      {canManage ? <ConfirmDelete id={r.id} action={deleteReviewAction} what="review" summary={`The review by ${r.travellerName || r.reviewer}`} /> : null}
     </DetailModal>
   );
 
@@ -229,6 +232,7 @@ export default async function AdminReviewsPage({ searchParams }: { searchParams:
                 </ButtonLink>
                 <ReviewToggle id={r.id} published={r.published} canManage={canManage} />
                 {modal(r)}
+                {canManage ? <ConfirmDelete id={r.id} action={deleteReviewAction} what="review" summary={`The review by ${r.travellerName || r.reviewer}`} /> : null}
               </div>
             </div>
           )}

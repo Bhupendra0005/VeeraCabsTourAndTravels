@@ -66,7 +66,7 @@ export function DetailModal({
                 style={{ animation: "sfPop 0.16s ease-out" }}
                 className="flex max-h-[92dvh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-brand-bright/25 bg-linear-to-b from-[#0c1a24] to-[#0b141b] text-left shadow-[0_30px_80px_-20px_rgba(0,0,0,0.9),0_0_50px_-24px_rgba(0,150,219,0.5)]"
               >
-                <div className="flex items-start gap-3 border-b border-white/10 px-5 py-4 sm:px-6 sm:py-5">
+                <div className="flex items-start gap-3 border-b border-white/10 px-4 py-3.5 sm:px-6 sm:py-5">
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
                       <h2 id={titleId} className="font-(family-name:--font-display) text-xl font-bold wrap-anywhere">
@@ -80,12 +80,12 @@ export function DetailModal({
                     <X className="size-5" aria-hidden="true" />
                   </button>
                 </div>
-                <div className="grid gap-4 overflow-y-auto px-5 py-5 sm:px-6">
-                  <dl className="grid gap-2.5 sm:grid-cols-2">
+                <div className="grid gap-4 overflow-y-auto px-4 py-4 sm:px-6 sm:py-5">
+                  <dl className="grid grid-cols-2 gap-2 sm:gap-2.5">
                     {rows.map(([label, value]) => (
-                      <div key={label} className="min-w-0 rounded-xl border border-line bg-white/3 px-4 py-3">
-                        <dt className="text-[11px] font-semibold uppercase tracking-wider text-muted">{label}</dt>
-                        <dd className="mt-1 text-[15px] font-semibold wrap-anywhere">{value || "-"}</dd>
+                      <div key={label} className="min-w-0 rounded-xl border border-line bg-white/3 px-3 py-2.5 sm:px-4 sm:py-3">
+                        <dt className="text-[10px] font-semibold uppercase tracking-wider text-muted sm:text-[11px]">{label}</dt>
+                        <dd className="mt-0.5 text-sm font-semibold wrap-anywhere sm:mt-1 sm:text-[15px]">{value || "-"}</dd>
                       </div>
                     ))}
                   </dl>
@@ -99,7 +99,7 @@ export function DetailModal({
                   ) : null}
                 </div>
                 {children ? (
-                  <div className="grid grid-cols-2 gap-2 border-t border-white/10 bg-black/20 px-5 py-4 sm:flex sm:flex-wrap sm:items-start sm:justify-end sm:px-6 [&_a]:min-h-10 [&_button]:min-h-10">{children}</div>
+                  <div className="grid grid-cols-2 gap-2 border-t border-white/10 bg-black/20 px-4 py-3 sm:flex sm:flex-wrap sm:items-start sm:justify-end sm:px-6 [&_a]:min-h-10 [&_button]:min-h-10">{children}</div>
                 ) : null}
               </div>
             </div>,

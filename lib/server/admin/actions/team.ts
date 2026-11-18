@@ -66,6 +66,27 @@ export async function setAdminActiveAction(id: string, active: boolean): Promise
   });
 }
 
+/**
+ * Permanently removes a team member. Not yourself, and never the last active owner. Their past entries in the audit log
+ * stay (the log keeps the email), so "who did what" is not lost.
+ */
+export async function deleteAdminAction(id: string): Promise<ActionState> {
+  return run("team.manage", async (admin) => {
+    const targetId = idOrThrow(id);
+    if (targetId === admin.id) throw new ActionError("You cannot delete your own account.");
+    const { data: target } = await db().from("admin_users").select("email, role, active").eq("id", targetId).maybeSingle();
+    if (!target) throw new ActionError("Admin not found.");
+    if (target.role === "owner" && target.active && (await activeOwnerCount(targetId)) === 0) {
+      throw new ActionError("There must always be at least one active owner.");
+    }
+    const { error } = await db().from("admin_users").delete().eq("id", targetId);
+    if (error) throw error;
+    await audit(admin, "team.deleted", { entity: "admin", entityId: targetId, meta: { email: target.email, role: target.role } });
+    revalidatePath("/admin/team");
+    return { ok: true, message: `${target.email} was removed.` };
+  });
+}
+
 export async function setAdminRoleAction(id: string, role: string): Promise<ActionState> {
   return run("team.manage", async (admin) => {
     const targetId = idOrThrow(id);

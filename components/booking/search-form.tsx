@@ -57,16 +57,13 @@ function airportOf(text: string, airports: string[]): string {
   return airports.find((name) => name.toLowerCase() === t) ?? airports.find((name) => t.includes(name.toLowerCase())) ?? "";
 }
 
-export function SearchForm({ options, initial, tabs, maxStops, oneWayReturn, returnHint, askTravellers, suggestions, landOn }: Props) {
+export function SearchForm({ options, initial, tabs, maxStops, askTravellers, suggestions, landOn }: Props) {
   const router = useRouter();
   const visibleTabs = TABS.filter((tab) => tabs.includes(tab.id));
 
-  // a round-trip search opened while the Round-Trip tab is off lands on One-Way with the return date filled
   const startType: BookingTripType = visibleTabs.some((tab) => tab.types.includes(initial.tripType))
     ? initial.tripType
-    : initial.tripType === "round_trip" && oneWayReturn
-      ? "one_way"
-      : (visibleTabs[0] ?? TABS[0]).types[0];
+    : (visibleTabs[0] ?? TABS[0]).types[0];
   const [tripType, setTripType] = useState<BookingTripType>(startType);
   const [from, setFrom] = useState(initial.from);
   const [to, setTo] = useState(initial.to);
@@ -86,7 +83,8 @@ export function SearchForm({ options, initial, tabs, maxStops, oneWayReturn, ret
   const outstation = isOutstation(tripType);
   const airportTrip = isAirport(tripType);
   const hourly = tripType === "hourly";
-  const showReturn = tripType === "round_trip" || (tripType === "one_way" && oneWayReturn);
+  // the Return date only belongs to Round Trip: a One-Way search never asks for it
+  const showReturn = tripType === "round_trip";
   const showTravellers = outstation || (airportTrip && askTravellers.airport) || (hourly && askTravellers.hourly);
   const toOptions = from ? (options.cities.to[from] ?? []) : [];
   const packages = from ? (options.hourlyPackages[from] ?? []) : [];
@@ -128,10 +126,6 @@ export function SearchForm({ options, initial, tabs, maxStops, oneWayReturn, ret
     if (!date) return setError("Choose your pickup date.");
     if (!pickup) return setError("Choose your pickup time.");
     if (tripType === "round_trip" && (!returnDate || returnDate < date)) return setError("Choose a return date on or after the pickup date.");
-    if (tripType === "one_way" && oneWayReturn && returnDate) {
-      if (returnDate < date) return setError("Choose a return date on or after the pickup date.");
-      finalType = "round_trip"; // adding a return date makes it a round trip
-    }
     setError("");
 
     const query = searchToQuery({
@@ -287,16 +281,11 @@ export function SearchForm({ options, initial, tabs, maxStops, oneWayReturn, ret
         {showReturn ? (
           <div className="field">
             <label htmlFor="bk-return">
-              Return {tripType === "one_way" ? <span className="bk-opt">(Optional)</span> : null}
+              Return
             </label>
             <div className="field-control">
               <CalendarDays aria-hidden="true" />
-              <DateField id="bk-return" value={returnDate} onChange={setReturnDate} placeholder={tripType === "one_way" ? returnHint || "Add a return date" : "Select return date"} />
-              {returnDate && tripType === "one_way" ? (
-                <button type="button" className="grid size-6 flex-none place-items-center rounded-full text-muted hover:bg-black/5" aria-label="Remove return date" onClick={() => setReturnDate("")}>
-                  <X className="size-4" aria-hidden="true" />
-                </button>
-              ) : null}
+              <DateField id="bk-return" value={returnDate} onChange={setReturnDate} placeholder="Select return date" />
             </div>
           </div>
         ) : null}

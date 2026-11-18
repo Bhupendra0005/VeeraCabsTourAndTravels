@@ -37,6 +37,32 @@ export async function cancelBookingAdminAction(id: string, mode: string): Promis
   });
 }
 
+/**
+ * Permanently deletes a booking together with its payment attempts and review. Owner only. A booking that still holds
+ * money the customer paid (a "paid" payment) cannot be deleted: cancel and refund it first, so no payment record is lost.
+ */
+export async function deleteBookingAdminAction(id: string, confirmRef: string): Promise<ActionState> {
+  return run("bookings.delete", async (admin) => {
+    const bookingId = idOrThrow(id);
+    const { booking, payments } = await load(bookingId);
+    if (String(confirmRef ?? "").trim().toUpperCase() !== booking.ref.toUpperCase()) {
+      throw new ActionError("Type the booking ID exactly to confirm the delete.");
+    }
+    if (payments.some((p) => p.status === "paid")) {
+      throw new ActionError("This booking holds a payment. Cancel it and refund the customer first; a booking with money received cannot be deleted.");
+    }
+    const { error } = await db().from("bookings").delete().eq("id", bookingId);
+    if (error) throw error;
+    await audit(admin, "booking.deleted", {
+      entity: "booking",
+      entityId: bookingId,
+      meta: { ref: booking.ref, status: booking.status, total: booking.total, traveller: booking.traveller_name, travel_date: booking.travel_date },
+    });
+    revalidatePath("/admin", "layout");
+    return { ok: true, message: `Booking ${booking.ref} deleted.` };
+  });
+}
+
 export async function markCompletedAction(id: string): Promise<ActionState> {
   return run("bookings.manage", async (admin) => {
     const bookingId = idOrThrow(id);

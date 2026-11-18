@@ -32,16 +32,29 @@ export type NavGroup = { title: string; items: NavItem[] };
 
 export const ADMIN_NAV: NavGroup[] = [
   {
-    title: "Operations",
+    title: "Overview",
+    items: [{ href: "/admin", label: "Dashboard", icon: "dashboard" }],
+  },
+  {
+    title: "Bookings & money",
     items: [
-      { href: "/admin", label: "Dashboard", icon: "dashboard" },
       { href: "/admin/bookings", label: "Bookings", icon: "bookings", permission: "bookings.view" },
       { href: "/admin/payments", label: "Payments", icon: "payments", permission: "payments.view" },
+      { href: "/admin/coupons", label: "Coupons", icon: "coupons", permission: "bookings.view" },
+    ],
+  },
+  {
+    title: "People",
+    items: [
       { href: "/admin/customers", label: "Customers", icon: "customers", permission: "customers.view" },
       { href: "/admin/drivers", label: "Drivers", icon: "drivers", permission: "bookings.view" },
-      { href: "/admin/coupons", label: "Coupons", icon: "coupons", permission: "bookings.view" },
       { href: "/admin/enquiries", label: "Enquiries", icon: "contact", permission: "bookings.view" },
       { href: "/admin/reviews", label: "Reviews", icon: "reviews", permission: "bookings.view" },
+    ],
+  },
+  {
+    title: "Pricing & booking",
+    items: [
       { href: "/admin/routes", label: "Routes & fares", icon: "routes", permission: "routes.manage" },
       { href: "/admin/pages/booking", label: "Online booking", icon: "rates", permission: "content.manage" },
     ],

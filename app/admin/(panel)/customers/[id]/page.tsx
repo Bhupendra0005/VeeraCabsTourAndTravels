@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { ArrowLeft, Ban, CalendarCheck, CalendarClock, CalendarDays, CircleCheck, Clock3, Fingerprint, History, IndianRupee, Mail, MapPin, Phone, TrendingUp, Undo2, UserRound } from "lucide-react";
+import { ArrowLeft, Ban, CalendarCheck, CalendarClock, CalendarDays, CircleCheck, Clock3, CreditCard, Fingerprint, History, IndianRupee, Mail, MapPin, Phone, TrendingUp, Undo2, UserRound } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { ReactNode } from "react";
@@ -7,6 +7,8 @@ import { BookingRoute, StatusBadge, TripWhen, money } from "@/components/admin/b
 import { CalendarCarArt } from "@/components/admin/list-parts";
 import { UrlSelect } from "@/components/admin/status-filter";
 import { CustomerBlockControl, CustomerNoteForm } from "@/components/admin/customer-controls";
+import { ConfirmDelete } from "@/components/admin/confirm-delete";
+import { deleteCustomerAction } from "@/lib/server/admin/actions/customers";
 import { Alert, Badge, Card, DataTable } from "@/components/admin/ui";
 import { can } from "@/lib/admin/permissions";
 import { formatDate, to12h } from "@/lib/booking/config";
@@ -172,6 +174,15 @@ export default async function AdminCustomerPage({
         </Card>
       </div>
 
+      {can(admin.role, "bookings.delete") ? (
+        <Card
+          title="Delete customer"
+          description={bookings.length ? "This customer has bookings, so they cannot be deleted. Block them above if you do not want new bookings." : "Permanently removes this customer. Possible only because they have no bookings."}
+        >
+          {bookings.length === 0 ? <ConfirmDelete id={customer.id} action={deleteCustomerAction} what="customer" summary={customer.email} redirectTo="/admin/customers" /> : null}
+        </Card>
+      ) : null}
+
       {/* Bookings */}
       <section className="relative rounded-2xl border border-white/10 bg-linear-to-b from-[#0b1620] to-panel">
         <div className="flex flex-wrap items-center justify-between gap-4 border-b border-white/10 p-5 sm:px-6">
@@ -212,13 +223,19 @@ export default async function AdminCustomerPage({
                 { header: "Booking", primary: true, cell: (b) => <BookingRoute booking={b} /> },
                 { header: "Status", cell: (b) => <StatusBadge status={b.status} /> },
                 { header: "Travel", cell: (b) => <TripWhen booking={b} /> },
-                { header: "Traveller", cell: (b) => `${b.traveller_name} · +91 ${b.traveller_phone}` },
-                { header: "Passengers", cell: (b) => `${b.passengers} passenger${b.passengers === 1 ? "" : "s"}, ${b.bags} bag${b.bags === 1 ? "" : "s"}` },
-                { header: "Pickup", cell: (b) => b.pickup_address || "-" },
-                { header: "Driver", cell: (b) => (b.driver_name ? `${b.driver_name}${b.cab_number ? ` · ${b.cab_number}` : ""}` : "Not assigned") },
-                { header: "Source", cell: (b) => (b.source === "phone" ? "Phone booking" : "Website") },
-                { header: "Booked on", cell: (b) => joined(b.created_at) },
-                { header: "Total", align: "right", cell: (b) => money(b.total) },
+                {
+                  header: "Trip details",
+                  cell: (b) => (
+                    <div className="grid gap-0.5">
+                      <span>{`${b.passengers} passenger${b.passengers === 1 ? "" : "s"}, ${b.bags} bag${b.bags === 1 ? "" : "s"}`}</span>
+                      {b.pickup_address ? <span className="text-xs text-muted">Pickup: {b.pickup_address}</span> : null}
+                    </div>
+                  ),
+                },
+                { header: "Driver", cell: (b) => (b.driver_name ? `${b.driver_name}${b.cab_number ? ` · ${b.cab_number}` : ""}` : <span className="text-muted">Not assigned</span>) },
+                { header: "Source", cell: (b) => (b.source === "phone" ? "Phone" : "Website") },
+                { header: "Booked on", cell: (b) => <span className="whitespace-nowrap">{joined(b.created_at)}</span> },
+                { header: "Total", align: "right", cell: (b) => <b className="whitespace-nowrap">{money(b.total)}</b> },
               ]}
             />
           </div>
@@ -226,22 +243,33 @@ export default async function AdminCustomerPage({
       </section>
 
       {/* Payments */}
-      <Card title="Payments" description={payments.length ? "Every payment attempt for this customer's bookings, newest first." : "No payments yet."}>
+      <section className="relative rounded-2xl border border-white/10 bg-linear-to-b from-[#0b1620] to-panel">
+        <div className="flex items-center gap-3 border-b border-white/10 p-5 sm:px-6">
+          <span className="grid size-10 place-items-center rounded-xl bg-brand/10 text-brand-bright ring-1 ring-brand-bright/20">
+            <CreditCard className="size-5" aria-hidden="true" />
+          </span>
+          <div>
+            <h2 className="font-(family-name:--font-display) text-lg font-bold">Payments</h2>
+            <p className="text-sm text-muted">{payments.length ? "Every payment attempt for this customer's bookings, newest first." : "No payments yet."}</p>
+          </div>
+        </div>
         {payments.length === 0 ? null : (
+          <div className="p-4 sm:p-5">
           <DataTable
             rows={payments}
             rowKey={(p) => p.id}
             columns={[
               { header: "Booking", primary: true, cell: (p) => <Link href={`/admin/bookings/${p.booking_id}`} className="font-semibold text-brand-bright hover:underline">{refOf(p.booking_id)}</Link> },
               { header: "Type", cell: (p) => <span className="capitalize">{p.kind}</span> },
-              { header: "Amount", cell: (p) => money(p.amount) },
+              { header: "Amount", cell: (p) => <b>{money(p.amount)}</b> },
               { header: "Status", cell: (p) => <Badge tone={p.status === "paid" ? "success" : p.status === "failed" ? "danger" : p.status === "refunded" ? "info" : "warning"}>{p.status === "created" ? "not completed" : p.status}</Badge> },
-              { header: "Razorpay payment", cell: (p) => p.razorpay_payment_id || "-" },
-              { header: "Date", cell: (p) => joined(p.paid_at ?? p.created_at) },
+              { header: "Razorpay payment", cell: (p) => <span className="font-mono text-xs">{p.razorpay_payment_id || "-"}</span> },
+              { header: "Date", cell: (p) => <span className="whitespace-nowrap">{joined(p.paid_at ?? p.created_at)}</span> },
             ]}
           />
+          </div>
         )}
-      </Card>
+      </section>
     </div>
   );
 }

@@ -3,7 +3,9 @@ import { ArrowLeft, CalendarClock, CarFront, CheckCheck, CircleCheck, IndianRupe
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { BookingRoute, StatusBadge, TripWhen, money } from "@/components/admin/booking-bits";
+import { ConfirmDelete } from "@/components/admin/confirm-delete";
 import { EditDriverButton } from "@/components/admin/edit-driver";
+import { deleteDriverAction } from "@/lib/server/admin/actions/drivers";
 import { StatTile } from "@/components/admin/list-parts";
 import { Badge, Card, DataTable, EmptyState } from "@/components/admin/ui";
 import { WhatsAppIcon } from "@/components/site/whatsapp-icon";
@@ -30,7 +32,7 @@ export default async function AdminDriverPage({ params, searchParams }: { params
   const canManage = can(admin.role, "bookings.manage");
 
   return (
-    <div className="grid max-w-5xl grid-cols-[minmax(0,1fr)] gap-6">
+    <div className="grid grid-cols-[minmax(0,1fr)] gap-6">
       <Link href="/admin/drivers" className="inline-flex w-fit items-center gap-1.5 rounded-lg py-1.5 pr-2 text-sm text-muted transition hover:text-white">
         <ArrowLeft className="size-4" aria-hidden="true" /> Back to Drivers
       </Link>
@@ -41,18 +43,19 @@ export default async function AdminDriverPage({ params, searchParams }: { params
         </div>
       ) : null}
 
-      <section className="relative overflow-hidden rounded-3xl border border-brand-bright/25 bg-linear-to-br from-[#0c1a24] via-panel to-panel p-5 shadow-[0_0_50px_-20px_rgba(0,150,219,0.5)] sm:p-7">
+      <section className="relative overflow-hidden rounded-3xl border border-brand-bright/25 bg-linear-to-br from-[#0c1a24] via-panel to-panel p-4 shadow-[0_0_50px_-20px_rgba(0,150,219,0.5)] sm:p-7">
         <div aria-hidden="true" className="pointer-events-none absolute -right-16 -top-16 size-56 rounded-full bg-brand opacity-[0.12] blur-3xl" />
         {canManage ? (
-          <div className="relative z-10 mb-4 flex justify-end sm:absolute sm:right-5 sm:top-5 sm:mb-0">
+          <div className="relative z-10 mb-4 flex justify-end gap-2 sm:absolute sm:right-5 sm:top-5 sm:mb-0">
+            <ConfirmDelete id={driver.id} action={deleteDriverAction} what="driver" summary={`${driver.name} (+91 ${driver.phone})`} redirectTo="/admin/drivers" />
             <EditDriverButton
               driver={{ id: driver.id, name: driver.name, phone: driver.phone, cabNumber: driver.cab_number, cabModel: driver.cab_model, note: driver.note, active: driver.active }}
             />
           </div>
         ) : null}
-        <div className="relative flex flex-col gap-5 sm:flex-row sm:items-center">
+        <div className="relative flex flex-col gap-4 sm:flex-row sm:items-center sm:gap-5">
           <span
-            className={`grid size-20 shrink-0 place-items-center rounded-full font-(family-name:--font-display) text-3xl font-bold text-white ${
+            className={`grid size-16 shrink-0 sm:size-20 place-items-center rounded-full font-(family-name:--font-display) text-2xl font-bold text-white sm:text-3xl ${
               driver.active ? "bg-linear-to-br from-emerald-400 to-brand shadow-[0_10px_28px_-8px_rgba(52,211,153,0.8)]" : "bg-white/10 text-white/60"
             }`}
           >
@@ -63,7 +66,7 @@ export default async function AdminDriverPage({ params, searchParams }: { params
               <h1 className="font-(family-name:--font-display) text-2xl font-bold wrap-anywhere sm:text-3xl">{driver.name}</h1>
               <Badge tone={driver.active ? "success" : "neutral"}>{driver.active ? "active" : "switched off"}</Badge>
             </div>
-            <div className="mt-3 flex flex-wrap gap-2">
+            <div className="mt-3 flex flex-wrap gap-2 max-sm:[&>*]:min-h-11 max-sm:[&>a]:flex-1 max-sm:[&>a]:justify-center">
               <a
                 href={`tel:+91${driver.phone}`}
                 className="inline-flex items-center gap-2 rounded-xl bg-white/5 px-3 py-2 text-sm font-medium ring-1 ring-white/10 transition hover:bg-white/10 hover:text-brand-bright"
@@ -95,7 +98,7 @@ export default async function AdminDriverPage({ params, searchParams }: { params
         </div>
       </section>
 
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 sm:gap-4">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 max-sm:[&>*:last-child]:col-span-2">
         <StatTile tone="amber" icon={<CalendarClock />} label="Upcoming trips" value={upcoming.length} hint="Confirmed, not done yet" />
         <StatTile tone="green" icon={<CheckCheck />} label="Completed trips" value={done} />
         <StatTile tone="violet" icon={<IndianRupee />} label="Business done" value={money(business)} hint="Total fare, not pay" />

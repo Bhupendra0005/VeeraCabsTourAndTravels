@@ -87,9 +87,9 @@ export default async function LoginPage({
               <ShieldCheck className="size-3.5" aria-hidden="true" />
               {signup ? "Create your account" : "Secure customer login"}
             </span>
-            <h1 className="mt-5 font-(family-name:--font-display) text-4xl font-extrabold leading-[1.05] tracking-tight sm:text-5xl lg:mt-4 lg:text-5xl xl:text-[3.4rem]">
+            <h1 className="mt-5! font-(family-name:--font-display) text-4xl font-extrabold leading-[1.1] tracking-tight sm:text-5xl lg:mt-5! lg:text-5xl xl:text-[3.4rem]">
               {signup ? "Join Veera." : "Welcome back."}
-              <span className="mt-1 block italic">
+              <span className="mt-1 block pb-2 italic">
                 Your next ride is just{" "}
                 <span className="relative inline-block bg-linear-to-r from-[#22d3ee] to-brand-bright bg-clip-text text-transparent">
                   one code away.
@@ -97,7 +97,7 @@ export default async function LoginPage({
                 </span>
               </span>
             </h1>
-            <p className="mt-5 max-w-xl text-base text-white/75 sm:text-lg lg:mt-4 lg:text-base">
+            <p className="mt-3! max-w-xl text-base text-white/75 sm:text-lg lg:mt-3! lg:text-base">
               {signup
                 ? "Create a free account to book outstation cabs at fixed fares, pay online and keep all your trips in one place."
                 : "Sign in to book outstation cabs at fixed fares, pay online and keep all your trips in one place."}

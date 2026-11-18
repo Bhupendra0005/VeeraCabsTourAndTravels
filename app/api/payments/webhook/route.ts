@@ -3,6 +3,8 @@ import { handle, HttpError, json } from "@/lib/server/core/http";
 import { verifyWebhookSignature } from "@/lib/server/payments/razorpay";
 
 export const runtime = "nodejs";
+// the confirmation email (two PDFs + Brevo) runs after the response, within this limit
+export const maxDuration = 60;
 
 type WebhookBody = {
   event?: string;

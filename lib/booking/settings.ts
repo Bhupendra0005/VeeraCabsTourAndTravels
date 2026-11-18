@@ -9,6 +9,8 @@ export type BookingSettings = {
   partPayPercent: number;
   insuranceEnabled: boolean;
   insuranceRupees: number;
+  /** One-way trips also pay for the driver's empty return: this share (%) of the one-way fare is added on top. */
+  oneWayReturnPercent: number;
   freeCancelMinutes: number;
   /** Partial refunds after the free window ends, for example 6 hours before pickup: 50%. Empty = no partial refunds. */
   refundSlabs: RefundSlab[];
@@ -23,7 +25,8 @@ export const DEFAULT_BOOKING_SETTINGS: BookingSettings = {
   partPayPercent: 25,
   insuranceEnabled: true,
   insuranceRupees: 99,
-  freeCancelMinutes: 60,
+  oneWayReturnPercent: 80,
+  freeCancelMinutes: 720, // full refund up to 12 hours before pickup
   refundSlabs: [],
   minLeadMinutes: 120,
   balanceCutoffHours: 48,
@@ -57,6 +60,15 @@ export const BOOKING_SETTINGS_FIELDS: Field[] = [
     step: 1,
     hint: "Share of the total paid online to reserve the cab.",
   },
+  {
+    type: "number",
+    key: "oneWayReturnPercent",
+    label: "One-way return charge (%)",
+    min: 0,
+    max: 200,
+    step: 1,
+    hint: "A one-way trip also counts the driver's drive back. This share of the one-way fare is added to it: 80 turns a ₹5,000 fare into ₹9,000. 0 = off.",
+  },
   { type: "toggle", key: "insuranceEnabled", label: "Offer optional trip protection" },
   { type: "number", key: "insuranceRupees", label: "Trip protection price (₹)", min: 0, max: 5000, step: 1 },
   {
@@ -66,7 +78,7 @@ export const BOOKING_SETTINGS_FIELDS: Field[] = [
     min: 0,
     max: 10080,
     step: 5,
-    hint: "60 means customers can cancel for a full refund until 1 hour before pickup.",
+    hint: "720 means customers can cancel for a full refund until 12 hours before pickup (60 = 1 hour).",
   },
   {
     type: "list",

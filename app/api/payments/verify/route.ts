@@ -5,6 +5,8 @@ import { assertSameOrigin, handle, HttpError, json, readJson } from "@/lib/serve
 import { verifyCheckoutSignature } from "@/lib/server/payments/razorpay";
 
 export const runtime = "nodejs";
+// the confirmation email (two PDFs + Brevo) runs after the response, within this limit
+export const maxDuration = 60;
 
 const ID = /^[A-Za-z0-9_]{6,40}$/;
 

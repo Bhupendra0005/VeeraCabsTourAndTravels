@@ -329,10 +329,10 @@ export default async function BookingPage({
 
                 <SectionCard icon={<Car aria-hidden="true" />} title="Cab & traveller" bodyClassName="p-0 sm:p-0">
                   <div className="grid sm:grid-cols-[190px_minmax(0,1fr)]">
-                    <div className="relative grid place-items-center bg-[radial-gradient(circle_at_50%_40%,#ffffff_0%,#e6eef8_100%)] p-4">
+                    <div className="relative grid place-items-center bg-white">
                       {vehicle ? (
                         // eslint-disable-next-line @next/next/no-img-element
-                        <img src={photoSrc(vehicle, 480)} alt={`${booking.vehicle_type} by Veera Tours & Travels`} width={240} height={126} loading="lazy" decoding="async" style={{ maxWidth: 190 }} className="h-auto w-full object-contain" />
+                        <img src={photoSrc(vehicle, 480)} alt={`${booking.vehicle_type} by Veera Tours & Travels`} width={480} height={252} loading="lazy" decoding="async" className="h-auto w-full object-contain" />
                       ) : null}
                     </div>
                     <div className="grid content-center gap-3 p-4 sm:p-5">

@@ -172,7 +172,7 @@ function TripCard({ b, today, cab }: { b: BookingRow; today: string; cab: string
             </dl>
 
             {b.pickup_address ? (
-              <p className="mt-4 flex items-start gap-2 rounded-xl bg-white/[0.04] px-3 py-2 text-[13px] text-white/70">
+              <p className="mt-4! flex items-start gap-2 rounded-xl bg-white/[0.04] px-3 py-2 text-[13px] text-white/70">
                 <MapPin className="mt-0.5 size-3.5 shrink-0 text-brand-bright" aria-hidden="true" />
                 <span className="[overflow-wrap:anywhere]">{b.pickup_address}</span>
               </p>
@@ -227,7 +227,7 @@ function Empty({ tab }: { tab: Tab }) {
         <EmptyCarArt />
       </span>
       <h2 className="font-(family-name:--font-display) text-xl font-extrabold">{copy[tab]}</h2>
-      <p className="mt-1.5 max-w-sm text-sm text-muted">
+      <p className="mt-1.5! max-w-sm text-sm text-muted">
         Search a route, pick a cab at a fixed fare and book your next outstation ride in a few minutes.
       </p>
       <Link
@@ -402,7 +402,7 @@ export default async function BookingsPage({
                 </span>
                 <h2 className="font-(family-name:--font-display) text-xl font-extrabold">Plan Another Trip?</h2>
               </div>
-              <p className="relative mt-3 max-w-[15rem] text-sm text-white/75">Fixed fares, verified drivers and instant e-tickets.</p>
+              <p className="relative mt-3! max-w-[15rem] text-sm text-white/75">Fixed fares, verified drivers and instant e-tickets.</p>
               <Link
                 href="/book"
                 className="relative mt-5 inline-flex items-center justify-center gap-2 rounded-full bg-linear-to-r from-[#22d3ee] to-brand-bright px-7 py-3 text-sm font-bold text-[#04202c] shadow-[0_12px_32px_-10px_rgba(34,211,238,0.7)] transition hover:brightness-110"
@@ -439,7 +439,7 @@ export default async function BookingsPage({
                   Chat on WhatsApp
                 </a>
               </div>
-              <p className="mt-4 text-xs text-muted">
+              <p className="mt-4! text-xs text-muted">
                 Quote your booking reference (like <span className="font-mono">VT-XXXXXX</span>) when you contact us.
               </p>
             </div>

@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { CalendarCheck, Layers, PhoneCall, Search, SlidersHorizontal } from "lucide-react";
+import { CalendarCheck, Eye, Layers, PhoneCall, Search, SlidersHorizontal } from "lucide-react";
 import { BookingRoute, StatusBadge, TripWhen, money } from "@/components/admin/booking-bits";
 import {
   CalendarCarArt,
@@ -68,8 +68,8 @@ export default async function AdminBookingsPage({ searchParams }: { searchParams
       />
 
       <FilterPanel label="Filter bookings">
-        <form className="grid grid-cols-[minmax(0,1fr)] gap-4 sm:grid-cols-2 xl:grid-cols-[2fr_1.2fr_1fr_1fr_auto] xl:items-start [&>div]:min-w-0" action="/admin/bookings">
-          <div>
+        <form className="grid grid-cols-2 gap-x-3 gap-y-4 sm:gap-4 xl:grid-cols-[2fr_1.2fr_1fr_1fr_auto] xl:items-start [&>div]:min-w-0" action="/admin/bookings">
+          <div className="col-span-2 sm:col-span-1 xl:col-span-1">
             <FilterLabel htmlFor="f-q">Search</FilterLabel>
             <div className="group relative">
               <Search className={filterIcon} aria-hidden="true" />
@@ -78,25 +78,25 @@ export default async function AdminBookingsPage({ searchParams }: { searchParams
             <p className="pt-2 text-xs text-muted">Booking ID, name, phone, email or city</p>
           </div>
 
-          <div>
+          <div className="col-span-2 sm:col-span-1 xl:col-span-1">
             <FilterLabel htmlFor="f-status">Status</FilterLabel>
             <SelectMenu id="f-status" name="status" size="lg" icon={<Layers />} options={statusOptions} defaultValue={filters.status ?? ""} />
           </div>
 
           <div>
             <FilterLabel htmlFor="f-from">Travel from</FilterLabel>
-            <DatePicker id="f-from" name="from" defaultValue={filters.from} placeholder="dd-mm-yyyy" />
+            <DatePicker id="f-from" name="from" defaultValue={filters.from} placeholder="Any date" />
           </div>
 
           <div>
             <FilterLabel htmlFor="f-to">Travel to</FilterLabel>
-            <DatePicker id="f-to" name="to" defaultValue={filters.to} placeholder="dd-mm-yyyy" align="right" />
+            <DatePicker id="f-to" name="to" defaultValue={filters.to} placeholder="Any date" align="right" />
           </div>
 
           <FilterButtons
             resetHref="/admin/bookings"
             submitIcon={<SlidersHorizontal aria-hidden="true" />}
-            className="sm:col-span-2 xl:col-span-1 xl:pt-[29px]"
+            className="col-span-2 xl:col-span-1 xl:pt-[29px]"
           />
         </form>
       </FilterPanel>
@@ -155,6 +155,15 @@ export default async function AdminBookingsPage({ searchParams }: { searchParams
                 ),
               },
               { header: "Total", align: "right", cell: (b) => money(b.total) },
+              {
+                header: "",
+                align: "right",
+                cell: (b) => (
+                  <ButtonLink href={`/admin/bookings/${b.id}`} variant="secondary" size="sm">
+                    <Eye aria-hidden="true" /> View
+                  </ButtonLink>
+                ),
+              },
             ]}
           />
           <Pagination page={filters.page} pageSize={PAGE_SIZE} total={result.total} hrefFor={hrefFor} />

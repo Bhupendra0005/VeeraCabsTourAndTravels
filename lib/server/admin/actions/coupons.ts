@@ -9,6 +9,7 @@ import { audit } from "@/lib/server/admin/audit";
 import { ActionError, run } from "@/lib/server/admin/actions/run";
 import { readExtrasForEdit } from "@/lib/server/cms/extras";
 import { writeDoc } from "@/lib/server/cms/store";
+import { db } from "@/lib/server/core/db";
 import type { Admin } from "@/lib/server/admin/session";
 
 const CODE = /^[A-Z0-9]{3,20}$/;
@@ -110,10 +111,14 @@ export async function setCouponActiveAction(code: string, active: boolean): Prom
   );
 }
 
-/** Removes a coupon. Bookings that already used it keep their discount. */
+/** Removes a coupon that no booking has used. A used coupon can only be switched off. */
 export async function deleteCouponAction(code: string): Promise<ActionState> {
-  return run("content.manage", async (admin) =>
-    updateCoupons(
+  return run("content.manage", async (admin) => {
+    const clean = normaliseCode(String(code));
+    const { count, error } = await db().from("bookings").select("id", { count: "exact", head: true }).eq("coupon_code", clean);
+    if (error) throw error;
+    if (count) throw new ActionError(`${clean} was used on ${count} booking${count === 1 ? "" : "s"}, so it cannot be deleted. Switch it off instead.`);
+    return updateCoupons(
       admin,
       (coupons) => {
         const rest = coupons.filter((c) => normaliseCode(c.code) !== normaliseCode(String(code)));
@@ -121,7 +126,7 @@ export async function deleteCouponAction(code: string): Promise<ActionState> {
         return rest;
       },
       "Coupon deleted.",
-      `coupon:${normaliseCode(String(code))}`,
-    ),
-  );
+      `coupon:${clean}`,
+    );
+  });
 }

@@ -617,13 +617,14 @@ export function ReviewForm(props: Props) {
       </aside>
 
       {/* phones: the total and the pay button stay in reach while scrolling the long form */}
-      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-panel/95 px-4 py-3 pr-[84px] shadow-[0_-8px_24px_rgba(15,27,45,0.12)] backdrop-blur min-[860px]:hidden">
-        <div className="mx-auto flex max-w-[1180px] items-center justify-between gap-3">
-          <div>
-            <p className="text-xs text-muted">{payMode === "part" ? "Pay now (part pay)" : "Pay now (full)"}</p>
-            <b className="font-(family-name:--font-display) text-xl leading-none">{formatINR(quote.payNow)}</b>
+      {/* the floating call / WhatsApp buttons are hidden on this page, so the bar uses the full width: total on the left, a big button on the right */}
+      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-panel/95 px-4 pt-3 pb-[max(12px,env(safe-area-inset-bottom))] shadow-[0_-8px_24px_rgba(15,27,45,0.12)] backdrop-blur min-[860px]:hidden">
+        <div className="mx-auto flex max-w-[1180px] items-center justify-between gap-4">
+          <div className="min-w-0 shrink-0">
+            <p className="text-xs leading-tight text-muted">{payMode === "part" ? "Pay now (part pay)" : "Pay now (full)"}</p>
+            <b className="mt-1 block font-(family-name:--font-display) text-2xl leading-none">{formatINR(quote.payNow)}</b>
           </div>
-          <button type="submit" className="btn btn-gold" disabled={busy}>
+          <button type="submit" className="btn btn-gold min-h-12 min-w-0 flex-1 text-base" disabled={busy}>
             {busy ? "Please wait..." : "Pay now"}
           </button>
         </div>

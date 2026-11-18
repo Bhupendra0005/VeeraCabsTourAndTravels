@@ -104,7 +104,12 @@ export default async function ReviewPage({
   const cancelAfter = settings.freeCancelMinutes > 0;
   const activeAddons = extras.addons.filter((addon) => addon.active);
   const activeCoupons = extras.coupons.filter((coupon) => coupon.active);
-  const inclusions = extras.inclusions.filter((item) => item.active);
+  // One-way fares include toll, tax and parking; on a round trip they are charged extra, as per actuals
+  const isTollLine = (title: string) => /toll|tax|parking/i.test(title);
+  const tollExtra = search.tripType === "round_trip";
+  const activeInclusions = extras.inclusions.filter((item) => item.active);
+  const inclusions = activeInclusions.filter((item) => !(tollExtra && isTollLine(item.title)));
+  const extraCharges = tollExtra ? activeInclusions.filter((item) => isTollLine(item.title)) : [];
 
   return (
     <PageShell footer={false}>
@@ -287,10 +292,11 @@ export default async function ReviewPage({
 
             <SectionCard icon={<Car aria-hidden="true" />} title="Your Cab" bodyClassName="p-0 sm:p-0">
               <div className="grid sm:grid-cols-[200px_minmax(0,1fr)]">
-                <div className="relative grid place-items-center bg-[radial-gradient(circle_at_50%_40%,#ffffff_0%,#e6eef8_100%)] p-4">
+                {/* the photo has its own white background: show it edge to edge at its real proportions, with no tinted frame or padding around it */}
+                <div className="relative grid place-items-center bg-white">
                   {meta ? (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img src={photoSrc(meta, 480)} alt={`${fare.vehicle} by Veera Tours & Travels`} width={240} height={126} loading="lazy" decoding="async" style={{ maxWidth: 200 }} className="h-auto w-full object-contain" />
+                    <img src={photoSrc(meta, 480)} alt={`${fare.vehicle} by Veera Tours & Travels`} width={240} height={126} loading="lazy" decoding="async" className="block h-auto w-full" />
                   ) : null}
                 </div>
                 <div className="grid content-center gap-2.5 p-4 sm:p-5">
@@ -359,6 +365,17 @@ export default async function ReviewPage({
                     </li>
                   );
                 })}
+                {extraCharges.map((item) => (
+                  <li key={item.title}>
+                    <span className="rv-incl-icon rv-incl-icon--extra">
+                      <Info aria-hidden="true" />
+                    </span>
+                    <span>
+                      <b>{item.title}: extra</b>
+                      <small>Toll, State Tax and Parking are not in the fare. They are added extra, as per actuals.</small>
+                    </span>
+                  </li>
+                ))}
               </ul>
               <div className="rv-policies">
                 <Link href="/terms" target="_blank">

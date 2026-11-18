@@ -7,7 +7,7 @@ import { ActionError, idOrThrow, run } from "@/lib/server/admin/actions/run";
 import { db } from "@/lib/server/core/db";
 import { ENQUIRY_STATUSES, type EnquiryStatus } from "@/lib/server/enquiries";
 
-/** Marks an enquiry as new / contacted / closed. Enquiries are never deleted from the panel. */
+/** Marks an enquiry as new / contacted / closed.  */
 export async function setEnquiryStatusAction(id: string, status: EnquiryStatus): Promise<ActionState> {
   return run("bookings.manage", async (admin) => {
     const enquiryId = idOrThrow(id);
@@ -19,5 +19,19 @@ export async function setEnquiryStatusAction(id: string, status: EnquiryStatus):
     revalidatePath("/admin/enquiries");
     revalidatePath("/admin");
     return { ok: true, message: "Enquiry updated." };
+  });
+}
+
+/** Permanently deletes one enquiry (spam, tests, finished ones). */
+export async function deleteEnquiryAction(id: string): Promise<ActionState> {
+  return run("bookings.manage", async (admin) => {
+    const enquiryId = idOrThrow(id);
+    const { data, error } = await db().from("enquiries").delete().eq("id", enquiryId).select("id, name, topic, status");
+    if (error) throw error;
+    if (!data?.length) throw new ActionError("Enquiry not found.");
+    await audit(admin, "enquiry.deleted", { entity: "enquiry", entityId: enquiryId, meta: { name: data[0].name, topic: data[0].topic, status: data[0].status } });
+    revalidatePath("/admin/enquiries");
+    revalidatePath("/admin");
+    return { ok: true, message: "Enquiry deleted." };
   });
 }

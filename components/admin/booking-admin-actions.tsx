@@ -1,6 +1,7 @@
 "use client";
 
-import { CheckCheck, HandCoins, Mail, UserRound, XCircle } from "lucide-react";
+import { CheckCheck, HandCoins, Mail, Trash2, UserRound, XCircle } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useActionState, useState, useTransition } from "react";
 import { FormMessage, SubmitButton } from "@/components/admin/form-parts";
 import { SelectMenu } from "@/components/admin/pickers";
@@ -9,6 +10,7 @@ import { idle, type ActionState } from "@/lib/admin/action-state";
 import {
   assignDriverAction,
   cancelBookingAdminAction,
+  deleteBookingAdminAction,
   markCompletedAction,
   recordBalanceAction,
   resendConfirmationAction,
@@ -27,9 +29,19 @@ type Props = {
   due: number;
   /** What the cancellation policy would refund if the booking were cancelled right now (0-100). */
   policyPercent: number;
+  /** Booking ID shown to the admin and typed back to confirm a delete. */
+  bookingRef: string;
+  /** Only the owner sees the delete option (the server checks again). */
+  canDelete: boolean;
+  /** True when money has been received: the server refuses to delete such a booking. */
+  hasPaidMoney: boolean;
 };
 
-export function BookingAdminActions({ bookingId, status, note, hasPayments, driver, drivers, due, policyPercent }: Props) {
+export function BookingAdminActions({ bookingId, status, note, hasPayments, driver, drivers, due, policyPercent, bookingRef, canDelete, hasPaidMoney }: Props) {
+  const router = useRouter();
+  const [deleting, setDeleting] = useState(false);
+  const [deleteText, setDeleteText] = useState("");
+  const [deleteResult, setDeleteResult] = useState<ActionState | null>(null);
   const [pending, startTransition] = useTransition();
   const [result, setResult] = useState<ActionState | null>(null);
   const [mode, setMode] = useState("policy");
@@ -107,6 +119,51 @@ export function BookingAdminActions({ bookingId, status, note, hasPayments, driv
         {result?.error ? <div className="mt-4"><Alert tone="danger">{result.error}</Alert></div> : null}
         {result?.ok && result.message ? <div className="mt-4"><Alert tone="success">{result.message}</Alert></div> : null}
       </Card>
+
+      {canDelete ? (
+        <Card title="Delete booking" description="Permanently removes this booking, its payment attempts and its review. This cannot be undone.">
+          {!deleting ? (
+            <Button variant="danger" disabled={pending} onClick={() => { setResult(null); setDeleting(true); }}>
+              <Trash2 aria-hidden="true" /> Delete booking
+            </Button>
+          ) : (
+            <div className="grid gap-3 rounded-xl border border-red-400/40 bg-red-400/10 p-4">
+              <p className="text-sm">
+                Are you sure? To confirm, type the booking ID <b className="font-mono">{bookingRef}</b> below.
+              </p>
+              <input
+                aria-label="Type the booking ID to confirm"
+                value={deleteText}
+                onChange={(event) => setDeleteText(event.target.value)}
+                autoComplete="off"
+                maxLength={20}
+                className={`${inputClass} font-mono uppercase`}
+                placeholder={bookingRef}
+              />
+              {hasPaidMoney ? <Alert tone="warning">This booking has received money. Cancel and refund it first: a booking with a payment cannot be deleted.</Alert> : null}
+              {deleteResult?.error ? <Alert tone="danger">{deleteResult.error}</Alert> : null}
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  variant="danger"
+                  disabled={pending || deleteText.trim().toUpperCase() !== bookingRef.toUpperCase()}
+                  onClick={() =>
+                    startTransition(async () => {
+                      const outcome = await deleteBookingAdminAction(bookingId, deleteText);
+                      setDeleteResult(outcome);
+                      if (outcome.ok) router.push("/admin/bookings");
+                    })
+                  }
+                >
+                  {pending ? "Deleting..." : "Yes, delete permanently"}
+                </Button>
+                <Button variant="secondary" disabled={pending} onClick={() => { setDeleting(false); setDeleteText(""); setDeleteResult(null); }}>
+                  Keep booking
+                </Button>
+              </div>
+            </div>
+          )}
+        </Card>
+      ) : null}
 
       {(status === "confirmed" || status === "completed") && (due > 0 || balanceState.ok) ? (
         <Card title="Collect the balance" description={due > 0 ? `The customer still owes ${(due / 100).toLocaleString("en-IN", { style: "currency", currency: "INR" })}. When the driver (or you) receives it, record it here so the booking shows fully paid.` : "Nothing is left to collect."}>

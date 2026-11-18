@@ -1092,6 +1092,52 @@ textarea {
   }
 }
 
+/* Travellers & Bags: people on the first line, bags smaller underneath, so nothing is cut off in a narrow column */
+.tf-summary {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  min-width: 0;
+  line-height: 1.15;
+}
+
+.tf-people {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tf-bags {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: #5b6778;
+  font-size: 0.78em;
+  font-weight: 600;
+}
+
+.tf-comma {
+  display: none;
+}
+
+@media (max-width: 719px) {
+  .tf-summary {
+    flex-direction: row;
+    align-items: baseline;
+    white-space: nowrap;
+  }
+
+  .tf-bags {
+    color: inherit;
+    font-size: inherit;
+    font-weight: inherit;
+  }
+
+  .tf-comma {
+    display: inline;
+  }
+}
+
 .sf-option {
   display: flex;
   align-items: center;
@@ -11930,17 +11976,86 @@ a.service-link:hover {
     bottom: 80px;
   }
 
+  /* the highlights stack as a tidy list: the side dividers only make sense when they sit in one row */
+  .bk-hero-text {
+    padding-bottom: 28px;
+  }
+
+  .bk-hero-points {
+    flex-direction: column;
+    flex-wrap: nowrap;
+    gap: 10px;
+    margin-top: 18px;
+  }
+
   .bk-hero-points li {
-    margin-right: 18px;
-    padding-right: 18px;
+    margin-right: 0;
+    padding-right: 0;
+    border-right: 0;
+    font-size: 0.95rem;
+  }
+
+  .bk-hero-icon {
+    width: 36px;
+    height: 36px;
+  }
+
+  .bk-hero-icon svg {
+    width: 18px;
+    height: 18px;
   }
 
   .mmt-band .mmt-search {
     padding: 18px 16px 20px;
   }
 
+  /* the blue banner runs further down: the card overlaps its bottom edge by less, so more blue shows around the card's end */
+  .mmt-band--hero .mmt-search {
+    margin-bottom: -22px;
+  }
+
+  .mmt-band--hero {
+    padding-bottom: 34px;
+  }
+
+  /* two columns: places and the traveller picker take the full row, date + time (or departure + return) share one */
   .mmt-band .form-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px 10px;
+  }
+
+  .mmt-band .form-grid > .field:has(#bk-from, #bk-to, #bk-air-from, #bk-air-to, #bk-city, #bk-package, #bk-passengers),
+  .mmt-band .form-grid > .bk-add-stops,
+  .mmt-band .form-grid > .bk-stop-row {
+    grid-column: 1 / -1;
+  }
+
+  .mmt-band .form-grid > .field label {
+    margin-bottom: 6px;
+    font-size: 11.5px;
+    font-weight: 700;
+  }
+
+  .mmt-band .form-grid > .field label svg {
+    display: none;
+  }
+
+  .mmt-band .form-grid .field-control {
+    height: 50px;
+    border-color: #c7d5e6;
+    background: #fff;
+  }
+
+  .mmt-band .form-grid .sf-trigger {
+    font-size: 14.5px;
+  }
+
+  /* the right-hand column opens its pickers towards the left, so they stay on screen */
+  .mmt-band .form-grid > .field:has(#bk-time, #bk-return) .field-control .dp-panel,
+  .mmt-band .form-grid > .field:has(#bk-time, #bk-return) .field-control .sf-panel {
+    left: auto;
+    right: 0;
+    max-width: calc(100vw - 56px);
   }
 
   .mmt-band .trip-tab {
@@ -12022,11 +12137,14 @@ a.service-link:hover {
   }
 }
 
-@media (max-width: 599px) {
+@media (max-width: 719px) {
+  /* stacked and centred: icon on top, then the heading and text with the full card width (side by side left the text a narrow, tall column) */
   .bk-empty {
-    grid-template-columns: auto minmax(0, 1fr);
-    padding: 18px;
+    grid-template-columns: minmax(0, 1fr);
+    justify-items: center;
+    padding: 26px 20px 28px;
     gap: 14px;
+    text-align: center;
   }
 
   .bk-empty-rule {
@@ -12034,8 +12152,20 @@ a.service-link:hover {
   }
 
   .bk-empty-icon {
-    width: 56px;
-    height: 56px;
+    width: 60px;
+    height: 60px;
+  }
+
+  .bk-empty-text h2 {
+    font-size: 1.3rem;
+    line-height: 1.25;
+    text-wrap: balance;
+  }
+
+  .bk-empty-text p {
+    font-size: 0.95rem;
+    line-height: 1.5;
+    text-wrap: pretty;
   }
 }
 
@@ -12052,9 +12182,30 @@ a.service-link:hover {
 }
 
 @media (max-width: 719px) {
+  /* the car sits bottom-right of the banner, beside the highlights list (the picture is 3:1 with the car in its left-middle,
+     so it is pushed right until the car's front lands at the right edge of the screen) */
   .mmt-band--hero .bk-hero-art {
-    height: 100%;
-    bottom: 80px;
+    top: 262px;
+    bottom: auto;
+    height: 165px;
+    width: 100%;
+    opacity: 0.9;
+    /* every edge fades into the blue, so the picture melts into the banner instead of showing a hard box */
+    -webkit-mask-image: linear-gradient(180deg, transparent 0%, #000 28%, #000 70%, transparent 100%), linear-gradient(90deg, transparent 30%, #000 62%);
+    -webkit-mask-composite: source-in;
+    mask-image: linear-gradient(180deg, transparent 0%, #000 28%, #000 70%, transparent 100%), linear-gradient(90deg, transparent 30%, #000 62%);
+    mask-composite: intersect;
+  }
+
+  .bk-hero-art img {
+    right: -205px;
+  }
+
+  /* text always sits above the picture and stays readable */
+  .bk-hero-text h1,
+  .bk-hero-sub,
+  .bk-hero-points li {
+    text-shadow: 0 1px 10px rgba(2, 20, 60, 0.75);
   }
 }
 
@@ -12749,6 +12900,11 @@ a.service-link:hover {
   color: #0f8a4b;
 }
 
+.rv-incl-icon--extra {
+  background: #fff4e0;
+  color: #b86e00;
+}
+
 .rv-incl-icon svg {
   width: 22px;
   height: 22px;
@@ -13273,8 +13429,41 @@ a.service-link:hover {
     grid-template-columns: 1fr;
   }
 
+  /* checkbox on the left; the name and full description get the whole width, with the price pill under them
+     (side by side, the pill left the text a narrow column and the title a huge line height) */
   .rv-addon {
-    grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: start;
+    gap: 6px 14px;
+    padding: 14px 16px;
+  }
+
+  .rv-addon input {
+    grid-row: 1 / span 2;
+    margin: 2px 0 0;
+  }
+
+  .rv-addon-text {
+    grid-column: 2;
+  }
+
+  .rv-addon-text b {
+    font-size: 1.05rem;
+    line-height: 1.3;
+  }
+
+  .rv-addon-text small {
+    margin-top: 3px;
+    font-size: 0.88rem;
+    line-height: 1.45;
+  }
+
+  .rv-price-pill {
+    grid-column: 2;
+    justify-self: start;
+    margin-top: 4px;
+    padding: 6px 16px;
+    font-size: 0.95rem;
   }
 
   .rv-addon-icon {
@@ -13600,18 +13789,24 @@ a.service-link:hover {
     background: radial-gradient(circle, #1f8cf0 0 45%, transparent 50%);
   }
 
+  /* two columns: places and travellers take the full row; date + time (or departure + return) share one */
   .mmt-band .form-grid {
-    grid-template-columns: 1fr;
-    gap: 12px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px 10px;
     align-items: start;
   }
 
+  .mmt-band .form-grid > .field:has(#bk-from, #bk-to, #bk-air-from, #bk-air-to, #bk-city, #bk-package, #bk-passengers),
+  .mmt-band .form-grid > .bk-stop-row {
+    grid-column: 1 / -1;
+  }
+
   .mmt-band .field label {
-    margin-bottom: 4px;
-    color: #6b6b6b;
+    margin-bottom: 6px;
+    color: #5b6778;
     font-size: 11.5px;
     font-weight: 700;
-    letter-spacing: 0.04em;
+    letter-spacing: 0.05em;
     text-transform: uppercase;
   }
 
@@ -13620,16 +13815,59 @@ a.service-link:hover {
   }
 
   .mmt-band .field-control {
-    height: 54px;
-    border: 1px solid #e4e4e4;
-    border-radius: 4px;
-    background: #f4f4f4;
-    box-shadow: none;
+    height: 50px;
+    border: 1px solid #c7d5e6;
+    border-radius: 12px;
+    background: #fff;
+    box-shadow: 0 1px 3px rgba(15, 27, 45, 0.05);
   }
 
   .mmt-band .field-control:focus-within {
     border-color: #1f8cf0;
-    background: #fff;
+    box-shadow: 0 0 0 3px rgba(31, 140, 240, 0.15);
+  }
+
+  /* placeholders ("Pickup city", "Select date") were pale grey on grey; make them readable */
+  .mmt-band .sf-trigger,
+  .mmt-band .dp-trigger,
+  .mmt-band .tf-trigger {
+    font-size: 14.5px;
+  }
+
+  .mmt-band .sf-trigger.is-empty .sf-value,
+  .mmt-band .field-control input::placeholder {
+    color: #6b7a8c;
+    font-weight: 600;
+  }
+
+  /* the time list opens towards the left from the right-hand column, so it stays on screen */
+  .mmt-band .form-grid > .field:has(#bk-time) .field-control .sf-panel {
+    left: auto;
+    right: 0;
+    width: min(300px, calc(100vw - 56px));
+    max-width: calc(100vw - 56px);
+  }
+
+  /* the calendar needs real width (inside a half-width column its days and weekday names collapsed into each other):
+     on phones it opens centred on the screen at a comfortable size */
+  .mmt-band .form-grid .field-control .dp-panel {
+    position: fixed !important;
+    top: 50% !important;
+    left: 50% !important;
+    right: auto !important;
+    z-index: 80;
+    width: min(340px, calc(100vw - 24px)) !important;
+    max-width: none !important;
+    transform: translate(-50%, -50%);
+    animation: none;
+    box-shadow: 0 0 0 100vmax rgba(4, 20, 50, 0.55), 0 28px 60px rgba(7, 28, 58, 0.4);
+  }
+
+  .mmt-band .form-grid .field-control .dp-weekdays,
+  .mmt-band .form-grid .field-control .dp-grid {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    text-align: center;
   }
 
   .mmt-band .sf-trigger,
@@ -13858,7 +14096,7 @@ a.service-link:hover {
 @container (max-width: 560px) {
   /* card: photo tile left, details middle, price right; the whole card is the button */
   .bk-card-grid {
-    grid-template-columns: 92px minmax(0, 1fr) auto;
+    grid-template-columns: 92px minmax(0, 1fr);
     align-items: start;
   }
 
@@ -13915,46 +14153,61 @@ a.service-link:hover {
     color: #9aa5b5;
   }
 
+  /* price on the left, a clear "Select Cab" button on the right, in a row under the details */
   .bk-card-price {
-    grid-column: auto;
-    grid-template-columns: 1fr;
-    justify-items: end;
-    margin: 14px 12px 0 0;
-    padding: 0;
+    grid-column: 1 / -1;
+    grid-template-columns: minmax(0, 1fr) auto;
+    justify-items: start;
+    align-items: center;
+    column-gap: 12px;
+    margin: 4px 12px 12px;
+    padding: 10px 0 0;
     border: 0;
-    text-align: right;
+    border-top: 1px solid #dbe6f3;
+    text-align: left;
   }
 
   .bk-card-price .bk-off,
   .bk-card-price b,
   .bk-card-price small {
-    justify-self: end;
-    text-align: right;
+    grid-column: 1;
+    justify-self: start;
+    text-align: left;
   }
 
   .bk-card-price small {
     margin-bottom: 0;
-    font-size: 0.72rem;
+    font-size: 0.74rem;
   }
 
-  /* invisible link over the whole card */
+  /* a visible "Select Cab" button under the price; its ::after stretches over the whole card, so a tap anywhere on the card still selects it */
   .bk-card-price .bk-cta {
-    position: absolute;
-    inset: 0;
-    z-index: 3;
-    width: 100%;
-    min-width: 0;
-    height: 100%;
-    padding: 0;
-    border-radius: 22px;
-    background: transparent;
-    box-shadow: none;
-    color: transparent;
-    font-size: 0;
+    position: static;
+    grid-column: 2;
+    grid-row: 1 / span 3;
+    width: auto;
+    min-width: 130px;
+    height: 42px;
+    margin: 0;
+    padding: 0 18px;
+    border-radius: 12px;
+    font-size: 0.95rem;
+    font-weight: 700;
+    white-space: nowrap;
   }
 
   .bk-card-price .bk-cta svg {
-    display: none;
+    display: inline-block;
+    width: 18px;
+    height: 18px;
+  }
+
+  .bk-card-price .bk-cta::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: 3;
+    border-radius: 22px;
   }
 
   .bk-card--best .bk-card-grid {
@@ -13999,15 +14252,31 @@ a.service-link:hover {
 
 @container (max-width: 560px) {
   .bk-card-grid {
-    grid-template-columns: 84px minmax(0, 1fr) auto;
+    grid-template-columns: 128px minmax(0, 1fr);
+  }
+
+  /* a bigger car picture: the tile is wider and taller, with less padding around the car */
+  .bk-card-photo {
+    margin: 14px 0 10px 12px;
+    padding: 18px 2px 30px;
+  }
+
+  .bk-card-photo img {
+    width: 100%;
+    height: auto;
+  }
+
+  .bk-fuel {
+    font-size: 0.74rem;
+    padding: 4px 4px;
   }
 
   .bk-card-price b {
-    font-size: 1.3rem;
+    font-size: 1.45rem;
   }
 
   .bk-card-price small {
-    max-width: 78px;
+    max-width: none;
     line-height: 1.25;
   }
 
@@ -14016,19 +14285,15 @@ a.service-link:hover {
   }
 }
 
-/* phone: the card-wide link must stay invisible in every state (hover, focus, pressed) */
+/* phone: the button stays put when pressed (no desktop hover lift) */
 @container (max-width: 560px) {
-  .bk-card-price .bk-cta,
   .mmt .bk-card-price .bk-cta:hover,
   .mmt .bk-card-price .bk-cta:focus,
   .mmt .bk-card-price .bk-cta:active {
-    background: transparent !important;
-    box-shadow: none !important;
     transform: none !important;
-    color: transparent !important;
   }
 
-  .bk-card-price .bk-cta:focus-visible {
+  .bk-card-price .bk-cta:focus-visible::after {
     outline: 2px solid #1f74ee;
     outline-offset: -2px;
   }
@@ -14792,6 +15057,42 @@ a.service-link:hover {
 @media (max-width: 640px) {
   .bk-success-card {
     max-height: 100dvh;
+  }
+}
+
+/* laptops and tablets: a wider card puts date, time and cab side by side, so the details fit without a scrollbar */
+@media (min-width: 641px) {
+  .bk-success-card {
+    width: min(660px, 100%);
+  }
+
+  .bk-success-top {
+    padding: 20px 24px 46px;
+  }
+
+  .bk-success-scroll {
+    padding: 0 22px 10px;
+  }
+
+  .bk-success-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    padding: 12px 22px 18px;
+  }
+
+  .bk-ticket {
+    gap: 12px;
+    padding: 16px 20px 14px;
+  }
+
+  .bk-ticket-tiles {
+    grid-template-columns: 1.15fr 0.85fr 1.2fr;
+    gap: 12px;
+  }
+
+  .bk-ticket-tiles li.is-wide {
+    grid-column: auto;
   }
 }
 

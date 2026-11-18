@@ -14,7 +14,7 @@ import { cn } from "@/lib/utils/cn";
 /** Numbers may be empty while the owner is typing. */
 type SlabDraft = { hoursBefore: number | ""; percent: number | "" };
 type Draft = { [K in Exclude<keyof BookingSettings, "refundSlabs">]: BookingSettings[K] extends number ? number | "" : BookingSettings[K] } & { refundSlabs: SlabDraft[] };
-type NumKey = "gstPercent" | "partPayPercent" | "balanceCutoffHours" | "insuranceRupees" | "freeCancelMinutes" | "minLeadMinutes";
+type NumKey = "gstPercent" | "partPayPercent" | "balanceCutoffHours" | "insuranceRupees" | "freeCancelMinutes" | "minLeadMinutes" | "oneWayReturnPercent";
 
 /** Limits come from the same schema the server validates against. */
 const limits = (key: NumKey) => BOOKING_SETTINGS_FIELDS.find((f): f is NumberField => f.type === "number" && f.key === key)!;
@@ -140,7 +140,7 @@ export function BookingSettingsForm({ initial }: { initial: BookingSettings }) {
 
   const save = () =>
     start(async () => {
-      const keys: NumKey[] = ["gstPercent", "partPayPercent", "balanceCutoffHours", "insuranceRupees", "freeCancelMinutes", "minLeadMinutes"];
+      const keys: NumKey[] = ["gstPercent", "partPayPercent", "balanceCutoffHours", "insuranceRupees", "freeCancelMinutes", "minLeadMinutes", "oneWayReturnPercent"];
       if (keys.some((k) => draft[k] === "")) {
         setResult({ ok: false, error: "Please fill in every number before saving." });
         return;
@@ -210,6 +210,9 @@ export function BookingSettingsForm({ initial }: { initial: BookingSettings }) {
           <div className="divide-y divide-white/8 rounded-2xl border border-white/10 bg-black/20 p-4 sm:p-5">
             <Row icon={<Percent />} title="GST on fare (%)" hint="Tax applied on the total fare. Confirm the right rate with your accountant.">
               {num("gstPercent", "GST on fare", "%")}
+            </Row>
+            <Row icon={<Percent />} title="One-way return charge (%)" hint="A one-way trip also counts the driver's drive back: this share of the one-way fare is added on top. 80 turns a ₹5,000 fare into ₹9,000. 0 = off.">
+              {num("oneWayReturnPercent", "One-way return charge", "%")}
             </Row>
             <Row icon={<Wallet />} title="Advance for part payment (%)" hint="Share of the total paid online to reserve the cab.">
               {num("partPayPercent", "Advance for part payment", "%")}

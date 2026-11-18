@@ -66,7 +66,7 @@ export const DEFAULT_BOOKING_PAGE: BookingPageDoc = {
   maxStops: 3,
   enableReviews: true,
   enableGstDetails: true,
-  oneWayReturn: true,
+  oneWayReturn: false, // One-Way tab has no Return date; round trips use their own tab
   returnHint: "Add return date",
   showRoundTripTab: true,
   airportAskTravellers: false,

@@ -62,9 +62,9 @@ export function PageHeader({
 }) {
   return (
     <header className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-      <div className="flex min-w-0 items-center gap-4">
+      <div className="flex min-w-0 items-start gap-4 sm:items-center">
         {icon ? (
-          <span className="grid size-14 shrink-0 place-items-center rounded-2xl bg-linear-to-br from-brand/25 to-brand/5 text-brand-bright ring-1 ring-brand-bright/25 shadow-[0_8px_24px_-10px_rgba(0,150,219,0.6)] [&>svg]:size-6">
+          <span className="grid size-12 shrink-0 place-items-center rounded-2xl bg-linear-to-br from-brand/25 to-brand/5 text-brand-bright ring-1 ring-brand-bright/25 shadow-[0_8px_24px_-10px_rgba(0,150,219,0.6)] sm:size-14 [&>svg]:size-5 sm:[&>svg]:size-6">
             {icon}
           </span>
         ) : null}
@@ -258,7 +258,7 @@ export function DataTable<T>({
   return (
     <ListViews
       table={
-      <div key="table" className="hidden overflow-x-auto rounded-2xl border border-line group-data-[view=auto]:md:block group-data-[view=table]:block">
+      <div key="table" className="hidden overflow-x-auto rounded-2xl border border-line md:group-data-[view=auto]:block md:group-data-[view=table]:block">
         {/* min width: on a phone the table scrolls sideways instead of squeezing every cell into one letter per line */}
         <table className="w-full min-w-176 border-collapse text-left text-sm">
           <thead className="bg-white/5 text-xs uppercase tracking-wide text-muted">
@@ -286,7 +286,7 @@ export function DataTable<T>({
       </div>
       }
       grid={
-      <ul key="grid" className={cn("grid gap-3 group-data-[view=auto]:md:hidden group-data-[view=table]:hidden", card ? "gap-4 lg:grid-cols-2" : "sm:grid-cols-2 xl:grid-cols-3")}>
+      <ul key="grid" className={cn("grid gap-3 md:group-data-[view=auto]:hidden md:group-data-[view=table]:hidden", card ? "gap-4 lg:grid-cols-2" : "sm:grid-cols-2 xl:grid-cols-3")}>
         {card
           ? rows.map((row) => (
               <li key={rowKey(row)} className="min-w-0">

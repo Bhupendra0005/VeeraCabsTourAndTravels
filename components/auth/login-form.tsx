@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertCircle, ArrowLeft, ArrowRight, Loader2, Mail, MailCheck, Phone, Send, ShieldCheck, UserRound } from "lucide-react";
+import { AlertCircle, ArrowLeft, Loader2, Mail, MailCheck, Phone, ShieldCheck, UserRound } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -278,7 +278,7 @@ export function LoginForm({
               <h2 className="font-(family-name:--font-display) text-2xl font-extrabold sm:text-[28px] lg:text-2xl">
                 {signup ? "Create your account" : "Log in to continue"}
               </h2>
-              <p className="mx-auto mt-2 max-w-xs text-sm text-white/65">
+              <p className="mx-auto! mt-2! max-w-xs text-sm text-white/65">
                 {signup
                   ? "Tell us who you are and we will email you a 6-digit code to confirm. No password needed."
                   : "Enter your email and we will send you a 6-digit code. No password needed."}
@@ -359,10 +359,7 @@ export function LoginForm({
                   <Loader2 className="size-4.5 animate-spin" aria-hidden="true" /> Sending code...
                 </>
               ) : (
-                <>
-                  <Send className="size-4.5" aria-hidden="true" /> {signup ? "Create account" : "Send code"}{" "}
-                  <ArrowRight className="size-4.5 transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
-                </>
+                <>{signup ? "Create account" : "Send code"}</>
               )}
             </button>
 
@@ -393,14 +390,14 @@ export function LoginForm({
               </span>
               <div className="min-w-0">
                 <h2 className="font-(family-name:--font-display) text-2xl font-extrabold sm:text-[28px]">Check your inbox</h2>
-                <p className="mt-1.5 text-sm text-muted [overflow-wrap:anywhere]">
+                <p className="mt-1.5! text-sm text-muted [overflow-wrap:anywhere]">
                   We sent a 6-digit code to <b className="text-white">{email}</b>. It is valid for 10 minutes.
                 </p>
               </div>
             </div>
 
             <fieldset className="grid gap-2.5">
-              <legend className="mb-1 text-[13px] font-semibold">Enter your code</legend>
+              <legend className="pb-3 text-[13px] font-semibold">Enter your code</legend>
               <div className="grid grid-cols-6 gap-2 sm:gap-3">
                 {digits.map((digit, index) => (
                   <input

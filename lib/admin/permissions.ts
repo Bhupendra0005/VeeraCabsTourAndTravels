@@ -5,6 +5,7 @@ export type AdminRole = "owner" | "staff";
 export type Permission =
   | "bookings.view"
   | "bookings.manage"
+  | "bookings.delete"
   | "payments.view"
   | "customers.view"
   | "routes.manage"
@@ -24,7 +25,8 @@ const STAFF: Permission[] = [
   "media.manage",
 ];
 
-const OWNER: Permission[] = [...STAFF, "settings.manage", "team.manage", "audit.view"];
+// deleting a booking is permanent, so only the owner may do it
+const OWNER: Permission[] = [...STAFF, "bookings.delete", "settings.manage", "team.manage", "audit.view"];
 
 export const ROLE_LABEL: Record<AdminRole, string> = { owner: "Owner", staff: "Staff" };
 

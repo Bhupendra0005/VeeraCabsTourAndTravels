@@ -3,6 +3,9 @@ import { CheckCircle2, Clock3, CreditCard, Layers, RotateCcw, SlidersHorizontal,
 import Link from "next/link";
 import { money } from "@/components/admin/booking-bits";
 import { DetailModal } from "@/components/admin/detail-modal";
+import { ConfirmDelete } from "@/components/admin/confirm-delete";
+import { deletePaymentAction } from "@/lib/server/admin/actions/payments";
+import { can } from "@/lib/admin/permissions";
 import {
   ClearFiltersLink,
   EmptyPanel,
@@ -41,7 +44,8 @@ const kindOptions = [
 const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
 
 export default async function AdminPaymentsPage({ searchParams }: { searchParams: Promise<Params> }) {
-  await requireAdminPage("payments.view");
+  const admin = await requireAdminPage("payments.view");
+  const canDelete = can(admin.role, "bookings.delete");
   const raw = await searchParams;
   const filters = { status: one(raw.status), kind: one(raw.kind), page: pageParam(one(raw.page)) };
   const filtered = Boolean(filters.status || filters.kind);
@@ -160,6 +164,9 @@ export default async function AdminPaymentsPage({ searchParams }: { searchParams
                       <ButtonLink variant="secondary" size="sm" href={`/admin/bookings/${p.booking_id}`}>
                         Open booking
                       </ButtonLink>
+                    ) : null}
+                    {canDelete && (p.status === "created" || p.status === "failed") ? (
+                      <ConfirmDelete id={p.id} action={deletePaymentAction} what="payment" summary={`${money(p.amount)} ${p.kind} payment${p.bookings ? ` (${p.bookings.ref})` : ""}`} />
                     ) : null}
                   </DetailModal>
                 ),

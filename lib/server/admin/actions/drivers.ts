@@ -52,7 +52,23 @@ export async function updateDriverAction(id: string, _prev: ActionState, formDat
   });
 }
 
-/** A driver who has left is switched off, not deleted, so past trips keep their history. */
+/** Deletes a driver from the list. Only when no booking was ever given to them; otherwise switch them off so history stays. */
+export async function deleteDriverAction(id: string): Promise<ActionState> {
+  return run("bookings.manage", async (admin) => {
+    const driverId = idOrThrow(id);
+    const { count, error: countError } = await db().from("bookings").select("id", { count: "exact", head: true }).eq("driver_id", driverId);
+    if (countError) throw countError;
+    if (count) throw new ActionError(`This driver has ${count} trip${count === 1 ? "" : "s"} on record. Switch the driver off instead, so those trips keep their history.`);
+    const { data, error } = await db().from("drivers").delete().eq("id", driverId).select("id, name, phone");
+    if (error) throw error;
+    if (!data?.length) throw new ActionError("Driver not found.");
+    await audit(admin, "driver.deleted", { entity: "driver", entityId: driverId, meta: { name: data[0].name, phone: data[0].phone } });
+    revalidatePath("/admin/drivers");
+    return { ok: true, message: "Driver deleted." };
+  });
+}
+
+/** A driver who has left is switched off when they have trips, so past trips keep their history. */
 export async function setDriverActiveAction(id: string, active: boolean): Promise<ActionState> {
   return run("bookings.manage", async (admin) => {
     const driverId = idOrThrow(id);

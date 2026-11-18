@@ -344,7 +344,7 @@ export function DatePicker({
         className={cn(triggerBase, sizeClass[size], current ? "pr-10" : "", open ? "border-brand ring-4 ring-brand/15" : "border-white/10")}
       >
         <CalendarDays className={cn("size-4 shrink-0 text-white/45 transition-colors group-focus-visible:text-brand-bright", open && "text-brand-bright")} aria-hidden="true" />
-        <span className={cn("min-w-0 flex-1", !current && "text-white/35")}>{current ? shown.format(fromIso(current)) : placeholder}</span>
+        <span className={cn("min-w-0 flex-1 truncate text-left", !current && "text-white/35")}>{current ? shown.format(fromIso(current)) : placeholder}</span>
       </button>
       {current && !disabled ? (
         <button

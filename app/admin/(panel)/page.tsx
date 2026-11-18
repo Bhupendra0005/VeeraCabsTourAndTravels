@@ -70,7 +70,6 @@ function BookingsOverview({ stats }: { stats: { total: number; confirmed: number
 
   return (
     <Card
-      className="h-full"
       title={<SectionTitle icon={<BarChart3 />}>Bookings overview</SectionTitle>}
       description={<span className="block pl-[42px]">All time, by status.</span>}
     >
@@ -212,14 +211,22 @@ export default async function AdminDashboardPage({
                     header: "When",
                     primary: true,
                     cell: (b) => (
-                      <span className="flex flex-wrap items-center gap-2">
+                      <span className="grid justify-items-start gap-1.5">
                         <TripWhen booking={b} />
                         {b.travel_date === todayIst() ? <Badge tone="danger">today</Badge> : b.travel_date === todayIst(1) ? <Badge tone="warning">tomorrow</Badge> : null}
                       </span>
                     ),
                   },
                   { header: "Trip", cell: (b) => <BookingRoute booking={b} /> },
-                  { header: "Traveller", cell: (b) => `${b.traveller_name} · +91 ${b.traveller_phone}` },
+                  {
+                    header: "Traveller",
+                    cell: (b) => (
+                      <div className="grid gap-0.5">
+                        <span>{b.traveller_name}</span>
+                        <span className="text-xs text-muted">+91 {b.traveller_phone}</span>
+                      </div>
+                    ),
+                  },
                   {
                     header: "",
                     align: "right",
@@ -236,9 +243,8 @@ export default async function AdminDashboardPage({
             <Alert tone="success">Every confirmed trip in the next 7 days has a driver and cab assigned.</Alert>
           ) : null}
 
-          <div className="grid items-stretch gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
+          <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
           <Card
-            className="h-full"
             title={<SectionTitle icon={<CalendarClock />}>Trips in the next 7 days</SectionTitle>}
             description={<span className="block pl-[42px]">Confirmed bookings, soonest first.</span>}
           >
@@ -253,9 +259,17 @@ export default async function AdminDashboardPage({
                 columns={[
                   { header: "Booking", primary: true, cell: (b) => <BookingRoute booking={b} /> },
                   { header: "When", cell: (b) => <TripWhen booking={b} /> },
-                  { header: "Traveller", cell: (b) => `${b.traveller_name} · +91 ${b.traveller_phone}` },
+                  {
+                    header: "Traveller",
+                    cell: (b) => (
+                      <div className="grid gap-0.5">
+                        <span>{b.traveller_name}</span>
+                        <span className="text-xs text-muted">+91 {b.traveller_phone}</span>
+                        {b.pickup_address ? <span className="text-xs text-muted">Pickup: {b.pickup_address}</span> : null}
+                      </div>
+                    ),
+                  },
                   { header: "Driver", cell: (b) => (b.driver_name ? `${b.driver_name}${b.cab_number ? ` · ${b.cab_number}` : ""}` : <Badge tone="warning">not assigned</Badge>) },
-                  { header: "Pickup", cell: (b) => b.pickup_address },
                 ]}
               />
             )}
