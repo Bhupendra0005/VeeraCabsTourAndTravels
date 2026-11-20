@@ -127,7 +127,7 @@ export const DOCS: DocDefinition[] = [
   {
     key: "fleet",
     label: "Fleet",
-    description: "Your vehicles. The name must match the vehicle type used in Routes & fares.",
+    description: "Your vehicles. Renaming one here also renames it in all fares automatically. Put car models in \"Example models\", not in the name.",
     viewPath: "/book",
     fields: [
       {
@@ -154,7 +154,7 @@ export const DOCS: DocDefinition[] = [
         maxItems: 20,
         addLabel: "Add vehicle",
         fields: [
-          { type: "text", key: "title", label: "Name", required: true, max: 40, hint: "Changing a name here does not rename it in existing fares: update Routes & fares too." },
+          { type: "text", key: "title", label: "Name", required: true, max: 40, hint: "Renaming a vehicle also renames it in Routes & fares and in the airport and hourly fares, so it keeps showing on the booking page." },
           { type: "text", key: "seats", label: "Seats shown to customers", max: 40, placeholder: "4 passengers" },
           { type: "number", key: "capacity", label: "Maximum passengers", min: 1, max: 60, step: 1, defaultValue: 4 },
           { type: "text", key: "luggage", label: "Luggage", max: 40 },

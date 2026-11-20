@@ -94,7 +94,17 @@ export function withPalette<T>(palette: Palette | null, fn: () => Promise<T>): P
   return themeStore.run(colors, fn);
 }
 
-const PHOTO_KEYS: [string, string][] = [["tempo", "fleet-tempo"], ["mpv", "fleet-mpv"], ["suv", "fleet-suv"], ["sedan", "fleet-sedan"]];
+// vehicle names can be the car models too ("Ertiga, Xylo", "Innova Crysta"), so models are matched as well as the class words
+const PHOTO_KEYS: [string, string][] = [
+  ["tempo", "fleet-tempo"],
+  ["mpv", "fleet-mpv"],
+  ["ertiga", "fleet-mpv"],
+  ["xylo", "fleet-mpv"],
+  ["suv", "fleet-suv"],
+  ["innova", "fleet-suv"],
+  ["crysta", "fleet-suv"],
+  ["sedan", "fleet-sedan"],
+];
 
 /** Built-in vehicle photo for a booked vehicle name (matched loosely), or the sedan as a safe default. */
 export function vehiclePhotoFor(vehicleType: string): string {

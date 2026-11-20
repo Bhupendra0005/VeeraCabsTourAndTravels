@@ -10,7 +10,8 @@ import { getDocDefinition } from "@/lib/cms/docs";
 import { DocError, validateFields } from "@/lib/cms/validate";
 import { audit } from "@/lib/server/admin/audit";
 import { ActionError, run } from "@/lib/server/admin/actions/run";
-import { getFleetAll } from "@/lib/server/cms/content";
+import { getAirportFares, getFleetAll, getHourlyFares } from "@/lib/server/cms/content";
+import { db } from "@/lib/server/core/db";
 import { readExtrasForEdit } from "@/lib/server/cms/extras";
 import { deleteDoc, writeDoc } from "@/lib/server/cms/store";
 
@@ -72,6 +73,60 @@ async function crossChecks(key: string, doc: Record<string, unknown>) {
   }
 }
 
+/**
+ * Which vehicles were renamed by this save. A name that disappeared from the list and a new name that appeared are one rename
+ * (paired in the order they appear); anything else (a vehicle added, or removed) is not a rename and touches no fares.
+ */
+function detectRenames(before: string[], after: string[]): [string, string][] {
+  const removed = before.filter((title) => !after.includes(title));
+  const added = after.filter((title) => !before.includes(title));
+  if (removed.length === 0 || removed.length !== added.length) return [];
+  return removed.map((title, index) => [title, added[index]]);
+}
+
+/**
+ * A vehicle's name is what ties it to its fares, so renaming it in the Fleet must rename it everywhere, or the vehicle
+ * silently disappears from the booking page. This moves: route fares, airport and hourly fares, reviews, and the bookings that
+ * still hold the vehicle (confirmed or waiting for payment, so availability keeps counting them). Finished bookings keep the
+ * name they were made under.
+ */
+async function renameVehicleEverywhere(renames: [string, string][], adminEmail: string): Promise<{ routeFares: number; transferFares: number }> {
+  const done: [string, string][] = [];
+  let routeFares = 0;
+  let transferFares = 0;
+  try {
+    for (const [oldName, newName] of renames) {
+      const { data, error } = await db().from("route_fares").update({ vehicle_type: newName }).eq("vehicle_type", oldName).select("id");
+      if (error) {
+        if (error.code === "23505") throw new ActionError(`Some routes already have a fare named "${newName}". Pick a name that is not used in Routes & fares.`);
+        throw error;
+      }
+      done.push([oldName, newName]);
+      routeFares += data?.length ?? 0;
+      const reviews = await db().from("reviews").update({ vehicle_type: newName }).eq("vehicle_type", oldName);
+      if (reviews.error) throw reviews.error;
+      const bookings = await db().from("bookings").update({ vehicle_type: newName }).eq("vehicle_type", oldName).in("status", ["confirmed", "pending_payment"]);
+      if (bookings.error) throw bookings.error;
+    }
+
+    // airport and hourly fares are one document each; rows are matched by vehicle name
+    const rename = (name: string) => renames.find(([oldName]) => oldName === name)?.[1] ?? name;
+    for (const [key, read] of [[AIRPORT_KEY, getAirportFares], [HOURLY_KEY, getHourlyFares]] as const) {
+      const current = await read();
+      const rows = current.fares as { vehicle: string }[];
+      const changed = rows.filter((row) => rename(row.vehicle) !== row.vehicle).length;
+      if (changed === 0) continue;
+      await writeDoc(key, { ...current, fares: rows.map((row) => ({ ...row, vehicle: rename(row.vehicle) })) }, adminEmail);
+      transferFares += changed;
+    }
+  } catch (error) {
+    // best effort: put the route fares back, so a half-finished rename does not leave a vehicle with no fares
+    for (const [oldName, newName] of done) await db().from("route_fares").update({ vehicle_type: oldName }).eq("vehicle_type", newName);
+    throw error;
+  }
+  return { routeFares, transferFares };
+}
+
 /** Saves one website content document after validating it against its schema. */
 export async function saveDocAction(key: string, value: unknown): Promise<ActionState> {
   const isLayout = key === DOCUMENT_LAYOUT_KEY;
@@ -97,11 +152,31 @@ export async function saveDocAction(key: string, value: unknown): Promise<Action
       }
     }
 
-    await writeDoc(key, clean, admin.email);
+    // renaming a vehicle: carry the new name into every fare first, then save the fleet (so the two never disagree)
+    let renamed = "";
+    let renames: [string, string][] = [];
+    if (key === "fleet") {
+      const before = (await getFleetAll()).map((vehicle) => vehicle.title);
+      const after = ((clean.items as { title?: unknown }[]) ?? []).map((item) => String(item.title ?? ""));
+      renames = detectRenames(before, after);
+      if (renames.length > 0) {
+        const moved = await renameVehicleEverywhere(renames, admin.email);
+        await audit(admin, "fleet.renamed", { entity: "content", entityId: "fleet", meta: { renames, ...moved } });
+        renamed = ` ${renames.map(([from, to]) => `"${from}" is now "${to}"`).join(", ")} in ${moved.routeFares} route fares and ${moved.transferFares} airport/hourly fares.`;
+      }
+    }
+
+    try {
+      await writeDoc(key, clean, admin.email);
+    } catch (error) {
+      // the fleet did not save: move the names back so fares and fleet still agree
+      if (renames.length > 0) await renameVehicleEverywhere(renames.map(([from, to]) => [to, from] as [string, string]), admin.email).catch(() => undefined);
+      throw error;
+    }
     await audit(admin, "content.saved", { entity: "content", entityId: key });
     // the public site is statically generated: refresh every page so the change shows up straight away
     revalidatePath("/", "layout");
-    return { ok: true, message: isLayout ? "Saved. New invoices and tickets use this design." : "Saved. The website is updated." };
+    return { ok: true, message: isLayout ? "Saved. New invoices and tickets use this design." : `Saved. The website is updated.${renamed}` };
   });
 }
 
