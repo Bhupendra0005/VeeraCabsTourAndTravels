@@ -34,8 +34,8 @@ export function parseSearch(raw: Raw): SearchParams {
   const bags = Number.parseInt(first(raw.bags), 10);
   return {
     tripType: TRIP_TYPES.includes(tripType) ? tripType : "one_way",
-    from: first(raw.from).slice(0, 60),
-    to: first(raw.to).slice(0, 60),
+    from: first(raw.from).slice(0, 100),
+    to: first(raw.to).slice(0, 100),
     date: /^\d{4}-\d{2}-\d{2}$/.test(date) ? date : "",
     time: /^([01]\d|2[0-3]):[0-5]\d$/.test(time) ? time : "",
     returnDate: /^\d{4}-\d{2}-\d{2}$/.test(returnDate) ? returnDate : "",
@@ -44,9 +44,10 @@ export function parseSearch(raw: Raw): SearchParams {
     airport: first(raw.airport).slice(0, 60),
     address: first(raw.address).slice(0, 120),
     pkg: first(raw.pkg).slice(0, 30),
+    // places can contain commas ("Koregaon Park, Pune"), so stops are separated with "|" in the address
     stops: first(raw.stops)
-      .split(",")
-      .map((stop) => stop.trim().slice(0, 60))
+      .split("|")
+      .map((stop) => stop.trim().slice(0, 100))
       .filter(Boolean)
       .slice(0, 3),
   };
@@ -64,7 +65,7 @@ export function searchToQuery(s: Partial<SearchParams> & { routeId?: string; veh
   const q = new URLSearchParams();
   for (const [key, value] of Object.entries(s)) {
     if (Array.isArray(value)) {
-      if (value.length) q.set(key, value.join(","));
+      if (value.length) q.set(key, value.join("|"));
     } else if (value !== undefined && value !== "") {
       q.set(key, String(value));
     }
@@ -74,7 +75,7 @@ export function searchToQuery(s: Partial<SearchParams> & { routeId?: string; veh
 
 export function parseVehicle(raw: Raw): string {
   const vehicle = first(raw.vehicle);
-  return /^[\w &-]{2,40}$/.test(vehicle) ? vehicle : "";
+  return /^[\w &,.()'-]{2,40}$/.test(vehicle) ? vehicle : "";
 }
 
 export function parseRouteId(raw: Raw): string {

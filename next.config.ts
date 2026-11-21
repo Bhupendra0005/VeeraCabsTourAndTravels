@@ -16,7 +16,11 @@ const nextConfig: NextConfig = {
   poweredByHeader: false,
   // the Rate Card page was retired: fares are shown on the Book Online page
   async redirects() {
-    return [{ source: "/rate-card", destination: "/book", permanent: true }];
+    return [
+      { source: "/rate-card", destination: "/book", permanent: true },
+      // one address for the site: veerafleet.com (no www) goes to www.veerafleet.com, so Google sees a single version of every page
+      { source: "/:path*", has: [{ type: "host", value: "veerafleet.com" }], destination: "https://www.veerafleet.com/:path*", permanent: true },
+    ];
   },
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];

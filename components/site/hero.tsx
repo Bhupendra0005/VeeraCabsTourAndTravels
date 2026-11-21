@@ -114,6 +114,7 @@ export type HomeSearch = {
   returnHint: string;
   askTravellers: { airport: boolean; hourly: boolean };
   suggestions: boolean;
+  byDistance?: boolean;
 };
 
 /** The very same search box as the Book Online page. Searching sends the visitor to the cab list there. */

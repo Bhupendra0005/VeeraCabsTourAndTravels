@@ -35,6 +35,7 @@ import {
 } from "@/components/site/booking";
 import { AboutPhotos } from "@/components/site/about-photos";
 import { FaqAccordion, type FaqItem } from "@/components/site/faq";
+import { HomeReviews, type HomeReviewsData } from "@/components/site/home-reviews";
 import { FloatingActions, SiteFooter } from "@/components/site/footer";
 import { Hero, type HomeSearch } from "@/components/site/hero";
 import { SiteHeader } from "@/components/site/header";
@@ -379,9 +380,11 @@ export type HomePageProps = {
   faqs: FaqItem[];
   dropOptions: PlaceOption[];
   search: HomeSearch | null;
+  /** Real customer reviews; null while there are none. */
+  reviews?: HomeReviewsData | null;
 };
 
-export function HomePage({ home, fleet: fleetData, features: featuresData, faqs, dropOptions, search }: HomePageProps) {
+export function HomePage({ home, fleet: fleetData, features: featuresData, faqs, dropOptions, search, reviews = null }: HomePageProps) {
   const { site, whatsappLink } = useSite();
   const fleet = fleetData.map((vehicle) => ({ ...vehicle, icon: resolveIcon(vehicle.icon, "car") }));
   const features = featuresData.map((feature) => ({ ...feature, icon: resolveIcon(feature.icon) }));
@@ -984,6 +987,8 @@ export function HomePage({ home, fleet: fleetData, features: featuresData, faqs,
             </div>
           </div>
         </section>
+
+        <HomeReviews data={reviews} />
 
         <section className="section faq-section" id="faqs">
           <div className="shell">

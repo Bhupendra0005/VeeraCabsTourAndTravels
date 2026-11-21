@@ -15,11 +15,21 @@ function backfillNewFields<T>(key: string, defaults: T, merged: T): T {
   if (!Array.isArray(base) || !Array.isArray(saved)) return merged;
   const items = saved.map((item) => {
     const same = base.find((candidate) => candidate.title === item.title);
-    if (!same) return item;
     const filled: Record<string, unknown> = { ...item };
-    for (const field of ["category", "fuel", "models", "bags", "extraKmRate", "listDiscountPercent"]) {
-      if (filled[field] === undefined || filled[field] === null) filled[field] = same[field];
+    if (same) {
+      for (const field of ["category", "fuel", "models", "bags", "extraKmRate", "minKmPerDay", "driverAllowance", "minFare", "listDiscountPercent"]) {
+        if (filled[field] === undefined || filled[field] === null) filled[field] = same[field];
+      }
     }
+    // outstation rate per km: a vehicle saved before it existed keeps charging what its own extra-km rate says (any vehicle name,
+    // not only the built-in ones), so it does not silently drop out of the cab list
+    if (filled.ratePerKm === undefined || filled.ratePerKm === null) {
+      filled.ratePerKm = typeof filled.extraKmRate === "number" ? filled.extraKmRate : same?.ratePerKm;
+    }
+    // the same values the website already uses when these were never saved, so the admin form shows them instead of blank boxes
+    if (filled.minKmPerDay === undefined || filled.minKmPerDay === null) filled.minKmPerDay = 300;
+    if (filled.minFare === undefined || filled.minFare === null) filled.minFare = 0;
+    if (filled.driverAllowance === undefined || filled.driverAllowance === null) filled.driverAllowance = 0;
     return filled;
   });
   return { ...(merged as object), items } as T;

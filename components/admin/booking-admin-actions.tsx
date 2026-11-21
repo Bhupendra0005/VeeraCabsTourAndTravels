@@ -174,11 +174,18 @@ export function BookingAdminActions({ bookingId, status, note, hasPayments, driv
                 <input id="bal-amount" name="amount" inputMode="decimal" maxLength={12} autoComplete="off" className={inputClass} value={bal.amount} onChange={(e) => setBal({ ...bal, amount: e.target.value })} />
               </Field>
               <Field label="Paid by" htmlFor="bal-method">
-                <select id="bal-method" name="method" className={inputClass} value={bal.method} onChange={(e) => setBal({ ...bal, method: e.target.value })}>
-                  <option value="cash">Cash</option>
-                  <option value="upi">UPI</option>
-                  <option value="bank">Bank</option>
-                </select>
+                <SelectMenu
+                  id="bal-method"
+                  name="method"
+                  size="lg"
+                  value={bal.method}
+                  onChange={(method) => setBal({ ...bal, method })}
+                  options={[
+                    { value: "cash", label: "Cash" },
+                    { value: "upi", label: "UPI" },
+                    { value: "bank", label: "Bank" },
+                  ]}
+                />
               </Field>
             </div>
             {due > 0 ? <FormMessage state={balanceState} /> : null}
@@ -197,14 +204,13 @@ export function BookingAdminActions({ bookingId, status, note, hasPayments, driv
             <input type="hidden" name="driverId" value={drv.id} />
             {drivers.length > 0 ? (
               <Field label="Choose from your drivers" htmlFor="drv-pick" hint="Picking one fills the fields below. You can still change them for this trip.">
-                <select id="drv-pick" value={drv.id} onChange={(e) => pick(e.target.value)} className={inputClass}>
-                  <option value="">Type a new driver below</option>
-                  {drivers.map((d) => (
-                    <option key={d.id} value={d.id}>
-                      {d.name} · {d.cab || "no cab number"} · +91 {d.phone}
-                    </option>
-                  ))}
-                </select>
+                <SelectMenu
+                  id="drv-pick"
+                  size="lg"
+                  value={drv.id}
+                  onChange={pick}
+                  options={[{ value: "", label: "Type a new driver below" }, ...drivers.map((d) => ({ value: d.id, label: `${d.name} · ${d.cab || "no cab number"} · +91 ${d.phone}` }))]}
+                />
               </Field>
             ) : null}
             <div className="grid gap-4 sm:grid-cols-2">

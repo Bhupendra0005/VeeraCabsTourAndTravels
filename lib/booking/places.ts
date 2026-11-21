@@ -35,21 +35,31 @@ async function googleSuggestions(input: string): Promise<string[]> {
     .filter((text): text is string => !!text);
 }
 
-async function freeSuggestions(input: string, signal?: AbortSignal): Promise<string[]> {
-  const res = await fetch(`/api/places?q=${encodeURIComponent(input)}`, { signal });
-  if (!res.ok) return [];
-  const data = (await res.json()) as { suggestions?: string[] };
-  return Array.isArray(data.suggestions) ? data.suggestions : [];
+async function freeSuggestions(input: string, signal?: AbortSignal): Promise<{ items: string[]; kept: string }> {
+  const res = await fetch(`/api/places?v=2&q=${encodeURIComponent(input)}`, { signal });
+  if (!res.ok) return { items: [], kept: "" };
+  const data = (await res.json()) as { suggestions?: string[]; kept?: string };
+  return { items: Array.isArray(data.suggestions) ? data.suggestions : [], kept: typeof data.kept === "string" ? data.kept : "" };
+}
+
+/**
+ * Up to six address suggestions in India for what the visitor has typed so far. Never throws.
+ * `kept` is set when the map did not know the full address: the items are then the nearest known place, and `kept` is the part
+ * of the typed address that was left out ("Quarsi"), which the form puts back in front of the place the customer picks.
+ */
+export async function suggestPlacesDetailed(input: string): Promise<{ items: string[]; kept: string }> {
+  const text = input.trim();
+  if (text.length < 3) return { items: [], kept: "" };
+  try {
+    if (GOOGLE_KEY) return { items: (await googleSuggestions(text)).slice(0, 6), kept: "" };
+    const found = await freeSuggestions(text);
+    return { items: found.items.slice(0, 6), kept: found.kept };
+  } catch {
+    return { items: [], kept: "" };
+  }
 }
 
 /** Up to six address suggestions in India for what the visitor has typed so far. Never throws. */
 export async function suggestPlaces(input: string): Promise<string[]> {
-  const text = input.trim();
-  if (text.length < 3) return [];
-  try {
-    const found = GOOGLE_KEY ? await googleSuggestions(text) : await freeSuggestions(text);
-    return found.slice(0, 6);
-  } catch {
-    return [];
-  }
+  return (await suggestPlacesDetailed(input)).items;
 }

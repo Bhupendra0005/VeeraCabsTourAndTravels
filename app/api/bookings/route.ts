@@ -34,14 +34,16 @@ export function POST(request: Request) {
     }
 
     const stops = body.stops ?? [];
-    if (!Array.isArray(stops) || stops.length > 10 || stops.some((item) => typeof item !== "string" || item.trim().length < 2 || item.length > 60)) {
+    if (!Array.isArray(stops) || stops.length > 10 || stops.some((item) => typeof item !== "string" || item.trim().length < 2 || item.length > 100)) {
       throw new HttpError(400, "Invalid stops.");
     }
     const gstin = optStr(body, "gstin", 15).toUpperCase();
 
     const order = await createBooking(session.customerId, {
-      routeId: isOutstation(tripType) ? uuid(body.routeId, "route") : "",
-      from: optStr(body, "from", 40),
+      // a route priced by hand has its id; an outstation trip priced by distance has none and is priced from from / to
+      routeId: isOutstation(tripType) && body.routeId ? uuid(body.routeId, "route") : "",
+      from: optStr(body, "from", 100),
+      to: optStr(body, "to", 100),
       airport: optStr(body, "airport", 60),
       pkg: optStr(body, "pkg", 30),
       stops: (stops as string[]).map((item) => item.trim()),

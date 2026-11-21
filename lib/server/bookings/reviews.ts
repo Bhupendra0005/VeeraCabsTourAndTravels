@@ -1,6 +1,6 @@
 import "server-only";
 import { departureAt } from "@/lib/booking/config";
-import { oneDecimal, shortName, type PublicReview, type ReviewSummary } from "@/lib/booking/reviews";
+import { EXTERNAL_SOURCES, oneDecimal, shortName, type ExternalSource, type PublicReview, type ReviewSummary } from "@/lib/booking/reviews";
 import { getBookingPage } from "@/lib/server/cms/content";
 import { db } from "@/lib/server/core/db";
 import { HttpError } from "@/lib/server/core/http";
@@ -80,6 +80,76 @@ export async function getVehicleReviews(vehicle: string, latest = 3): Promise<{ 
     console.error("Vehicle reviews could not be loaded", error);
     return { summary: null, reviews: [] };
   }
+}
+
+export type HomeReviews = { overall: number; count: number; reviews: PublicReview[] };
+
+type ExternalRow = { id: string; reviewer_name: string; source: ExternalSource; rating: number; comment: string; review_date: string; published: boolean; created_at: string; avatar_url?: string };
+
+const externalToPublic = (row: ExternalRow): PublicReview => ({
+  cabRating: row.rating,
+  driverRating: row.rating,
+  tags: [],
+  comment: row.comment,
+  reviewer: row.reviewer_name,
+  vehicle: "",
+  date: row.review_date,
+  source: EXTERNAL_SOURCES[row.source] ?? "Other",
+  avatarUrl: row.avatar_url || undefined,
+});
+
+/** Published reviews written elsewhere and added by the owner. A failure (e.g. migration 014 not run) just means none. */
+async function loadExternalReviews(): Promise<ExternalRow[]> {
+  const { data, error } = await db()
+    .from("external_reviews")
+    .select("*")
+    .eq("published", true)
+    .order("review_date", { ascending: false })
+    .limit(SCAN_LIMIT);
+  if (error) {
+    console.error("External reviews could not be loaded", error);
+    return [];
+  }
+  return (data ?? []) as ExternalRow[];
+}
+
+/**
+ * Real customer reviews for the home page: the average over every published review (website and owner-added),
+ * and the newest ones that have a written comment. Hidden reviews are never included. `null` = nothing to show yet.
+ */
+export async function getHomeReviews(latest = 9): Promise<HomeReviews | null> {
+  try {
+    const [site, external] = await Promise.all([
+      db().from("reviews").select(COLUMNS).eq("published", true).order("created_at", { ascending: false }).limit(SCAN_LIMIT),
+      loadExternalReviews(),
+    ]);
+    if (site.error) throw site.error;
+    const rows = (site.data ?? []) as ReviewRow[];
+    const count = rows.length + external.length;
+    if (count === 0) return null;
+    const total = rows.reduce((sum, row) => sum + (row.cab_rating + row.driver_rating) / 2, 0) + external.reduce((sum, row) => sum + row.rating, 0);
+    const shown = [...rows.map(toPublic), ...external.map(externalToPublic)]
+      .filter((review) => review.comment.trim().length > 0)
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+      .slice(0, latest);
+    if (shown.length === 0) return null;
+    return { overall: oneDecimal(total / count), count, reviews: shown };
+  } catch (error) {
+    console.error("Home page reviews could not be loaded", error);
+    return null;
+  }
+}
+
+export type AdminExternalReview = ExternalRow & { created_by: string };
+
+export async function listExternalReviewsForAdmin(): Promise<AdminExternalReview[]> {
+  const { data, error } = await db()
+    .from("external_reviews")
+    .select("*")
+    .order("review_date", { ascending: false })
+    .limit(200);
+  if (error) throw error;
+  return (data ?? []) as AdminExternalReview[];
 }
 
 /** The review the customer already wrote for this booking, if any. */

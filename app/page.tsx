@@ -3,7 +3,9 @@ import { HomePage } from "@/components/site/home-page";
 import type { HomeSearch } from "@/components/site/hero";
 import { destinationCategories } from "@/lib/content";
 import { parseSearch } from "@/lib/booking/search";
+import { pricedByDistance } from "@/lib/server/bookings/distance";
 import { listSearchOptions } from "@/lib/server/bookings/service";
+import { getHomeReviews } from "@/lib/server/bookings/reviews";
 import {
   getBookingPage,
   getBookingSettings,
@@ -19,13 +21,14 @@ import {
 export const metadata: Metadata = { alternates: { canonical: "/" } };
 
 export default async function Home() {
-  const [home, fleet, features, faqs, destinations, areas] = await Promise.all([
+  const [home, fleet, features, faqs, destinations, areas, reviews] = await Promise.all([
     getHome(),
     getFleetData(),
     getFeaturesData(),
     getFaqs(),
     getDestinations(),
     getAreas(),
+    getHomeReviews(),
   ]);
 
   // suggestions for the "where to" box in the hero
@@ -40,9 +43,9 @@ export default async function Home() {
   // the same search box as the Book Online page. If booking is paused or the fares cannot be loaded, the home page falls back to its simple bar.
   let search: HomeSearch | null = null;
   try {
-    const [options, page, settings] = await Promise.all([listSearchOptions(), getBookingPage(), getBookingSettings()]);
-    if (settings.onlineBookingEnabled && options.cities.from.length > 0) {
-      const initial = parseSearch({ tripType: "one_way", from: options.cities.from.includes("Pune") ? "Pune" : "" });
+    const [options, page, settings, byDistance] = await Promise.all([listSearchOptions(), getBookingPage(), getBookingSettings(), pricedByDistance()]);
+    if (settings.onlineBookingEnabled && (byDistance || options.cities.from.length > 0)) {
+      const initial = parseSearch({ tripType: "one_way", from: byDistance || options.cities.from.includes("Pune") ? "Pune" : "" });
       search = {
         options,
         initial,
@@ -57,11 +60,12 @@ export default async function Home() {
         returnHint: page.returnHint,
         askTravellers: { airport: page.airportAskTravellers, hourly: page.hourlyAskTravellers },
         suggestions: page.addressSuggestions,
+        byDistance,
       };
     }
   } catch (error) {
     console.error("Home search box unavailable, using the simple bar", error);
   }
 
-  return <HomePage home={home} fleet={fleet} features={features} faqs={faqs} dropOptions={dropOptions} search={search} />;
+  return <HomePage home={home} fleet={fleet} features={features} faqs={faqs} dropOptions={dropOptions} search={search} reviews={reviews} />;
 }

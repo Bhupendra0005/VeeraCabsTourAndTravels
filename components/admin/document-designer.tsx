@@ -305,7 +305,7 @@ export function DocumentDesigner({ initial, customised }: { initial: DocumentLay
 
                 <SubHeading icon={MapPin} title="Header details" text="What is printed next to the logo at the top." />
                 <div className="grid divide-y divide-white/8">
-                  <CheckRow checked={look.showVehiclePhoto} onChange={(v) => patch("look", "showVehiclePhoto", v)} icon={Car} title="Show the booked vehicle's photo in the header" />
+                  <CheckRow checked={look.showVehiclePhoto} onChange={(v) => patch("look", "showVehiclePhoto", v)} icon={Car} title="Show the booked vehicle's photo on the e-ticket" />
                   <CheckRow checked={look.showContact} onChange={(v) => patch("look", "showContact", v)} icon={MapPin} title="Show address, phone and email in the header" />
                   <CheckRow checked={look.showGstin} onChange={(v) => patch("look", "showGstin", v)} icon={FileText} title="Print the GSTIN under the logo" hint="Set the GSTIN under Website > Contact & business." />
                 </div>

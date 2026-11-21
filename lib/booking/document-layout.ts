@@ -109,7 +109,7 @@ export const DOCUMENT_LAYOUT_FIELDS: Field[] = [
         label: "Logo (optional)",
         hint: "Leave empty to use the built-in logo. A PNG with a transparent background looks best.",
       },
-      { type: "toggle", key: "showVehiclePhoto", label: "Show the booked vehicle's photo in the header" },
+      { type: "toggle", key: "showVehiclePhoto", label: "Show the booked vehicle's photo on the e-ticket" },
       { type: "toggle", key: "showContact", label: "Show address, phone and email in the header" },
       { type: "toggle", key: "showGstin", label: "Print the GSTIN under the logo", hint: "Set the GSTIN under Website > Contact & business." },
     ],

@@ -27,11 +27,22 @@ import {
 import { openCheckout, postJson, verifyPayment, type PayOrder } from "@/lib/payments/checkout-client";
 import { ui } from "@/components/ui/styles";
 import { cn } from "@/lib/utils/cn";
+import type { FareBreakup } from "@/lib/booking/outstation";
+
+/** "Distance 51 km x ₹14/km"; for a round trip it also says how the billed km came about. */
+function distanceLabel(b: FareBreakup): string {
+  const rate = `₹${b.ratePerKm}/km`;
+  if (b.tripType !== "round_trip") return `Distance ${b.km} km x ${rate}`;
+  if (b.billedKm > b.km * 2) return `${b.billedKm} km (${b.days} days x ${b.minKmPerDay} km minimum) x ${rate}`;
+  return `${b.billedKm} km (${b.km} km each way) x ${rate}`;
+}
 
 type Props = {
   routeId: string;
-  /** Hourly rentals: the city. */
+  /** Hourly rentals: the city. Outstation: the pickup place. */
   from: string;
+  /** Outstation: the drop place. */
+  to: string;
   airport: string;
   /** Hourly rentals: the package name. */
   pkg: string;
@@ -62,6 +73,10 @@ type Props = {
   passengers: number;
   bags: number;
   baseFare: number;
+  /** Fare worked out from the distance: its lines are listed under Base Fare. */
+  distanceBreakup?: FareBreakup;
+  /** Driver allowance already inside the base fare (paise), per day and for the days of the trip. */
+  allowance?: { perDay: number; days: number; total: number };
   rules: PricingRules & { balanceCutoffHours: number };
   addons: Addon[];
   coupons: Coupon[];
@@ -85,8 +100,10 @@ export function ReviewForm(props: Props) {
   const airportPickup = props.tripType === "airport_pickup";
   const airportDrop = props.tripType === "airport_drop";
   const hourly = props.tripType === "hourly";
-  const [pickupAddress, setPickupAddress] = useState(airportPickup ? props.airport : airportDrop ? props.prefillAddress : "");
-  const [dropAddress, setDropAddress] = useState(airportPickup ? props.prefillAddress : airportDrop ? props.airport : "");
+  // outstation priced by distance: the places typed in the search are a good start for the exact pickup and drop address
+  const typedPlaces = !hourly && !airportPickup && !airportDrop && !props.routeId;
+  const [pickupAddress, setPickupAddress] = useState(airportPickup ? props.airport : airportDrop ? props.prefillAddress : typedPlaces ? props.from : "");
+  const [dropAddress, setDropAddress] = useState(airportPickup ? props.prefillAddress : airportDrop ? props.airport : typedPlaces ? props.to : "");
   const [wantGst, setWantGst] = useState(false);
   const [gstCompany, setGstCompany] = useState("");
   const [gstin, setGstin] = useState("");
@@ -98,7 +115,8 @@ export function ReviewForm(props: Props) {
   const [couponInput, setCouponInput] = useState("");
   const [couponError, setCouponError] = useState("");
   const [payMode, setPayMode] = useState<PayMode>("part");
-  const [showBreakup, setShowBreakup] = useState(false);
+  // a fare by distance is explained from the start: the customer sees what the price is made of
+  const [showBreakup, setShowBreakup] = useState(!!props.distanceBreakup);
   const [accepted, setAccepted] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -138,6 +156,99 @@ export function ReviewForm(props: Props) {
   const full = quoteFor("full");
   const quote = payMode === "full" ? full : part;
 
+  const breakupLines = (
+    <>
+            {showBreakup ? (
+              <dl className={cn(ui.fareBreakdown, "mt-3")}>
+                <div>
+                  <dt>Base Fare</dt>
+                  <dd>{formatINR(quote.baseFare)}</dd>
+                </div>
+                {props.distanceBreakup ? (
+                  <>
+                    <div>
+                      <dt className="pl-3 text-sm">{distanceLabel(props.distanceBreakup)}</dt>
+                      <dd className="text-sm font-normal! text-muted">{formatINR(props.distanceBreakup.kmCharge)}</dd>
+                    </div>
+                    {props.distanceBreakup.returnCharge > 0 ? (
+                      <div>
+                        <dt className="pl-3 text-sm">One-way return charge ({props.distanceBreakup.returnPercent}%)</dt>
+                        <dd className="text-sm font-normal! text-muted">{formatINR(props.distanceBreakup.returnCharge)}</dd>
+                      </div>
+                    ) : null}
+                    {props.distanceBreakup.minFareTopUp > 0 ? (
+                      <div>
+                        <dt className="pl-3 text-sm">Minimum fare for this vehicle</dt>
+                        <dd className="text-sm font-normal! text-muted">+{formatINR(props.distanceBreakup.minFareTopUp)}</dd>
+                      </div>
+                    ) : null}
+                  </>
+                ) : null}
+                {props.allowance ? (
+                  <div>
+                    <dt className="pl-3 text-sm">
+                      Driver allowance ({formatINR(props.allowance.perDay * 100)} x {props.allowance.days} {props.allowance.days === 1 ? "day" : "days"})
+                    </dt>
+                    <dd className="text-sm font-normal! text-muted">{formatINR(props.allowance.total)}</dd>
+                  </div>
+                ) : null}
+                {props.inclusionTitles.map((title) => (
+                  <div key={title}>
+                    <dt className="text-sm">{title}</dt>
+                    <dd className="text-sm font-normal! text-muted">Included</dd>
+                  </div>
+                ))}
+                {quote.addons > 0 ? (
+                  <div>
+                    <dt>{props.stops.length > 0 ? "Extra stops & special requests" : "Special requests"}</dt>
+                    <dd>{formatINR(quote.addons)}</dd>
+                  </div>
+                ) : null}
+                {quote.discount > 0 ? (
+                  <div>
+                    <dt>Coupon discount{coupon ? ` (${coupon.code})` : ""}</dt>
+                    <dd className="text-ok">-{formatINR(quote.discount)}</dd>
+                  </div>
+                ) : null}
+                <div>
+                  <dt>Taxes &amp; Fees</dt>
+                  <dd>{formatINR(quote.gst + quote.serviceFee)}</dd>
+                </div>
+                <div>
+                  <dt className="pl-3 text-sm">GST ({props.rules.gstPercent}%)</dt>
+                  <dd className="text-sm font-normal! text-muted">{formatINR(quote.gst)}</dd>
+                </div>
+                {quote.serviceFee > 0 ? (
+                  <div>
+                    <dt className="pl-3 text-sm">{props.serviceFeeLabel || "Service Fee"}</dt>
+                    <dd className="text-sm font-normal! text-muted">{formatINR(quote.serviceFee)}</dd>
+                  </div>
+                ) : null}
+                {quote.insurance > 0 ? (
+                  <div>
+                    <dt>Trip protection</dt>
+                    <dd>{formatINR(quote.insurance)}</dd>
+                  </div>
+                ) : null}
+                <div className={ui.fareTotal}>
+                  <dt>Total</dt>
+                  <dd>{formatINR(quote.total)}</dd>
+                </div>
+              </dl>
+            ) : null}
+            {showBreakup && props.distanceBreakup ? (
+              <p className="mt-3 text-xs leading-relaxed text-muted">
+                {props.distanceBreakup.returnCharge > 0
+                  ? `A one-way fare adds ${props.distanceBreakup.returnPercent}% because the driver drives back empty. `
+                  : props.distanceBreakup.tripType === "round_trip"
+                    ? "A round trip counts the distance both ways. "
+                    : ""}
+                The fare is the road distance x the rate of the cab you choose.
+              </p>
+            ) : null}
+    </>
+  );
+
   const applyCoupon = async (rawCode: string) => {
     const code = normaliseCode(rawCode);
     if (!code) return;
@@ -164,7 +275,7 @@ export function ReviewForm(props: Props) {
     if (busy) return;
     if (name.trim().length < 2) return fail("Enter the traveller's full name.", "rv-name");
     if (!/^[6-9]\d{9}$/.test(phone)) return fail("Enter a valid 10-digit mobile number.", "rv-phone");
-    if (!airportPickup && pickupAddress.trim().length < 3) return fail("Enter your pickup location.", "rv-pickup");
+    if (pickupAddress.trim().length < 3) return fail("Enter your pickup location.", "rv-pickup");
     if ((airportPickup || airportDrop) && (airportPickup ? dropAddress : pickupAddress).trim().length < 3) {
       return fail(airportPickup ? "Enter your drop location." : "Enter your pickup location.", airportPickup ? "rv-drop" : "rv-pickup");
     }
@@ -189,6 +300,7 @@ export function ReviewForm(props: Props) {
         vehicle: props.vehicle,
         tripType: props.tripType,
         from: props.from,
+        to: props.to,
         airport: props.airport,
         pkg: props.pkg,
         stops: props.stops,
@@ -281,7 +393,6 @@ export function ReviewForm(props: Props) {
                   onChange={setPickupAddress}
                   placeholder="House / landmark, area"
                   maxLength={160}
-                  readOnly={airportPickup}
                   suggest={props.suggestions}
                   places={props.places}
                   required
@@ -302,7 +413,6 @@ export function ReviewForm(props: Props) {
                     onChange={setDropAddress}
                     placeholder="Where should we drop you?"
                     maxLength={120}
-                    readOnly={airportDrop}
                     suggest={props.suggestions}
                     places={props.places}
                   />
@@ -518,6 +628,13 @@ export function ReviewForm(props: Props) {
             </p>
           ) : null}
 
+          {props.distanceBreakup ? (
+            <div className="mb-3">
+              <p className="text-sm font-bold">Fare break up</p>
+              {breakupLines}
+            </div>
+          ) : null}
+
           <div className="rv-total">
             <span>Total Fare (Incl. taxes)</span>
             <b>{formatINR(quote.total)}</b>
@@ -554,63 +671,18 @@ export function ReviewForm(props: Props) {
             <Lock aria-hidden="true" /> Secure payment by Razorpay. We never see your card details.
           </p>
 
-          <button
-            type="button"
-            className={cn(ui.linkButton, "mt-4 inline-flex items-center gap-1")}
-            aria-expanded={showBreakup}
-            onClick={() => setShowBreakup((current) => !current)}
-          >
-            {showBreakup ? "Hide" : "View"} Fare Break up <ChevronDown className={cn("size-4 transition", showBreakup && "rotate-180")} aria-hidden="true" />
-          </button>
-          {showBreakup ? (
-            <dl className={cn(ui.fareBreakdown, "mt-3")}>
-              <div>
-                <dt>Base Fare</dt>
-                <dd>{formatINR(quote.baseFare)}</dd>
-              </div>
-              {props.inclusionTitles.map((title) => (
-                <div key={title}>
-                  <dt className="text-sm">{title}</dt>
-                  <dd className="text-sm font-normal! text-muted">Included</dd>
-                </div>
-              ))}
-              {quote.addons > 0 ? (
-                <div>
-                  <dt>{props.stops.length > 0 ? "Extra stops & special requests" : "Special requests"}</dt>
-                  <dd>{formatINR(quote.addons)}</dd>
-                </div>
-              ) : null}
-              {quote.discount > 0 ? (
-                <div>
-                  <dt>Coupon discount{coupon ? ` (${coupon.code})` : ""}</dt>
-                  <dd className="text-ok">-{formatINR(quote.discount)}</dd>
-                </div>
-              ) : null}
-              <div>
-                <dt>Taxes &amp; Fees</dt>
-                <dd>{formatINR(quote.gst + quote.serviceFee)}</dd>
-              </div>
-              <div>
-                <dt className="pl-3 text-sm">GST ({props.rules.gstPercent}%)</dt>
-                <dd className="text-sm font-normal! text-muted">{formatINR(quote.gst)}</dd>
-              </div>
-              {quote.serviceFee > 0 ? (
-                <div>
-                  <dt className="pl-3 text-sm">{props.serviceFeeLabel || "Service Fee"}</dt>
-                  <dd className="text-sm font-normal! text-muted">{formatINR(quote.serviceFee)}</dd>
-                </div>
-              ) : null}
-              {quote.insurance > 0 ? (
-                <div>
-                  <dt>Trip protection</dt>
-                  <dd>{formatINR(quote.insurance)}</dd>
-                </div>
-              ) : null}
-              <div className={ui.fareTotal}>
-                <dt>Total</dt>
-                <dd>{formatINR(quote.total)}</dd>
-              </div>
-            </dl>
+          {!props.distanceBreakup ? (
+            <>
+            <button
+              type="button"
+              className={cn(ui.linkButton, "mt-4 inline-flex items-center gap-1")}
+              aria-expanded={showBreakup}
+              onClick={() => setShowBreakup((current) => !current)}
+            >
+              {showBreakup ? "Hide" : "View"} Fare Break up <ChevronDown className={cn("size-4 transition", showBreakup && "rotate-180")} aria-hidden="true" />
+            </button>
+              {breakupLines}
+            </>
           ) : null}
         </SectionCard>
         </div>

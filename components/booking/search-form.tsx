@@ -48,6 +48,8 @@ type Props = {
   suggestions: boolean;
   /** Scroll target after searching, e.g. "results" (used by the home page so the visitor lands on the cab list). */
   landOn?: string;
+  /** Outstation fares are worked out from the distance: From / To / stops are any place the customer types. */
+  byDistance?: boolean;
 };
 
 /** The airport a typed place refers to, or "" when it is not one of the owner's airports. */
@@ -57,7 +59,10 @@ function airportOf(text: string, airports: string[]): string {
   return airports.find((name) => name.toLowerCase() === t) ?? airports.find((name) => t.includes(name.toLowerCase())) ?? "";
 }
 
-export function SearchForm({ options, initial, tabs, maxStops, askTravellers, suggestions, landOn }: Props) {
+/** The same place written two ways, e.g. "Pune" and " pune ". */
+const samePlace = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase();
+
+export function SearchForm({ options, initial, tabs, maxStops, askTravellers, suggestions, landOn, byDistance = false }: Props) {
   const router = useRouter();
   const visibleTabs = TABS.filter((tab) => tabs.includes(tab.id));
 
@@ -92,6 +97,11 @@ export function SearchForm({ options, initial, tabs, maxStops, askTravellers, su
   const pickTab = (id: string) => {
     const tab = visibleTabs.find((item) => item.id === id);
     if (!tab || tab.id === activeTab.id) return;
+    // outstation places are free text, hourly uses a city list: do not carry one into the other
+    if (byDistance && (tab.types[0] === "hourly") !== hourly) {
+      setFrom("");
+      setTo("");
+    }
     setTripType(tab.types[0]);
     setError("");
   };
@@ -104,7 +114,11 @@ export function SearchForm({ options, initial, tabs, maxStops, askTravellers, su
     let address = "";
 
     if (outstation) {
-      if (!from || !to) return setError("Choose where you are travelling from and to.");
+      if (byDistance) {
+        if (from.trim().length < 3 || to.trim().length < 3) return setError("Enter the pickup and the drop place.");
+        if (samePlace(from, to)) return setError("Pickup and drop cannot be the same place.");
+        if (stops.some((stop) => stop.trim().length > 0 && stop.trim().length < 3)) return setError("Enter each stop as a place, or remove it.");
+      } else if (!from || !to) return setError("Choose where you are travelling from and to.");
     } else if (airportTrip) {
       if (airportFrom.trim().length < 3 || airportTo.trim().length < 3) return setError("Enter both the pickup and the drop location.");
       const a = airportOf(airportFrom, options.airports);
@@ -134,7 +148,7 @@ export function SearchForm({ options, initial, tabs, maxStops, askTravellers, su
       time: pickup,
       passengers: showTravellers ? passengers : 1,
       bags: showTravellers ? bags : 0,
-      ...(outstation ? { from, to, stops: stops.filter(Boolean), returnDate: finalType === "round_trip" ? returnDate : "" } : {}),
+      ...(outstation ? { from: from.trim(), to: to.trim(), stops: stops.map((stop) => stop.trim()).filter(Boolean), returnDate: finalType === "round_trip" ? returnDate : "" } : {}),
       ...(airportTrip ? { airport, address } : {}),
       ...(hourly ? { from, pkg } : {}),
     });
@@ -199,16 +213,20 @@ export function SearchForm({ options, initial, tabs, maxStops, askTravellers, su
               </label>
               <div className="field-control">
                 <MapPin aria-hidden="true" />
-                <SelectField
-                  id="bk-from"
-                  value={from}
-                  options={options.cities.from}
-                  placeholder="Pickup city"
-                  onChange={(value) => {
-                    setFrom(value);
-                    if (!(options.cities.to[value] ?? []).includes(to)) setTo("");
-                  }}
-                />
+                {byDistance ? (
+                  <LocationField id="bk-from" value={from} onChange={setFrom} places={options.places} placeholder="Pickup city or address" suggest={suggestions} maxLength={100} unmappedHint="This exact address is not on the map. Keep it as typed: we use the nearest town to work out the distance, and you add the full address on the next page." />
+                ) : (
+                  <SelectField
+                    id="bk-from"
+                    value={from}
+                    options={options.cities.from}
+                    placeholder="Pickup city"
+                    onChange={(value) => {
+                      setFrom(value);
+                      if (!(options.cities.to[value] ?? []).includes(to)) setTo("");
+                    }}
+                  />
+                )}
               </div>
             </div>
 
@@ -218,7 +236,11 @@ export function SearchForm({ options, initial, tabs, maxStops, askTravellers, su
               </label>
               <div className="field-control">
                 <Navigation aria-hidden="true" />
-                <SelectField id="bk-to" value={to} options={toOptions} placeholder="Choose destination" onChange={setTo} />
+                {byDistance ? (
+                  <LocationField id="bk-to" value={to} onChange={setTo} places={options.places} placeholder="Drop city or address" suggest={suggestions} maxLength={100} unmappedHint="This exact address is not on the map. Keep it as typed: we use the nearest town to work out the distance, and you add the full address on the next page." />
+                ) : (
+                  <SelectField id="bk-to" value={to} options={toOptions} placeholder="Choose destination" onChange={setTo} />
+                )}
               </div>
             </div>
           </>
@@ -343,13 +365,25 @@ export function SearchForm({ options, initial, tabs, maxStops, askTravellers, su
                   <label htmlFor={`bk-stop-${index}`}>Stop {index + 1}</label>
                   <div className="field-control">
                     <MapPin aria-hidden="true" />
-                    <SelectField
-                      id={`bk-stop-${index}`}
-                      value={stop}
-                      options={options.stopCities.filter((city) => city !== from && city !== to && !stops.includes(city))}
-                      placeholder="Choose a city on the way"
-                      onChange={(value) => setStops((current) => current.map((item, i) => (i === index ? value : item)))}
-                    />
+                    {byDistance ? (
+                      <LocationField
+                        id={`bk-stop-${index}`}
+                        value={stop}
+                        onChange={(value) => setStops((current) => current.map((item, i) => (i === index ? value.replace(/\|/g, " ") : item)))}
+                        places={options.places}
+                        placeholder="A place on the way"
+                        suggest={suggestions}
+                        maxLength={100}
+                      />
+                    ) : (
+                      <SelectField
+                        id={`bk-stop-${index}`}
+                        value={stop}
+                        options={options.stopCities.filter((city) => city !== from && city !== to && !stops.includes(city))}
+                        placeholder="Choose a city on the way"
+                        onChange={(value) => setStops((current) => current.map((item, i) => (i === index ? value : item)))}
+                      />
+                    )}
                   </div>
                 </div>
                 <button type="button" className="btn btn-ghost" aria-label={`Remove stop ${index + 1}`} onClick={() => setStops((current) => current.filter((_, i) => i !== index))}>

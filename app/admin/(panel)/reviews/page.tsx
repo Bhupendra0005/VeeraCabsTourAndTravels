@@ -80,6 +80,13 @@ export default async function AdminReviewsPage({ searchParams }: { searchParams:
         icon={<Star />}
         title="Reviews"
         description="What customers say after their trip. A hidden review no longer shows on the website. Reviews cannot be edited."
+        actions={
+          canManage ? (
+            <ButtonLink href="/admin/reviews/other-sites" variant="secondary">
+              Add a review from Google or elsewhere
+            </ButtonLink>
+          ) : null
+        }
       />
 
       {all ? (

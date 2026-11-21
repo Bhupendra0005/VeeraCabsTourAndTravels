@@ -1,3 +1,4 @@
+import { revalidatePath } from "next/cache";
 import { loadOwnedBooking } from "@/lib/server/bookings/service";
 import { createReview } from "@/lib/server/bookings/reviews";
 import { requireSession } from "@/lib/server/auth/guard";
@@ -24,6 +25,8 @@ export function POST(request: Request, ctx: { params: Promise<{ id: string }> })
       tags: tags as string[],
       comment: optStr(body, "comment", 600),
     });
+    // the home page shows the newest reviews
+    revalidatePath("/");
     return json({ ok: true }, 201);
   });
 }

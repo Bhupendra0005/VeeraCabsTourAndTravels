@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ArrowLeftRight, BadgeCheck, CarFront, Clock3, Route, ShieldCheck, Sparkles } from "lucide-react";
+import { ArrowLeftRight, BadgeCheck, CarFront, Clock3, MapPin, Route, ShieldCheck, Sparkles } from "lucide-react";
 import { CabList, type CabOption } from "@/components/booking/cab-list";
 import { ScrollToResults } from "@/components/booking/scroll-to-results";
 import { SearchCollapse } from "@/components/booking/search-collapse";
@@ -21,6 +21,7 @@ import { isSearchComplete, parseSearch, searchToQuery } from "@/lib/booking/sear
 import { cabHeading } from "@/lib/booking/fleet";
 import { getBookingExtras, getBookingPage, getBookingSettings, getFleet } from "@/lib/server/cms/content";
 import { getVehicleRatings } from "@/lib/server/bookings/reviews";
+import { pricedByDistance } from "@/lib/server/bookings/distance";
 import { busyVehicles, isFullyBooked, listSearchOptions, searchFares, type RouteFare, type SearchOptions } from "@/lib/server/bookings/service";
 import { ui } from "@/components/ui/styles";
 
@@ -40,7 +41,7 @@ export default async function BookPage({
   let params = parseSearch(rawParams);
   const wantedCab = (() => {
     const value = Array.isArray(rawParams.cab) ? rawParams.cab[0] : rawParams.cab;
-    return typeof value === "string" && /^[\w &-]{2,40}$/.test(value) ? value : "";
+    return typeof value === "string" && /^[\w &,.()'-]{2,40}$/.test(value) ? value : "";
   })();
   const page = await getBookingPage();
   const tabOn = isAirport(params.tripType) ? page.enableAirport : params.tripType === "hourly" ? page.enableHourly : true;
@@ -49,10 +50,13 @@ export default async function BookPage({
   let options: SearchOptions = { cities: { from: [], to: {} }, stopCities: [], airports: [], places: [], hourlyCities: [], hourlyPackages: {} };
   let fares: RouteFare[] = [];
   let unavailable = false;
+  let byDistance = false;
   try {
     options = await listSearchOptions();
+    byDistance = await pricedByDistance();
     // links from elsewhere on the site (or typed by hand) may name a place we have no fares for: start from a clean field instead
-    if (isOutstation(params.tripType)) {
+    // (not when fares are worked out from the distance: any place is allowed then)
+    if (isOutstation(params.tripType) && !byDistance) {
       const from = options.cities.from.includes(params.from) ? params.from : "";
       const to = from && options.cities.to[from]?.includes(params.to) ? params.to : "";
       params = { ...params, from, to };
@@ -110,7 +114,7 @@ export default async function BookPage({
     };
   });
   const sample = fitting[0];
-  const km = sample ? sample.distanceKm * (params.tripType === "round_trip" ? 2 : 1) : 0;
+  const km = sample ? (sample.billedKm ?? sample.distanceKm * (params.tripType === "round_trip" ? 2 : 1)) : 0;
   const stopsCharge = Math.round(extras.stopCharge * 100) * (isOutstation(params.tripType) ? params.stops.length : 0);
   const heading =
     params.tripType === "airport_pickup" ? (
@@ -186,6 +190,7 @@ export default async function BookPage({
                 returnHint={page.returnHint}
                 askTravellers={{ airport: page.airportAskTravellers, hourly: page.hourlyAskTravellers }}
                 suggestions={page.addressSuggestions}
+                byDistance={byDistance}
               />
             </SearchCollapse>
           )}
@@ -224,7 +229,9 @@ export default async function BookPage({
                     <h3 className={ui.cardTitle}>No fixed-fare cab for this search</h3>
                     <p className={ui.muted}>
                       {fares.length === 0
-                        ? "We do not have an online fare for this route yet."
+                        ? byDistance && isOutstation(params.tripType)
+                          ? "We could not work out the distance between these two places. Check the spelling, or try the nearest big city."
+                          : "We do not have an online fare for this route yet."
                         : allTaken
                           ? "All our vehicles that seat your group are booked for this time. Try another time or date, or send us your trip."
                           : `No vehicle seats ${params.passengers} passengers on this route online.`}{" "}
@@ -275,6 +282,14 @@ export default async function BookPage({
                           <p>
                             <Clock3 aria-hidden="true" /> <b>{sample.durationHours} hr(s)</b> (approx. time{params.tripType === "round_trip" ? " one way" : ""})
                           </p>
+                          {sample.matched ? (
+                            <p>
+                              <MapPin aria-hidden="true" />
+                              <span>
+                                Distance worked out from <b>{sample.matched.from}</b> to <b>{sample.matched.to}</b>. Not the right place? Change it above and pick from the suggestions.
+                              </span>
+                            </p>
+                          ) : null}
                           {params.stops.length > 0 ? (
                             <p>
                               <b>{params.stops.length} extra {params.stops.length === 1 ? "stop" : "stops"}</b> ({params.stops.join(", ")}) add {formatINR(stopsCharge)} at checkout

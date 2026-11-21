@@ -18,6 +18,7 @@ import {
   isOutstation,
   to12h,
 } from "@/lib/booking/config";
+import { tripDays } from "@/lib/booking/outstation";
 import { refundSentence } from "@/lib/booking/refund";
 import { cabHeading } from "@/lib/booking/fleet";
 import {
@@ -61,7 +62,7 @@ export default async function ReviewPage({
   const search = parseSearch(raw);
   const vehicle = parseVehicle(raw);
   const routeId = parseRouteId(raw);
-  if (!isSearchComplete(search) || !vehicle || (isOutstation(search.tripType) && !routeId)) redirect("/book");
+  if (!isSearchComplete(search) || !vehicle) redirect("/book");
 
   const here = `/book/review?${searchToQuery({ ...search, routeId: routeId || undefined, vehicle })}`;
   const loginPath = `/login?next=${encodeURIComponent(here)}`;
@@ -78,6 +79,10 @@ export default async function ReviewPage({
     airport: search.airport,
     pkg: search.pkg,
     address: search.address,
+    to: search.to,
+    stops: search.stops,
+    date: search.date,
+    returnDate: search.returnDate || null,
   }).catch((error) => {
     console.error("Fare lookup failed", error);
     return null;
@@ -92,9 +97,15 @@ export default async function ReviewPage({
   const customerReviews = bookingPage.enableReviews ? await getVehicleReviews(fare.vehicle) : { summary: null, reviews: [] };
   const heading = cabHeading(fare.vehicle, meta?.models ?? "");
   const bootBags = meta?.bags ?? 2;
-  const includedKm = fare.distanceKm * (search.tripType === "round_trip" ? 2 : 1);
+  const includedKm = fare.billedKm ?? fare.distanceKm * (search.tripType === "round_trip" ? 2 : 1);
+  // the "minimum km per day" rule only matters for a round trip that lasts two days or more
+  const tripLengthDays = tripDays(search.date, search.tripType === "round_trip" ? search.returnDate : null);
+  const minKmDay = meta?.minKmPerDay ?? 0;
   const airportTrip = isAirport(search.tripType);
   const hourly = search.tripType === "hourly";
+  // outstation places can be a long typed address ("Accenture Pune, Mundhwa, Pune, Maharashtra"): the first part is the heading, the rest goes small below it
+  const placeHead = (place: string) => (isOutstation(search.tripType) ? place.split(",")[0].trim() || place : place);
+  const placeRest = (place: string) => (isOutstation(search.tripType) ? place.split(",").slice(1).join(",").trim() : "");
   const stopCharge = Math.round(extras.stopCharge * 100);
   const serviceFee = Math.round(extras.serviceFee * 100);
   const fareTotal = buildQuote({ baseFare: fare.fare, serviceFee, withInsurance: false, payMode: "full" }, settings).total;
@@ -116,21 +127,27 @@ export default async function ReviewPage({
       <div className="mmt">
         <BookingBand title="Review booking" wide curved>
           <div className="flex flex-wrap items-end justify-between gap-x-8 gap-y-5 text-white">
-            <div className="grid gap-4">
-              <div>
-                <p className="flex flex-wrap items-center gap-x-1.5 text-sm text-white/70">
-                  {TRIP_TYPE_LABEL[search.tripType]} <ChevronRight className="size-3.5" aria-hidden="true" /> {hourly ? `${fare.fromCity}, ${fare.toCity}` : `${fare.fromCity} to ${fare.toCity}`}
+            <div className="grid min-w-0 max-w-full gap-4">
+              <div className="min-w-0">
+                {/* one line: a long typed address is cut with "..." instead of filling the header; the full text is in the tooltip */}
+                <p className="flex min-w-0 items-center gap-x-1.5 text-sm text-white/70">
+                  <span className="shrink-0">{TRIP_TYPE_LABEL[search.tripType]}</span>
+                  <ChevronRight className="size-3.5 shrink-0" aria-hidden="true" />
+                  <span className="min-w-0 truncate" title={hourly ? `${fare.fromCity}, ${fare.toCity}` : `${fare.fromCity} to ${fare.toCity}`}>
+                    {hourly ? `${fare.fromCity}, ${fare.toCity}` : `${placeHead(fare.fromCity)} to ${placeHead(fare.toCity)}`}
+                  </span>
                 </p>
                 <p className="font-(family-name:--font-display) text-3xl font-extrabold leading-tight sm:text-[2.6rem]">Review Booking</p>
               </div>
-              <ol className="m-0 flex list-none flex-wrap items-center gap-x-2 gap-y-2 p-0 text-[13px] font-semibold" aria-label="Booking steps">
+              {/* three steps on one line also on a phone: the middle label is shortened there */}
+              <ol className="m-0 flex list-none items-center gap-x-1.5 p-0 text-[12.5px] font-semibold sm:gap-x-2 sm:text-[13px]" aria-label="Booking steps">
                 {[
-                  { label: "Select Cab", state: "done" },
-                  { label: "Review & Traveller Details", state: "active" },
-                  { label: "Payment", state: "todo" },
+                  { label: "Select Cab", short: "Select Cab", state: "done" },
+                  { label: "Review & Traveller Details", short: "Review", state: "active" },
+                  { label: "Payment", short: "Payment", state: "todo" },
                 ].map((step, index) => (
-                  <li key={step.label} className="flex items-center gap-2">
-                    {index > 0 ? <span className="h-px w-5 bg-white/30 sm:w-8" aria-hidden="true" /> : null}
+                  <li key={step.label} className="flex items-center gap-1.5 sm:gap-2">
+                    {index > 0 ? <span className="h-px w-3 bg-white/30 sm:w-8" aria-hidden="true" /> : null}
                     <span
                       className={cn(
                         "grid size-6 place-items-center rounded-full text-xs font-bold",
@@ -141,7 +158,10 @@ export default async function ReviewPage({
                     >
                       {step.state === "done" ? <Check className="size-3.5" aria-hidden="true" /> : index + 1}
                     </span>
-                    <span className={step.state === "todo" ? "text-white/60" : "text-white"}>{step.label}</span>
+                    <span className={cn("whitespace-nowrap", step.state === "todo" ? "text-white/60" : "text-white")}>
+                      <span className="sm:hidden">{step.short}</span>
+                      <span className="hidden sm:inline">{step.label}</span>
+                    </span>
                   </li>
                 ))}
               </ol>
@@ -161,6 +181,7 @@ export default async function ReviewPage({
             vehicle={fare.vehicle}
             tripType={search.tripType}
             from={search.from}
+            to={search.to}
             airport={search.airport}
             pkg={search.pkg}
             stops={isOutstation(search.tripType) ? search.stops : []}
@@ -179,6 +200,8 @@ export default async function ReviewPage({
             passengers={search.passengers}
             bags={search.bags}
             baseFare={fare.fare}
+            distanceBreakup={fare.breakup}
+            allowance={fare.allowance ? { perDay: meta?.driverAllowance ?? 0, days: fare.allowanceDays ?? 1, total: fare.allowance } : undefined}
             rules={{
               gstPercent: settings.gstPercent,
               partPayPercent: settings.partPayPercent,
@@ -213,11 +236,12 @@ export default async function ReviewPage({
                     </p>
                   </div>
                 ) : (
-                  <div className="grid grid-cols-[minmax(0,1fr)_minmax(86px,1.1fr)_minmax(0,1fr)] items-center gap-2 sm:gap-5">
+                  /* phone: From, the route line and To stack one under the other, so a long place name has the full width; from sm up they sit side by side */
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(86px,1.1fr)_minmax(0,1fr)] sm:items-center sm:gap-5">
                     <div className="min-w-0">
                       <p className="rv-endpoint"><MapPin aria-hidden="true" /> From</p>
-                      <p className="font-(family-name:--font-display) text-[1.45rem] font-extrabold leading-tight [overflow-wrap:anywhere] sm:text-[1.9rem]">{fare.fromCity}</p>
-                      <p className="text-sm text-muted">{search.tripType === "airport_pickup" ? "Airport pickup" : airportTrip ? "Your pickup location" : "Pickup city"}</p>
+                      <p className="font-(family-name:--font-display) text-[1.45rem] font-extrabold leading-tight [overflow-wrap:anywhere] sm:text-[1.9rem]">{placeHead(fare.fromCity)}</p>
+                      <p className="text-sm text-muted">{placeRest(fare.fromCity) || (search.tripType === "airport_pickup" ? "Airport pickup" : airportTrip ? "Your pickup location" : "Pickup city")}</p>
                     </div>
                     <div className="grid justify-items-center gap-1.5">
                       {isOutstation(search.tripType) && fare.distanceKm > 0 ? (
@@ -235,10 +259,10 @@ export default async function ReviewPage({
                         <span className="size-2.5 flex-none rounded-full bg-brand" aria-hidden="true" />
                       </div>
                     </div>
-                    <div className="min-w-0 text-right">
-                      <p className="rv-endpoint justify-end"><MapPin aria-hidden="true" /> To</p>
-                      <p className="font-(family-name:--font-display) text-[1.45rem] font-extrabold leading-tight [overflow-wrap:anywhere] sm:text-[1.9rem]">{fare.toCity}</p>
-                      <p className="text-sm text-muted">{search.tripType === "airport_drop" ? "Airport drop" : airportTrip ? "Your drop location" : "Drop city"}</p>
+                    <div className="min-w-0 sm:text-right">
+                      <p className="rv-endpoint sm:justify-end"><MapPin aria-hidden="true" /> To</p>
+                      <p className="font-(family-name:--font-display) text-[1.45rem] font-extrabold leading-tight [overflow-wrap:anywhere] sm:text-[1.9rem]">{placeHead(fare.toCity)}</p>
+                      <p className="text-sm text-muted">{placeRest(fare.toCity) || (search.tripType === "airport_drop" ? "Airport drop" : airportTrip ? "Your drop location" : "Drop city")}</p>
                     </div>
                   </div>
                 )}
@@ -347,6 +371,34 @@ export default async function ReviewPage({
                           : meta?.extraKmRate
                             ? `₹${meta.extraKmRate}/km will apply beyond included kms`
                             : "Extra kms are charged beyond the included kms"}
+                      </small>
+                    </span>
+                  </li>
+                ) : null}
+                {search.tripType === "round_trip" && tripLengthDays >= 2 && minKmDay > 0 ? (
+                  <li>
+                    <span className="rv-incl-icon">
+                      <Route aria-hidden="true" />
+                    </span>
+                    <span>
+                      <b>Minimum {minKmDay} km per day</b>
+                      <small>
+                        Your trip is {tripLengthDays} days, so at least {tripLengthDays * minKmDay} km ({tripLengthDays} x {minKmDay}) is charged, even if the cab runs less.
+                      </small>
+                    </span>
+                  </li>
+                ) : null}
+                {isOutstation(search.tripType) && (meta?.driverAllowance ?? 0) > 0 ? (
+                  <li>
+                    <span className="rv-incl-icon rv-incl-icon--extra">
+                      <UserRound aria-hidden="true" />
+                    </span>
+                    <span>
+                      <b>Driver allowance: ₹{meta?.driverAllowance} per day, included</b>
+                      <small>
+                        {fare.allowance
+                          ? `Already in the fare: ${formatINR(fare.allowance)} for ${fare.allowanceDays} ${fare.allowanceDays === 1 ? "day" : "days"}.`
+                          : "It is included in the fare for each day of the trip."}
                       </small>
                     </span>
                   </li>

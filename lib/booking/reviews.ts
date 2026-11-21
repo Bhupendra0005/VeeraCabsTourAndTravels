@@ -10,7 +10,33 @@ export type PublicReview = {
   vehicle: string;
   /** ISO timestamp. */
   date: string;
+  /** Set for a review written on another site (e.g. "Google"); website reviews leave it out. */
+  source?: string;
+  /** Photo of the reviewer (owner-added reviews only); without one the initials of the name are shown. */
+  avatarUrl?: string;
 };
+
+/** "Shikha B." -> "SB", "Harsh" -> "H": the letters shown in the round picture when a reviewer has no photo. */
+export function initialsOf(name: string): string {
+  const words = name
+    .replace(/[^\p{L}\p{N} ]/gu, " ")
+    .split(/\s+/)
+    .filter(Boolean);
+  if (words.length === 0) return "?";
+  const first = Array.from(words[0])[0] ?? "";
+  const last = words.length > 1 ? (Array.from(words[words.length - 1])[0] ?? "") : "";
+  return (first + last).toUpperCase();
+}
+
+/** Where an owner-added review was written. */
+export const EXTERNAL_SOURCES = {
+  google: "Google",
+  justdial: "Justdial",
+  facebook: "Facebook",
+  whatsapp: "WhatsApp message",
+  other: "Other",
+} as const;
+export type ExternalSource = keyof typeof EXTERNAL_SOURCES;
 
 export type ReviewSummary = {
   count: number;

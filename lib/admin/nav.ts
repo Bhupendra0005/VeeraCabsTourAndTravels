@@ -4,6 +4,7 @@ export type NavIcon =
   | "dashboard"
   | "bookings"
   | "payments"
+  | "invoices"
   | "reviews"
   | "customers"
   | "drivers"
@@ -40,6 +41,7 @@ export const ADMIN_NAV: NavGroup[] = [
     items: [
       { href: "/admin/bookings", label: "Bookings", icon: "bookings", permission: "bookings.view" },
       { href: "/admin/payments", label: "Payments", icon: "payments", permission: "payments.view" },
+      { href: "/admin/invoices", label: "Invoices", icon: "invoices", permission: "bookings.view" },
       { href: "/admin/coupons", label: "Coupons", icon: "coupons", permission: "bookings.view" },
     ],
   },

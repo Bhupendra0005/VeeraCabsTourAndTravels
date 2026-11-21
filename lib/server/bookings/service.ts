@@ -15,7 +15,9 @@ import {
   type Gender,
   type PayMode,
 } from "@/lib/booking/config";
+import { outstationPrice, tripDays, type FareBreakup } from "@/lib/booking/outstation";
 import type { SearchParams } from "@/lib/booking/search";
+import { pricedByDistance, roadRoute, type RoadRoute } from "@/lib/server/bookings/distance";
 import { getLocalPlaces } from "@/lib/server/bookings/places";
 import { listSellableRoutes } from "@/lib/server/bookings/sellable-routes";
 import { getAirportFares, getBookingExtras, getBookingPage, getBookingSettings, getFleet, getHourlyFares } from "@/lib/server/cms/content";
@@ -64,6 +66,16 @@ export type RouteFare = {
   hours?: number;
   extraKmRate?: number;
   extraHourRate?: number;
+  /** Fares worked out from the road distance: the km the fare was charged for (a multi-day round trip has a daily minimum). */
+  billedKm?: number;
+  /** Outstation: the driver allowance already added to `fare` (paise), for the days of the trip. */
+  allowance?: number;
+  /** Outstation: the number of days the allowance was charged for. */
+  allowanceDays?: number;
+  /** Fares worked out from the distance: the two places that were actually found for what the customer typed. */
+  matched?: { from: string; to: string };
+  /** Fares worked out from the distance: the lines the fare is made of. */
+  breakup?: FareBreakup;
 };
 
 type FareJoin = {
@@ -137,6 +149,66 @@ export async function searchOutstationFaresPublic(from: string, to: string, trip
 }
 
 const paise = (rupees: number) => Math.round(rupees * 100);
+
+/**
+ * Adds the vehicle's driver allowance (Fleet > Driver allowance per day) to every outstation fare: allowance x days of the trip.
+ * A one-way trip counts as one day, a round trip as every calendar day from departure to return. Applied to hand-priced routes
+ * and to fares worked out from the distance alike, always on the server, so the browser cannot change it.
+ */
+async function withDriverAllowance(fares: RouteFare[], trip: { tripType: BookingTripType; date: string; returnDate: string | null }): Promise<RouteFare[]> {
+  if (fares.length === 0) return fares;
+  const fleet = await getFleet();
+  const days = tripDays(trip.date, trip.tripType === "round_trip" ? trip.returnDate : null);
+  return fares.map((fare) => {
+    const perDay = Math.max(0, Math.round(fleet.find((vehicle) => vehicle.title === fare.vehicle)?.driverAllowance ?? 0));
+    if (perDay === 0) return fare;
+    const allowance = paise(perDay) * days;
+    return { ...fare, fare: fare.fare + allowance, allowance, allowanceDays: days };
+  });
+}
+
+type DistanceTrip = { tripType: BookingTripType; from: string; to: string; stops: string[]; date: string; returnDate: string | null };
+
+/**
+ * Every vehicle's fare for an outstation trip worked out from the road distance between the places the customer typed
+ * (through the extra stops). `null` = not available (switched off, no routing key, or the route could not be worked out),
+ * and the caller then falls back to the routes the owner priced by hand. Vehicles without a rate per km are not offered.
+ */
+async function distanceFares(trip: DistanceTrip): Promise<RouteFare[] | null> {
+  if (!(await pricedByDistance())) return null;
+  const route = await roadRoute([trip.from, ...trip.stops, trip.to]);
+  if (!route) return null;
+  return faresForRoute(route, trip);
+}
+
+/** Every vehicle's fare for a trip whose road distance is known: worked out by the map, or typed by the owner. */
+async function faresForRoute(route: RoadRoute, trip: DistanceTrip): Promise<RouteFare[]> {
+  const [fleet, settings] = await Promise.all([getFleet(), getBookingSettings()]);
+  const days = tripDays(trip.date, trip.tripType === "round_trip" ? trip.returnDate : null);
+  return fleet
+    .filter((vehicle) => (vehicle.ratePerKm ?? 0) > 0)
+    .map((vehicle) => {
+      const { fare, billedKm, breakup } = outstationPrice({
+        distanceKm: route.distanceKm,
+        tripType: trip.tripType,
+        days,
+        rates: { ratePerKm: vehicle.ratePerKm ?? 0, minKmPerDay: vehicle.minKmPerDay ?? 0, minFare: vehicle.minFare ?? 0 },
+        oneWayReturnPercent: settings.oneWayReturnPercent,
+      });
+      return {
+        routeId: "",
+        fromCity: trip.from.slice(0, 100),
+        toCity: trip.to.slice(0, 100),
+        distanceKm: route.distanceKm,
+        durationHours: route.durationHours,
+        vehicle: vehicle.title,
+        fare,
+        billedKm,
+        matched: { from: route.from, to: route.to },
+        breakup,
+      };
+    });
+}
 
 async function airportFares(airport: string, tripType: BookingTripType, address: string): Promise<RouteFare[]> {
   const rows = (await getAirportFares()).fares.filter((row) => row.active && row.airport === airport);
@@ -284,7 +356,11 @@ export function isFullyBooked(vehicle: { count?: number }, busy: Record<string, 
 /** Every vehicle fare for a search, whatever the trip type. Cheapest first. */
 export async function searchFares(search: SearchParams): Promise<RouteFare[]> {
   const list = isOutstation(search.tripType)
-    ? await searchOutstationFares(search.from, search.to, search.tripType)
+    ? await withDriverAllowance(
+        (await distanceFares({ tripType: search.tripType, from: search.from, to: search.to, stops: search.stops, date: search.date, returnDate: search.returnDate || null })) ??
+          (await searchOutstationFares(search.from, search.to, search.tripType)),
+        { tripType: search.tripType, date: search.date, returnDate: search.returnDate || null },
+      )
     : isAirport(search.tripType)
       ? await airportFares(search.airport, search.tripType, search.address)
       : await hourlyFares(search.from, search.pkg);
@@ -293,9 +369,29 @@ export async function searchFares(search: SearchParams): Promise<RouteFare[]> {
 
 /** The one fare a booking is priced from. The browser only names the trip; the price comes from here. */
 export async function lookupTripFare(
-  trip: { tripType: BookingTripType; routeId: string; vehicle: string; from: string; airport: string; pkg: string; address: string },
+  trip: {
+    tripType: BookingTripType;
+    routeId: string;
+    vehicle: string;
+    from: string;
+    airport: string;
+    pkg: string;
+    address: string;
+    /** Outstation fares by distance: the drop place, the stops and the dates. */
+    to?: string;
+    stops?: string[];
+    date?: string;
+    returnDate?: string | null;
+  },
 ): Promise<RouteFare | null> {
-  if (isOutstation(trip.tripType)) return trip.routeId ? lookupFare(trip.routeId, trip.vehicle, trip.tripType) : null;
+  if (isOutstation(trip.tripType)) {
+    // a route the owner priced by hand (also the fallback when the distance could not be worked out)
+    const found = trip.routeId
+      ? await lookupFare(trip.routeId, trip.vehicle, trip.tripType)
+      : ((await distanceFares({ tripType: trip.tripType, from: trip.from, to: trip.to ?? "", stops: trip.stops ?? [], date: trip.date ?? "", returnDate: trip.returnDate ?? null }))?.find((fare) => fare.vehicle === trip.vehicle) ?? null);
+    if (!found) return null;
+    return (await withDriverAllowance([found], { tripType: trip.tripType, date: trip.date ?? "", returnDate: trip.returnDate ?? null }))[0];
+  }
   const list = isAirport(trip.tripType)
     ? await airportFares(trip.airport, trip.tripType, trip.address)
     : await hourlyFares(trip.from, trip.pkg);
@@ -376,10 +472,12 @@ export async function listCustomerBookings(customerId: string): Promise<BookingR
 /* ------------------------------------------------------------------ */
 
 export type BookingInput = {
-  /** Outstation only. */
+  /** Outstation priced by hand: the route; empty when the fare is worked out from the distance. */
   routeId: string;
-  /** Hourly rentals: the city. */
+  /** Hourly rentals: the city. Outstation: the pickup place. */
   from: string;
+  /** Outstation: the drop place. */
+  to: string;
   airport: string;
   /** Hourly rentals: the package name. */
   pkg: string;
@@ -487,6 +585,10 @@ export async function createBooking(customerId: string, input: BookingInput): Pr
     airport: input.airport,
     pkg: input.pkg,
     address: userSide,
+    to: input.to,
+    stops: input.stops,
+    date: input.date,
+    returnDate: input.tripType === "round_trip" ? input.returnDate : null,
   });
   if (!fare) throw new HttpError(404, "This route or vehicle is not available.");
   if (vehicle.count && vehicle.count > 0) {
@@ -545,8 +647,16 @@ export async function createBooking(customerId: string, input: BookingInput): Pr
         trip_type: input.tripType,
         from_city: fare.fromCity,
         to_city: fare.toCity,
-        pickup_address: input.tripType === "airport_pickup" ? fare.fromCity : input.pickupAddress,
-        drop_address: input.tripType === "airport_drop" ? fare.toCity : input.tripType === "hourly" ? "" : input.dropAddress,
+        // the airport side starts as the airport's name, but the customer may add a terminal or gate; the fare never depends on it
+        pickup_address: input.tripType === "airport_pickup" ? input.pickupAddress.trim().length >= 3 ? input.pickupAddress : fare.fromCity : input.pickupAddress,
+        drop_address:
+          input.tripType === "airport_drop"
+            ? input.dropAddress.trim().length >= 3
+              ? input.dropAddress
+              : fare.toCity
+            : input.tripType === "hourly"
+              ? ""
+              : input.dropAddress,
         stops: input.stops.join(", "),
         gst_company: input.gstin ? input.gstCompany : "",
         gstin: input.gstin,
@@ -863,8 +973,10 @@ export type PhoneBookingInput = {
   phone: string;
   /** Empty when the customer has no email: the booking is kept under a placeholder address and no emails are sent. */
   email: string;
-  /** Fare before GST, in paise. Empty/0 means "use the listed fare for this route and vehicle". */
+  /** Fare before GST, in paise. Empty/0 means "work it out": from the distance, or from a listed route's price. */
   customFare: number;
+  /** Distance in km (one way) typed by the owner; 0 = work it out from the road between the two places. */
+  distanceKm: number;
   /** Money already collected by hand (cash / UPI / bank), in paise, and how. */
   received: number;
   method: "cash" | "upi" | "bank";
@@ -876,6 +988,86 @@ export type PhoneBookingInput = {
 
 export const PHONE_EMAIL_DOMAIN = "phone-booking.invalid";
 
+/* ---- phone booking fare: the owner's price, else by distance (typed km or road distance), else a listed route ---- */
+
+/** Driving time for km typed by hand: about 50 km an hour on the road. */
+const hoursForKm = (km: number) => Math.max(0.5, Math.round((km / 50) * 10) / 10);
+
+export type PhoneFareSource = "custom" | "manual_km" | "distance" | "listed";
+type PhoneFare = { source: PhoneFareSource; baseFare: number; routeId: string | null; durationHours: number | null; fare?: RouteFare };
+type PhoneFareInput = Pick<PhoneBookingInput, "tripType" | "from" | "to" | "date" | "returnDate" | "vehicle" | "customFare" | "distanceKm">;
+
+async function resolvePhoneFare(input: PhoneFareInput): Promise<PhoneFare> {
+  const trip: DistanceTrip = { tripType: input.tripType, from: input.from, to: input.to, stops: [], date: input.date, returnDate: input.tripType === "round_trip" ? input.returnDate : null };
+  const mine = (list: RouteFare[] | null | undefined) => list?.find((fare) => fare.vehicle === input.vehicle);
+
+  // the owner typed the price: it is used as it is (a listed route only supplies the route id and the trip length)
+  if (input.customFare > 0) {
+    const listed = mine(await searchOutstationFaresPublic(input.from, input.to, input.tripType));
+    return { source: "custom", baseFare: input.customFare, routeId: listed?.routeId || null, durationHours: listed?.durationHours || (input.distanceKm > 0 ? hoursForKm(input.distanceKm) : null) };
+  }
+
+  // by distance: the km typed by the owner (no map needed), or the road distance between the two places
+  const byKm =
+    input.distanceKm > 0
+      ? await faresForRoute({ distanceKm: input.distanceKm, durationHours: hoursForKm(input.distanceKm), from: input.from, to: input.to }, trip)
+      : await distanceFares(trip);
+  const fare = mine(byKm ? await withDriverAllowance(byKm, trip) : null);
+  if (fare) return { source: input.distanceKm > 0 ? "manual_km" : "distance", baseFare: fare.fare, routeId: null, durationHours: fare.durationHours || null, fare };
+
+  // a route the owner priced by hand (used when the distance could not be worked out)
+  const listed = mine(await withDriverAllowance(await searchOutstationFaresPublic(input.from, input.to, input.tripType), trip));
+  if (listed) return { source: "listed", baseFare: listed.fare, routeId: listed.routeId || null, durationHours: listed.durationHours || null, fare: listed };
+
+  throw new HttpError(
+    400,
+    byKm
+      ? "This vehicle has no rate per km yet. Set it in Fleet, or enter the fare you agreed with the customer."
+      : "The distance between these places could not be worked out. Type the km yourself, or enter the fare you agreed with the customer.",
+  );
+}
+
+/** One line for the internal note of the booking: how the fare was made, since a booking does not keep the km. */
+function describePhoneFare(resolved: PhoneFare): string {
+  if (resolved.source === "custom") return "Fare: price typed by staff.";
+  if (resolved.source === "listed") return "Fare: listed route price.";
+  const b = resolved.fare?.breakup;
+  if (!b) return "";
+  const where = resolved.source === "manual_km" ? `${b.km} km (typed by staff)` : `${b.km} km by road`;
+  const extra = [b.returnPercent > 0 ? `+${b.returnPercent}% one-way return` : "", resolved.fare?.allowance ? `driver allowance Rs ${resolved.fare.allowance / 100}` : ""].filter(Boolean);
+  return `Fare by distance: ${where}, ${b.billedKm} km billed at Rs ${b.ratePerKm}/km${extra.length ? `, ${extra.join(", ")}` : ""}.`;
+}
+
+export type PhoneFarePreview = {
+  source: PhoneFareSource;
+  /** Paise. */
+  baseFare: number;
+  gst: number;
+  total: number;
+  breakup?: FareBreakup;
+  matched?: { from: string; to: string };
+  allowance?: number;
+  allowanceDays?: number;
+};
+
+/** What the booking would cost for these details, shown to the owner before the booking is created. */
+export async function previewPhoneFare(input: PhoneFareInput): Promise<PhoneFarePreview> {
+  const settings = await getBookingSettings();
+  if (!(await getFleet()).some((item) => item.title === input.vehicle)) throw new HttpError(400, "Choose one of your vehicles.");
+  const resolved = await resolvePhoneFare(input);
+  const quote = buildQuote({ baseFare: resolved.baseFare, addons: 0, discount: 0, serviceFee: 0, withInsurance: false, payMode: "full" }, settings);
+  return {
+    source: resolved.source,
+    baseFare: quote.baseFare,
+    gst: quote.gst,
+    total: quote.total,
+    breakup: resolved.fare?.breakup,
+    matched: resolved.fare?.matched,
+    allowance: resolved.fare?.allowance,
+    allowanceDays: resolved.fare?.allowanceDays,
+  };
+}
+
 /** A confirmed booking made by the owner. Returns the new booking id. */
 export async function createPhoneBooking(input: PhoneBookingInput): Promise<{ id: string; ref: string; emailed: boolean }> {
   const settings = await getBookingSettings();
@@ -885,17 +1077,9 @@ export async function createPhoneBooking(input: PhoneBookingInput): Promise<{ id
   if (Number.isNaN(departureAt(input.date, input.time).getTime())) throw new HttpError(400, "Enter a valid date and time.");
   if (input.tripType === "round_trip" && (!input.returnDate || input.returnDate < input.date)) throw new HttpError(400, "Choose a return date on or after the travel date.");
 
-  // the fare: a listed route's price, unless the owner typed their own (also the only way to book a route that is not listed)
-  let routeId: string | null = null;
-  let baseFare = input.customFare;
-  let durationHours: number | null = null;
-  const listed = (await searchOutstationFaresPublic(input.from, input.to, input.tripType)).find((fare) => fare.vehicle === input.vehicle);
-  if (listed) {
-    routeId = listed.routeId || null;
-    durationHours = listed.durationHours || null;
-    if (baseFare <= 0) baseFare = listed.fare;
-  }
-  if (baseFare <= 0) throw new HttpError(400, "This route has no listed fare for that vehicle. Enter the fare you agreed with the customer.");
+  // the fare: the price the owner typed, else km x the vehicle's rate (typed km or road distance), else a listed route's price
+  const resolved = await resolvePhoneFare(input);
+  const { routeId, baseFare, durationHours } = resolved;
 
   if (vehicle.count && vehicle.count > 0 && !input.allowFull) {
     const busy = await busyVehicles({ travel_date: input.date, travel_time: input.time, return_date: input.tripType === "round_trip" ? input.returnDate : null, hours: durationHours });
@@ -960,7 +1144,7 @@ export async function createPhoneBooking(input: PhoneBookingInput): Promise<{ id
         status: "confirmed",
         confirmed_at: new Date().toISOString(),
         source: "phone",
-        admin_note: input.note,
+        admin_note: [input.note, describePhoneFare(resolved)].filter(Boolean).join("\n").slice(0, 1000),
       })
       .select(BOOKING_COLUMNS)
       .single();

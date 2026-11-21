@@ -80,6 +80,12 @@ export type FleetVehicle = {
   models?: string;
   bags?: number;
   extraKmRate?: number;
+  /** Outstation: minimum kilometres charged per day, and the driver allowance per day in rupees (0 = not shown). */
+  minKmPerDay?: number;
+  driverAllowance?: number;
+  /** Outstation fares worked out from the road distance: rupees per km, and the least fare (rupees, 0 = none). */
+  ratePerKm?: number;
+  minFare?: number;
   listDiscountPercent?: number;
   /** How many of this vehicle the owner has; 0 or missing means "do not limit". */
   count?: number;
@@ -91,7 +97,7 @@ export async function getFleet(): Promise<FleetVehicle[]> {
     .map((vehicle) => {
       // a fleet saved before the listing fields existed has none of them: use the built-in values for that vehicle name
       const base = FLEET_DEFAULTS.items.find((item) => item.title === vehicle.title);
-      const stored = vehicle as Partial<Pick<FleetVehicle, "category" | "fuel" | "models" | "bags" | "extraKmRate" | "listDiscountPercent" | "count">>;
+      const stored = vehicle as Partial<Pick<FleetVehicle, "category" | "fuel" | "models" | "bags" | "extraKmRate" | "minKmPerDay" | "driverAllowance" | "ratePerKm" | "minFare" | "listDiscountPercent" | "count">>;
       return {
         ...vehicle,
         category: stored.category || base?.category,
@@ -99,6 +105,10 @@ export async function getFleet(): Promise<FleetVehicle[]> {
         models: stored.models ?? base?.models,
         bags: stored.bags ?? base?.bags,
         extraKmRate: stored.extraKmRate ?? base?.extraKmRate,
+        minKmPerDay: stored.minKmPerDay ?? 300,
+        driverAllowance: stored.driverAllowance ?? 0,
+        ratePerKm: stored.ratePerKm ?? stored.extraKmRate ?? base?.ratePerKm ?? 0,
+        minFare: stored.minFare ?? 0,
         listDiscountPercent: stored.listDiscountPercent ?? base?.listDiscountPercent,
         count: stored.count ?? 0,
         icon: resolveIcon(vehicle.icon, "car") as Icon,
