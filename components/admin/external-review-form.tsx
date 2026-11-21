@@ -7,28 +7,19 @@ import { ImageChooser } from "@/components/admin/document-editor";
 import { DatePicker, SelectMenu } from "@/components/admin/pickers";
 import { Card, Field, inputClass } from "@/components/admin/ui";
 import { ReviewAvatar } from "@/components/site/review-avatar";
-import { idle, type ActionState } from "@/lib/admin/action-state";
+import { idle } from "@/lib/admin/action-state";
 import { EXTERNAL_SOURCES } from "@/lib/booking/reviews";
 import { addExternalReviewAction } from "@/lib/server/admin/actions/reviews";
 
 /** Today in India, as yyyy-mm-dd. */
 const today = () => new Date(Date.now() + 5.5 * 3_600_000).toISOString().slice(0, 10);
 
-const blank = () => ({ name: "", source: "google", rating: "5", date: today(), comment: "" });
-
 export function ExternalReviewForm() {
+  // On success the server action sends the browser back to this page with a fresh, empty form (the page gives the form a new key).
+  const [state, action] = useActionState(addExternalReviewAction, idle);
   // controlled fields: a form action resets plain inputs, which would wipe the form when a check fails
-  const [v, setV] = useState(blank);
+  const [v, setV] = useState({ name: "", source: "google", rating: "5", date: today(), comment: "" });
   const [avatar, setAvatar] = useState("");
-  // after a review was added the form is ready for the next one; when a check fails everything typed stays
-  const [state, action] = useActionState(async (previous: ActionState, formData: FormData) => {
-    const result = await addExternalReviewAction(previous, formData);
-    if (result.ok) {
-      setV(blank());
-      setAvatar("");
-    }
-    return result;
-  }, idle);
   const bind = (key: keyof typeof v) => ({
     value: v[key],
     onChange: (e: { target: { value: string } }) => setV((current) => ({ ...current, [key]: e.target.value })),

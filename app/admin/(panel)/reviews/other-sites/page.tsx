@@ -15,9 +15,12 @@ export const metadata: Metadata = { title: "Reviews from other sites" };
 
 const when = (iso: string) => new Date(iso).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric", timeZone: "Asia/Kolkata" });
 
-export default async function ExternalReviewsPage() {
+export default async function ExternalReviewsPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const admin = await requireAdminPage("bookings.manage");
   const canManage = can(admin.role, "bookings.manage");
+  // after "Add review" the browser comes back here with ?added=<id>: the form gets a new key, so it starts empty again
+  const addedParam = (await searchParams).added;
+  const added = typeof addedParam === "string" && /^[0-9a-f-]{36}$/i.test(addedParam) ? addedParam : "";
   const reviews = await listExternalReviewsForAdmin().catch((error) => {
     console.error("External reviews list failed", error);
     return null;
@@ -36,7 +39,9 @@ export default async function ExternalReviewsPage() {
         }
       />
 
-      {canManage ? <ExternalReviewForm /> : null}
+      {added ? <Alert tone="success">Review added. It now shows on the home page.</Alert> : null}
+
+      {canManage ? <ExternalReviewForm key={added || "new"} /> : null}
 
       {!reviews ? (
         <Alert tone="danger">Could not load these reviews. Check that migration 014_external_reviews.sql has been run.</Alert>

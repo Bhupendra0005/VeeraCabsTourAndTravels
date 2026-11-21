@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import type { ActionState } from "@/lib/admin/action-state";
 import { EXTERNAL_SOURCES, shortName, type ExternalSource } from "@/lib/booking/reviews";
 import { audit } from "@/lib/server/admin/audit";
@@ -33,6 +34,20 @@ export async function setReviewPublishedAction(id: string, published: boolean): 
     await audit(admin, published ? "review.shown" : "review.hidden", { entity: "review", entityId: reviewId });
     revalidatePath("/admin/reviews");
     revalidatePath("/book", "layout");
+    revalidatePath("/");
+    return { ok: true, message: published ? "Review is visible on the website." : "Review is hidden from the website." };
+  });
+}
+
+/** Hides a review added from another site (Google...) from the website, or shows it again. */
+export async function setExternalReviewPublishedAction(id: string, published: boolean): Promise<ActionState> {
+  return run("bookings.manage", async (admin) => {
+    const reviewId = idOrThrow(id);
+    const { data, error } = await db().from("external_reviews").update({ published: published === true }).eq("id", reviewId).select("id");
+    if (error) throw error;
+    if (!data?.length) throw new ActionError("Review not found.");
+    await audit(admin, published ? "review.external_shown" : "review.external_hidden", { entity: "review", entityId: reviewId });
+    revalidatePath("/admin/reviews", "layout");
     revalidatePath("/");
     return { ok: true, message: published ? "Review is visible on the website." : "Review is hidden from the website." };
   });
@@ -82,7 +97,8 @@ export async function addExternalReviewAction(_prev: ActionState, formData: Form
     await audit(admin, "review.external_added", { entity: "review", entityId: data.id, meta: { source } });
     revalidatePath("/admin/reviews", "layout");
     revalidatePath("/");
-    return { ok: true, message: "Review added. It now shows on the home page." };
+    // back to a fresh page: the form is empty again and the new review is in the list below
+    redirect(`/admin/reviews/other-sites?added=${data.id}`);
   });
 }
 

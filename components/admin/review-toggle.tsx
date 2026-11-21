@@ -3,9 +3,10 @@
 import { Eye, EyeOff } from "lucide-react";
 import { useState, useTransition } from "react";
 import { Button } from "@/components/admin/ui";
-import { setReviewPublishedAction } from "@/lib/server/admin/actions/reviews";
+import { setExternalReviewPublishedAction, setReviewPublishedAction } from "@/lib/server/admin/actions/reviews";
 
-export function ReviewToggle({ id, published, canManage }: { id: string; published: boolean; canManage: boolean }) {
+/** Hide / Show button of a review. `external`: the review was added from another site (Google...), not written after a trip. */
+export function ReviewToggle({ id, published, canManage, external = false }: { id: string; published: boolean; canManage: boolean; external?: boolean }) {
   const [pending, start] = useTransition();
   const [error, setError] = useState("");
   if (!canManage) return null;
@@ -17,7 +18,7 @@ export function ReviewToggle({ id, published, canManage }: { id: string; publish
         disabled={pending}
         onClick={() =>
           start(async () => {
-            const result = await setReviewPublishedAction(id, !published);
+            const result = await (external ? setExternalReviewPublishedAction : setReviewPublishedAction)(id, !published);
             setError(result.ok ? "" : (result.error ?? "Something went wrong."));
           })
         }

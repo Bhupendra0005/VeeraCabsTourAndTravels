@@ -28,7 +28,7 @@ export default async function Home() {
     getFaqs(),
     getDestinations(),
     getAreas(),
-    getHomeReviews(),
+    getHomeReviews(12),
   ]);
 
   // suggestions for the "where to" box in the hero

@@ -15460,3 +15460,83 @@ main {
   line-height: 1.4;
   list-style: none;
 }
+
+/* Home page reviews: a row that moves by itself (see components/site/reviews-carousel.tsx) */
+.reviews-track {
+  display: flex;
+  gap: 18px;
+  margin: 0;
+  padding: 6px 2px 12px;
+  list-style: none;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+}
+
+.reviews-track::-webkit-scrollbar {
+  display: none;
+}
+
+.reviews-track > .home-review {
+  flex: 0 0 calc((100% - 36px) / 3);
+  scroll-snap-align: start;
+}
+
+.reviews-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin-top: 18px;
+}
+
+.reviews-arrows {
+  display: flex;
+  gap: 10px;
+}
+
+.reviews-arrows button {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text);
+  cursor: pointer;
+  transition:
+    border-color 0.2s ease,
+    background-color 0.2s ease;
+}
+
+.reviews-arrows button:hover {
+  border-color: rgba(60, 184, 242, 0.55);
+  background: rgba(0, 150, 219, 0.16);
+}
+
+.reviews-arrows svg {
+  width: 20px;
+  height: 20px;
+}
+
+@media (max-width: 1024px) {
+  .reviews-track > .home-review {
+    flex-basis: calc((100% - 18px) / 2);
+  }
+}
+
+@media (max-width: 640px) {
+  .reviews-track > .home-review {
+    flex-basis: 86%;
+  }
+}
+
+/* three or fewer reviews are all in view on a laptop: no arrows needed there */
+@media (min-width: 1025px) {
+  .reviews-carousel--few .reviews-arrows {
+    display: none;
+  }
+}

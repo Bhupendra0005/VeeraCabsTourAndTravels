@@ -10,7 +10,9 @@ import { Alert, Badge, ButtonLink, DataTable, EmptyState, PageHeader } from "@/c
 import { Stars } from "@/components/booking/stars";
 import { can } from "@/lib/admin/permissions";
 import { requireAdminPage } from "@/lib/server/admin/guard";
-import { listReviewsForAdmin, type AdminReview } from "@/lib/server/bookings/reviews";
+import { ReviewAvatar } from "@/components/site/review-avatar";
+import { EXTERNAL_SOURCES } from "@/lib/booking/reviews";
+import { listExternalReviewsForAdmin, listReviewsForAdmin, type AdminExternalReview, type AdminReview } from "@/lib/server/bookings/reviews";
 import { cn } from "@/lib/utils/cn";
 
 export const metadata: Metadata = { title: "Reviews" };
@@ -32,14 +34,23 @@ export default async function AdminReviewsPage({ searchParams }: { searchParams:
     return null;
   });
 
-  const visible = all?.filter((r) => r.published).length ?? 0;
-  const hidden = (all?.length ?? 0) - visible;
+  // reviews the owner added from Google, Justdial... are counted and listed here too (they show on the home page like the others)
+  const otherAll = await listExternalReviewsForAdmin().catch((error) => {
+    console.error("External reviews list failed", error);
+    return [] as AdminExternalReview[];
+  });
+  const others = show ? otherAll.filter((r) => (show === "visible") === r.published) : otherAll;
+
+  const tripVisible = all?.filter((r) => r.published).length ?? 0;
+  const total = (all?.length ?? 0) + otherAll.length;
+  const visible = tripVisible + otherAll.filter((r) => r.published).length;
+  const hidden = total - visible;
   const reviews = all ? (show ? all.filter((r) => (show === "visible") === r.published) : all) : null;
   const avgCab = average(all?.map((r) => r.cabRating) ?? []);
   const avgDriver = average(all?.map((r) => r.driverRating) ?? []);
 
   const tabs: { value: Show | undefined; label: string; n: number }[] = [
-    { value: undefined, label: "All", n: all?.length ?? 0 },
+    { value: undefined, label: "All", n: total },
     { value: "visible", label: "Visible", n: visible },
     { value: "hidden", label: "Hidden", n: hidden },
   ];
@@ -91,9 +102,9 @@ export default async function AdminReviewsPage({ searchParams }: { searchParams:
 
       {all ? (
         <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
-          <StatTile tone="blue" icon={<MessageSquareQuote />} label="Total reviews" value={all.length} hint={`${visible} visible, ${hidden} hidden`} />
-          <StatTile tone="amber" icon={<Star />} label="Average, cab" value={all.length ? `${avgCab.toFixed(1)} / 5` : "-"} />
-          <StatTile tone="violet" icon={<UserRound />} label="Average, driver" value={all.length ? `${avgDriver.toFixed(1)} / 5` : "-"} />
+          <StatTile tone="blue" icon={<MessageSquareQuote />} label="Total reviews" value={total} hint={`${all.length} from trips, ${otherAll.length} from other sites · ${visible} visible, ${hidden} hidden`} />
+          <StatTile tone="amber" icon={<Star />} label="Average, cab" value={all.length ? `${avgCab.toFixed(1)} / 5` : "-"} hint="Trip reviews" />
+          <StatTile tone="violet" icon={<UserRound />} label="Average, driver" value={all.length ? `${avgDriver.toFixed(1)} / 5` : "-"} hint="Trip reviews" />
           <StatTile tone="green" icon={<Car />} label="Shown on website" value={visible} />
         </div>
       ) : null}
@@ -121,9 +132,11 @@ export default async function AdminReviewsPage({ searchParams }: { searchParams:
       {!reviews ? (
         <Alert tone="danger">Could not load reviews. Check that migration 007_reviews.sql has been run.</Alert>
       ) : reviews.length === 0 ? (
-        <EmptyState icon={<Star />} title={show ? `No ${show} reviews` : "No reviews yet"}>
-          {show ? "Pick another tab to see the rest." : "Customers can review a trip from My Bookings once it has taken place."}
-        </EmptyState>
+        others.length === 0 ? (
+          <EmptyState icon={<Star />} title={show ? `No ${show} reviews` : "No reviews yet"}>
+            {show ? "Pick another tab to see the rest." : "Customers can review a trip from My Bookings once it has taken place."}
+          </EmptyState>
+        ) : null
       ) : (
         <DataTable
           rows={reviews}
@@ -245,6 +258,49 @@ export default async function AdminReviewsPage({ searchParams }: { searchParams:
           )}
         />
       )}
+
+      {others.length > 0 ? (
+        <section className="grid gap-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h2 className="font-(family-name:--font-display) text-lg font-bold">
+              From other sites <span className="text-sm font-normal text-muted">({others.length})</span>
+            </h2>
+            {canManage ? (
+              <ButtonLink href="/admin/reviews/other-sites" variant="secondary" size="sm">
+                Add or delete
+              </ButtonLink>
+            ) : null}
+          </div>
+          <DataTable
+            rows={others}
+            rowKey={(r) => r.id}
+            columns={[
+              {
+                header: "Reviewer",
+                primary: true,
+                cell: (r) => (
+                  <span className="flex items-center gap-3">
+                    <ReviewAvatar
+                      name={r.reviewer_name}
+                      url={r.avatar_url}
+                      className="grid size-9 shrink-0 place-items-center overflow-hidden rounded-full bg-sky-500/15 text-xs font-extrabold text-sky-300 [&>img]:size-full [&>img]:object-cover"
+                    />
+                    <span className="min-w-0">
+                      <b className="block">{r.reviewer_name}</b>
+                      <span className="block text-xs font-normal text-muted">{when(r.review_date)}</span>
+                    </span>
+                  </span>
+                ),
+              },
+              { header: "Source", cell: (r) => <Badge tone="info">{EXTERNAL_SOURCES[r.source] ?? "Other"}</Badge> },
+              { header: "Rating", cell: (r) => <Stars value={r.rating} /> },
+              { header: "Review", cell: (r) => <span className="line-clamp-2 max-w-sm whitespace-pre-line">{r.comment}</span> },
+              { header: "On website", cell: (r) => <Badge tone={r.published ? "success" : "neutral"}>{r.published ? "Visible" : "Hidden"}</Badge> },
+              { header: "", align: "right", cell: (r) => <ReviewToggle id={r.id} published={r.published} canManage={canManage} external /> },
+            ]}
+          />
+        </section>
+      ) : null}
     </div>
   );
 }
