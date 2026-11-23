@@ -16,8 +16,11 @@ import {
 } from "lucide-react";
 import { BookingRoute, StatusBadge, TripWhen, money } from "@/components/admin/booking-bits";
 import { Alert, Badge, ButtonLink, Card, DataTable, EmptyState, StatCard } from "@/components/admin/ui";
+import { RidesCompletedCard } from "@/components/admin/rides-completed-card";
+import { can } from "@/lib/admin/permissions";
 import { requireAdminPage } from "@/lib/server/admin/guard";
 import { getDashboard, todayIst } from "@/lib/server/admin/queries";
+import { getRidesExtra } from "@/lib/server/admin/rides";
 
 export const metadata: Metadata = { title: "Dashboard" };
 
@@ -133,10 +136,13 @@ export default async function AdminDashboardPage({
 }) {
   const admin = await requireAdminPage();
   const params = await searchParams;
-  const stats = await getDashboard().catch((error) => {
-    console.error("Dashboard failed", error);
-    return null;
-  });
+  const [stats, ridesExtra] = await Promise.all([
+    getDashboard().catch((error) => {
+      console.error("Dashboard failed", error);
+      return null;
+    }),
+    getRidesExtra(),
+  ]);
 
   const now = new Date();
   const today = new Intl.DateTimeFormat("en-IN", { weekday: "long", day: "numeric", month: "long", timeZone: TZ }).format(now);
@@ -190,6 +196,7 @@ export default async function AdminDashboardPage({
             <StatCard tone="violet" label="Balance still to collect" value={money(stats.balanceDue)} icon={<Wallet />} hint="Confirmed and completed trips" />
             <StatCard tone="blue" label="Confirmed bookings" value={stats.confirmed} icon={<CalendarCheck />} hint={`${stats.total} in total`} />
             <StatCard tone="amber" label="Awaiting payment" value={stats.pending} icon={<Clock3 />} hint={`${stats.todaysNew} new today · ${stats.cancelled} cancelled`} />
+            <RidesCompletedCard total={stats.completed + ridesExtra} inSystem={stats.completed} extra={ridesExtra} canEdit={can(admin.role, "bookings.manage")} />
           </div>
 
           {stats.needDriver.length > 0 ? (

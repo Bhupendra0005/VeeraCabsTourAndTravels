@@ -13,9 +13,7 @@ import {
   Landmark,
   Luggage,
   MapPin,
-  MapPinned,
   Mountain,
-  Navigation,
   Phone,
   Plane,
   Route,
@@ -34,6 +32,7 @@ import {
   type BookingPrefill,
 } from "@/components/site/booking";
 import { AboutPhotos } from "@/components/site/about-photos";
+import type { AboutPhoto } from "@/lib/cms/about-photos";
 import { FaqAccordion, type FaqItem } from "@/components/site/faq";
 import { HomeReviews, type HomeReviewsData } from "@/components/site/home-reviews";
 import { FloatingActions, SiteFooter } from "@/components/site/footer";
@@ -189,80 +188,6 @@ const perks: { icon: LucideIcon; title: string; text: string }[] = [
   },
 ];
 
-type RouteCard = {
-  icon: LucideIcon;
-  title: string;
-  badge: string;
-  meta: string;
-  description: string;
-  tags: string[];
-  booking: BookingPrefill;
-};
-
-const routeCards: RouteCard[] = [
-  {
-    icon: Plane,
-    title: "Pune ↔ Mumbai & Airport",
-    badge: "Bestseller",
-    meta: "~150 km · 3–3.5 hrs via Expressway",
-    description:
-      "Smooth air-conditioned rides on the Mumbai–Pune Expressway to Mumbai airport (BOM), Navi Mumbai and South Mumbai, with one-way drops and returns.",
-    tags: ["Mumbai Airport", "Expressway", "One way"],
-    booking: { tripType: "One Way", drop: "Mumbai / BOM Airport" },
-  },
-  {
-    icon: Landmark,
-    title: "Pune ↔ Shirdi & Shani Shingnapur",
-    badge: "Pilgrimage",
-    meta: "~185 km · 4–5 hrs via NH60",
-    description:
-      "Comfortable darshan trips to Sai Baba’s Shirdi and Shani Shingnapur, with Shirdi airport pickups and family-friendly stops.",
-    tags: ["Shirdi", "Shani Shingnapur", "Family trips"],
-    booking: { tripType: "Round Trip", drop: "Shirdi / Shani Shingnapur" },
-  },
-  {
-    icon: Mountain,
-    title: "Pune ↔ Mahabaleshwar & Panchgani",
-    badge: "Hill escape",
-    meta: "~120 km · 3 hrs via Satara Road",
-    description:
-      "Weekend hill-station getaways with strawberry farms, Venna Lake and Kaas Plateau viewpoints — we handle the ghat driving.",
-    tags: ["Mahabaleshwar", "Panchgani", "Weekend trip"],
-    booking: { tripType: "Round Trip", drop: "Mahabaleshwar / Panchgani" },
-  },
-  {
-    icon: MapPinned,
-    title: "Pune ↔ Lonavala & Khandala",
-    badge: "Quick getaway",
-    meta: "~65 km · 1.5 hrs",
-    description:
-      "Monsoon drives, resort stays and day trips to Lonavala, Khandala and Lavasa with flexible pickup and waiting times.",
-    tags: ["Lonavala", "Khandala", "Day trip"],
-    booking: { tripType: "Round Trip", drop: "Lonavala / Khandala" },
-  },
-  {
-    icon: Navigation,
-    title: "Pune ↔ Nashik & Trimbakeshwar",
-    badge: "Temple circuit",
-    meta: "~210 km · 4.5 hrs",
-    description:
-      "Reliable intercity rides for Nashik, Trimbakeshwar and Saptashrungi darshan, vineyard visits and business travel.",
-    tags: ["Nashik", "Trimbakeshwar", "Vineyards"],
-    booking: { tripType: "One Way", drop: "Nashik / Trimbakeshwar" },
-  },
-  {
-    icon: Route,
-    title: "Pune ↔ Goa & Konkan",
-    badge: "Long haul",
-    meta: "~450 km · 9–10 hrs",
-    description:
-      "Chauffeur-driven holidays to Goa and the Konkan coast, planned around your pace, meal breaks and overnight stops.",
-    tags: ["Goa", "Kolhapur", "Konkan beaches"],
-    booking: { tripType: "Round Trip", drop: "Goa / Konkan" },
-  },
-];
-
-
 type Tour = {
   eyebrow: string;
   title: string;
@@ -382,13 +307,27 @@ export type HomePageProps = {
   search: HomeSearch | null;
   /** Real customer reviews; null while there are none. */
   reviews?: HomeReviewsData | null;
+  /** The photos of the About page (Admin > Pages > About page) and the badge text on them. */
+  aboutPhotos?: AboutPhoto[];
+  aboutBadge?: string;
 };
 
-export function HomePage({ home, fleet: fleetData, features: featuresData, faqs, dropOptions, search, reviews = null }: HomePageProps) {
+export function HomePage({ home, fleet: fleetData, features: featuresData, faqs, dropOptions, search, reviews = null, aboutPhotos = [], aboutBadge = "" }: HomePageProps) {
   const { site, whatsappLink } = useSite();
   const fleet = fleetData.map((vehicle) => ({ ...vehicle, icon: resolveIcon(vehicle.icon, "car") }));
   const features = featuresData.map((feature) => ({ ...feature, icon: resolveIcon(feature.icon) }));
   const assurances = home.assurances.map((item) => ({ ...item, Icon: resolveIcon(item.icon) }));
+  // the route cards and their prices are edited in Admin > Pages > Home page > Popular routes
+  const routeCards = home.routeCards.map((card) => ({
+    Icon: resolveIcon(card.icon, "route"),
+    title: card.title,
+    badge: card.badge,
+    price: card.price,
+    meta: card.meta,
+    description: card.description,
+    tags: card.tags,
+    booking: { tripType: card.tripType as BookingPrefill["tripType"], drop: card.drop } as BookingPrefill,
+  }));
 
   return (
     <>
@@ -550,7 +489,7 @@ export function HomePage({ home, fleet: fleetData, features: featuresData, faqs,
             />
 
             <div className="route-grid">
-              {routeCards.map(({ icon: Icon, title, badge, meta, description, tags, booking }, index) => (
+              {routeCards.map(({ Icon, title, badge, price, meta, description, tags, booking }, index) => (
                 <article
                   className="route-card"
                   key={title}
@@ -558,16 +497,19 @@ export function HomePage({ home, fleet: fleetData, features: featuresData, faqs,
                   style={delay(index % 3, 80)}
                 >
                   <div className="route-top">
-                    <span className="route-badge">{badge}</span>
+                    {badge ? <span className="route-badge">{badge}</span> : <span />}
                     <span className="route-icon">
                       <Icon aria-hidden="true" />
                     </span>
                   </div>
                   <h3>{title}</h3>
-                  <span className="route-meta">
-                    <Clock3 aria-hidden="true" />
-                    {meta}
-                  </span>
+                  {meta ? (
+                    <span className="route-meta">
+                      <Clock3 aria-hidden="true" />
+                      {meta}
+                    </span>
+                  ) : null}
+                  {price ? <span className="route-price">{price}</span> : null}
                   <p>{description}</p>
                   <div className="route-tags">
                     {tags.map((tag) => (
@@ -761,7 +703,7 @@ export function HomePage({ home, fleet: fleetData, features: featuresData, faqs,
           <span className="about-wave" aria-hidden="true" />
           <div className="shell about-grid">
             <div className="about-media" data-reveal="left">
-              <AboutPhotos />
+              <AboutPhotos photos={aboutPhotos} badge={aboutBadge} />
             </div>
 
             <div className="about-copy" data-reveal="right">

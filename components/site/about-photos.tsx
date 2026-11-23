@@ -2,51 +2,34 @@
 
 import { MapPin } from "lucide-react";
 import { useEffect, useState } from "react";
-
-const photos = [
-  {
-    key: "airport",
-    src: "/about-airport-960.webp",
-    srcSet:
-      "/about-airport-640.webp 640w, /about-airport-960.webp 960w, /about-airport-1254.webp 1254w",
-    alt: "A white Veera Tours & Travels MPV on a mountain road at sunset beside an airport",
-  },
-  {
-    key: "ghat",
-    src: "/about-ghat-960.webp",
-    srcSet:
-      "/about-ghat-640.webp 640w, /about-ghat-960.webp 960w, /about-ghat-1254.webp 1254w",
-    alt: "A black Veera Tours & Travels SUV on a ghat road below a hill fort at sunset",
-  },
-  {
-    key: "hills",
-    src: "/about-hills-960.webp",
-    srcSet:
-      "/about-hills-640.webp 640w, /about-hills-960.webp 960w, /about-hills-1254.webp 1254w",
-    alt: "A silver Veera Tours & Travels MPV on a misty hill road beside waterfalls",
-  },
-];
+import type { AboutPhoto } from "@/lib/cms/about-photos";
 
 const INTERVAL = 4500;
 
 /**
- * Three tilted photo cards that keep trading places: the front card drops to
+ * Tilted photo cards that keep trading places: the front card drops to
  * the back, the next one comes forward. Pauses on hover/focus and when the
  * visitor prefers reduced motion; the dots let people pick a photo.
+ * The photos and the badge text come from Admin > Pages > About page.
  */
-export function AboutPhotos() {
+export function AboutPhotos({ photos, badge }: { photos: AboutPhoto[]; badge: string }) {
   const [active, setActive] = useState(0);
   const [paused, setPaused] = useState(false);
+  const count = photos.length;
 
   useEffect(() => {
-    if (paused) return;
+    if (paused || count < 2) return;
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
     // `active` is a dependency so a manual pick restarts the countdown
     const timer = window.setInterval(() => {
-      setActive((current) => (current + 1) % photos.length);
+      setActive((current) => (current + 1) % count);
     }, INTERVAL);
     return () => window.clearInterval(timer);
-  }, [paused, active]);
+  }, [paused, active, count]);
+
+  if (count === 0) return null;
+  // the owner may have removed photos since the last visit: never point at one that is gone
+  const front = Math.min(active, count - 1);
 
   return (
     <div
@@ -58,11 +41,11 @@ export function AboutPhotos() {
       <div className="about-stack">
         {photos.map((photo, index) => {
           // 0 = front, 1 = back right, 2 = back left
-          const slot = (index - active + photos.length) % photos.length;
+          const slot = (index - front + count) % count;
           return (
             <div
               key={photo.key}
-              className={`about-card about-slot-${slot}`}
+              className={`about-card about-slot-${Math.min(slot, 2)}`}
               aria-hidden={slot !== 0}
               onClick={slot === 0 ? undefined : () => setActive(index)}
             >
@@ -81,24 +64,28 @@ export function AboutPhotos() {
           );
         })}
 
-        <span className="about-badge">
-          <MapPin aria-hidden="true" />
-          Based in Pune · Serving all India
-        </span>
+        {badge ? (
+          <span className="about-badge">
+            <MapPin aria-hidden="true" />
+            {badge}
+          </span>
+        ) : null}
       </div>
 
-      <div className="about-dots" role="group" aria-label="Choose a photo">
-        {photos.map((photo, index) => (
-          <button
-            type="button"
-            key={photo.key}
-            className={`about-dot${index === active ? " is-active" : ""}`}
-            aria-label={`Show photo ${index + 1}`}
-            aria-current={index === active ? "true" : undefined}
-            onClick={() => setActive(index)}
-          />
-        ))}
-      </div>
+      {count > 1 ? (
+        <div className="about-dots" role="group" aria-label="Choose a photo">
+          {photos.map((photo, index) => (
+            <button
+              type="button"
+              key={photo.key}
+              className={`about-dot${index === front ? " is-active" : ""}`}
+              aria-label={`Show photo ${index + 1}`}
+              aria-current={index === front ? "true" : undefined}
+              onClick={() => setActive(index)}
+            />
+          ))}
+        </div>
+      ) : null}
     </div>
   );
 }

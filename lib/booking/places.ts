@@ -2,37 +2,32 @@
  * Address suggestions for the booking form (browser side).
  *
  * Free by default: our own /api/places route (OpenStreetMap data through Photon), no key and no billing.
- * Optional upgrade: set NEXT_PUBLIC_GOOGLE_MAPS_KEY and Google Places is used instead. That is a browser key by design:
- * restrict it to your website address and to the Places API only in the Google Cloud console.
+ * Optional upgrade: set NEXT_PUBLIC_GOOGLE_MAPS_KEY and Google Places API (New) is tried first, the free service is the fallback.
+ * That is a browser key by design: restrict it to your website addresses and to "Places API (New)" only in the Google Cloud console.
  */
 const GOOGLE_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_KEY;
+const AUTOCOMPLETE = "https://places.googleapis.com/v1/places:autocomplete";
+// Where the business is (Pune): suggestions near here come first, but all of India is still searched.
+const BIAS = { latitude: 18.5204, longitude: 73.8567 };
 
-/* eslint-disable @typescript-eslint/no-explicit-any */
-let library: Promise<any> | undefined;
-
-function loadPlaces(): Promise<any> {
-  library ??= new Promise((resolve, reject) => {
-    const w = window as any;
-    if (w.google?.maps?.importLibrary) return resolve(w.google.maps.importLibrary("places"));
-    const script = document.createElement("script");
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(GOOGLE_KEY ?? "")}&loading=async&v=weekly`;
-    script.async = true;
-    script.onload = () => resolve(w.google.maps.importLibrary("places"));
-    script.onerror = () => {
-      library = undefined;
-      reject(new Error("Google Maps could not be loaded"));
-    };
-    document.head.appendChild(script);
+/** Google Places API (New) autocomplete over plain fetch: only that one API has to be allowed on the key (no Maps JavaScript API). Throws on any failure. */
+async function googleSuggestions(input: string, signal?: AbortSignal): Promise<string[]> {
+  const res = await fetch(AUTOCOMPLETE, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-Goog-Api-Key": GOOGLE_KEY ?? "" },
+    body: JSON.stringify({
+      input,
+      includedRegionCodes: ["in"],
+      languageCode: "en",
+      locationBias: { circle: { center: BIAS, radius: 50000 } },
+    }),
+    signal,
   });
-  return library;
-}
-
-async function googleSuggestions(input: string): Promise<string[]> {
-  const places = await loadPlaces();
-  const { suggestions } = await places.AutocompleteSuggestion.fetchAutocompleteSuggestions({ input, includedRegionCodes: ["in"] });
-  return (suggestions as any[])
-    .map((item) => item.placePrediction?.text?.toString() as string | undefined)
-    .filter((text): text is string => !!text);
+  if (!res.ok) throw new Error(`places ${res.status}`);
+  const data = (await res.json()) as { suggestions?: { placePrediction?: { text?: { text?: string } } }[] };
+  return (data.suggestions ?? [])
+    .map((item) => item.placePrediction?.text?.text)
+    .filter((text): text is string => typeof text === "string" && text.length > 0);
 }
 
 async function freeSuggestions(input: string, signal?: AbortSignal): Promise<{ items: string[]; kept: string }> {
@@ -51,7 +46,14 @@ export async function suggestPlacesDetailed(input: string): Promise<{ items: str
   const text = input.trim();
   if (text.length < 3) return { items: [], kept: "" };
   try {
-    if (GOOGLE_KEY) return { items: (await googleSuggestions(text)).slice(0, 6), kept: "" };
+    if (GOOGLE_KEY) {
+      try {
+        const items = (await googleSuggestions(text)).slice(0, 6);
+        if (items.length) return { items, kept: "" };
+      } catch {
+        // key not allowed here, quota used up or offline: fall back to the free suggestions below
+      }
+    }
     const found = await freeSuggestions(text);
     return { items: found.items.slice(0, 6), kept: found.kept };
   } catch {

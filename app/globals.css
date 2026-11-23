@@ -15540,3 +15540,29 @@ main {
     display: none;
   }
 }
+
+/* With a strip above the menu (phone numbers / announcement) the bar sits right under it, with no gap. Once the page is scrolled it floats again. */
+.site-header.has-strip .nav-bar {
+  transition:
+    background-color 0.3s ease,
+    box-shadow 0.3s ease,
+    margin-top 0.25s ease;
+}
+
+.site-header.has-strip:not(.is-scrolled) .nav-bar {
+  margin-top: 0;
+}
+
+/* Popular routes: the price the owner writes on each card */
+.route-price {
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-start;
+  margin: 2px 0 4px;
+  padding: 5px 14px;
+  border-radius: 999px;
+  background: rgba(0, 150, 219, 0.14);
+  color: var(--gold-bright);
+  font-size: 14px;
+  font-weight: 800;
+}

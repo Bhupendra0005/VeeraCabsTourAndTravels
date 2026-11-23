@@ -10,6 +10,7 @@ import { resolveIcon } from "@/lib/cms/icons";
 import type { Area, Destination, DestinationCategory, ServicePage } from "@/lib/content";
 import { buildSite, type SiteData, type SiteInfoDoc } from "@/lib/site";
 import {
+  ABOUT_DEFAULTS,
   AREAS_DEFAULTS,
   DESTINATIONS_DEFAULTS,
   FAQS_DEFAULTS,
@@ -51,6 +52,10 @@ export const getDocumentLayout = doc<DocumentLayout>(DOCUMENT_LAYOUT_KEY, DEFAUL
 
 export type Home = typeof HOME_DEFAULTS;
 export const getHome = doc<Home>("home", HOME_DEFAULTS);
+
+/** Every word, photo and number of the About page. */
+export type About = typeof ABOUT_DEFAULTS;
+export const getAbout = doc<About>("about", ABOUT_DEFAULTS);
 export async function getAssurances() {
   const home = await getHome();
   return home.assurances.map((item) => ({ ...item, Icon: resolveIcon(item.icon) as Icon }));

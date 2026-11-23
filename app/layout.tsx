@@ -163,6 +163,7 @@ export default async function RootLayout({
         <SiteProvider
           site={site}
           announcement={home.announcement}
+          topbar={home.topbar}
           services={services.map((service) => ({ slug: service.slug, title: service.title }))}
           vehicles={fleet.map((vehicle) => vehicle.title)}
         >

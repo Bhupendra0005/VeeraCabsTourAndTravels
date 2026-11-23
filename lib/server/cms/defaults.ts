@@ -43,6 +43,7 @@ export const SITE_INFO_DEFAULTS = {
 
 export const HOME_DEFAULTS = {
   announcement: { enabled: false, text: "", linkLabel: "", linkHref: "" },
+  topbar: { enabled: true, label: "Call us 24/7:", showSecondary: true, showHours: true },
   hero: {
     kicker: "Pune’s premier 24/7 cab network",
     line1: "Travel India",
@@ -84,6 +85,80 @@ export const HOME_DEFAULTS = {
     "All India taxi",
     "Tour packages",
     "24/7 booking support",
+  ],
+  routeCards: [
+    {
+      icon: "plane",
+      title: "Pune ↔ Mumbai & Airport",
+      badge: "Bestseller",
+      price: "",
+      meta: "~150 km · 3–3.5 hrs via Expressway",
+      description:
+        "Smooth air-conditioned rides on the Mumbai–Pune Expressway to Mumbai airport (BOM), Navi Mumbai and South Mumbai, with one-way drops and returns.",
+      tags: ["Mumbai Airport", "Expressway", "One way"],
+      tripType: "One Way",
+      drop: "Mumbai / BOM Airport",
+    },
+    {
+      icon: "landmark",
+      title: "Pune ↔ Shirdi & Shani Shingnapur",
+      badge: "Pilgrimage",
+      price: "",
+      meta: "~185 km · 4–5 hrs via NH60",
+      description:
+        "Comfortable darshan trips to Sai Baba’s Shirdi and Shani Shingnapur, with Shirdi airport pickups and family-friendly stops.",
+      tags: ["Shirdi", "Shani Shingnapur", "Family trips"],
+      tripType: "Round Trip",
+      drop: "Shirdi / Shani Shingnapur",
+    },
+    {
+      icon: "mountain",
+      title: "Pune ↔ Mahabaleshwar & Panchgani",
+      badge: "Hill escape",
+      price: "",
+      meta: "~120 km · 3 hrs via Satara Road",
+      description:
+        "Weekend hill-station getaways with strawberry farms, Venna Lake and Kaas Plateau viewpoints — we handle the ghat driving.",
+      tags: ["Mahabaleshwar", "Panchgani", "Weekend trip"],
+      tripType: "Round Trip",
+      drop: "Mahabaleshwar / Panchgani",
+    },
+    {
+      icon: "navigation",
+      title: "Pune ↔ Nashik & Trimbakeshwar",
+      badge: "Temple circuit",
+      price: "",
+      meta: "~210 km · 4.5 hrs",
+      description:
+        "Reliable intercity rides for Nashik, Trimbakeshwar and Saptashrungi darshan, vineyard visits and business travel.",
+      tags: ["Nashik", "Trimbakeshwar", "Vineyards"],
+      tripType: "One Way",
+      drop: "Nashik / Trimbakeshwar",
+    },
+    {
+      icon: "route",
+      title: "Pune ↔ Goa & Konkan",
+      badge: "Long haul",
+      price: "",
+      meta: "~450 km · 9–10 hrs",
+      description:
+        "Chauffeur-driven holidays to Goa and the Konkan coast, planned around your pace, meal breaks and overnight stops.",
+      tags: ["Goa", "Kolhapur", "Konkan beaches"],
+      tripType: "Round Trip",
+      drop: "Goa / Konkan",
+    },
+    {
+      icon: "car",
+      title: "Pune ↔ Hyderabad",
+      badge: "Long haul",
+      price: "",
+      meta: "~560 km · 9–10 hrs via NH65",
+      description:
+        "Chauffeur-driven trips between Pune and Hyderabad on the highway, planned around your pace, meal breaks and overnight stops.",
+      tags: ["Hyderabad", "Solapur", "Long trip"],
+      tripType: "Round Trip",
+      drop: "Hyderabad",
+    },
   ],
   popularSearches: [
     "Pune to Mumbai",
@@ -158,9 +233,75 @@ export const SEO_DEFAULTS = {
   shareImage: "",
 };
 
+export const ABOUT_DEFAULTS = {
+  seo: {
+    title: "About Us",
+    description:
+      "Veera Tours & Travels is a cab and tour service in Hadapsar, Pune: airport transfers, one-way cabs, outstation trips and tour packages across Maharashtra.",
+  },
+  hero: {
+    eyebrow: "About us",
+    titleStart: "Good travel begins with a",
+    titleHighlight: "trusted ride.",
+    description:
+      "We are a cab and tour service in Pune. We help you reach the airport, travel to other cities and enjoy road trips, with a clean car and a friendly driver.",
+    image: "",
+    bookLabel: "Book your ride",
+  },
+  story: {
+    label: "Who we are",
+    titleStart: "A Pune cab service that keeps things",
+    titleHighlight: "simple and honest.",
+    paragraphs: [
+      "Veera Tours & Travels is a cab and tour service. Our office is at Monal Park, Hadapsar, in Pune. You can book a car with a driver for the airport, for a day around the city, for a trip to another city, or for a holiday tour.",
+      "Our idea is simple. Travel should feel easy. So you get a confirmed car, a polite driver and the price before you start. No hidden surprises, and a real person to speak to whenever you need help.",
+    ],
+    values: [
+      "You know the fare before you book",
+      "Licensed and polite drivers",
+      "Clean cars with AC",
+      "A real person to talk to, any time",
+      "We know Pune well, and we travel across India",
+    ],
+  },
+  photos: {
+    badge: "Based in Pune · Serving all India",
+    openTitle: "Open 24/7",
+    openText: "Airport and late-night pickups",
+    items: [
+      { image: "/about-airport-960.webp", alt: "A white Veera Tours & Travels MPV on a mountain road at sunset beside an airport" },
+      { image: "/about-ghat-960.webp", alt: "A black Veera Tours & Travels SUV on a ghat road below a hill fort at sunset" },
+      { image: "/about-hills-960.webp", alt: "A silver Veera Tours & Travels MPV on a misty hill road beside waterfalls" },
+    ],
+  },
+  stats: [
+    { value: "24/7", label: "Hours, our desk is open", source: "manual" },
+    { value: "22", label: "Places we take you to", source: "manual" },
+    { value: "11", label: "Areas we cover", source: "manual" },
+    { value: "4", label: "Types of vehicles", source: "manual" },
+  ],
+  steps: {
+    label: "How it works",
+    titleStart: "Booking a ride in",
+    titleHighlight: "four easy steps.",
+    description: "No app to download. Search your route, see the fare and book online in a few minutes.",
+    items: [
+      { icon: "send", title: "Search your trip", text: "Open Book Online and enter where to pick you up, where to go and the date." },
+      { icon: "rupee", title: "See the fixed fare", text: "Compare cars for your group size and see the full fare before you pay." },
+      { icon: "calendar", title: "Pay and confirm", text: "Pay securely online, part now or in full, and your car is booked. Your e-ticket arrives by email." },
+      { icon: "thumbs", title: "Enjoy the ride", text: "Your driver comes on time. You sit back while he takes care of the road." },
+    ],
+  },
+  why: { label: "Why choose Veera", titleStart: "Comfortable, safe and", titleHighlight: "always on time." },
+  fleet: { label: "Our fleet", titleStart: "Select the right car for", titleHighlight: "your journey." },
+  visit: { label: "Visit us", title: "Drop by our Hadapsar office", buttonLabel: "Get directions", buttonLink: "/contact" },
+  cta: { title: "Let\u2019s plan your next journey.", text: "Tell us where you want to go and the date. We will take care of the rest." },
+};
+
 export const DEFAULTS: Record<string, unknown> = {
   site_info: SITE_INFO_DEFAULTS,
   home: HOME_DEFAULTS,
+  about: ABOUT_DEFAULTS,
   fleet: FLEET_DEFAULTS,
   booking_extras: DEFAULT_BOOKING_EXTRAS,
   [BOOKING_PAGE_KEY]: DEFAULT_BOOKING_PAGE,

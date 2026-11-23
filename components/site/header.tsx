@@ -25,6 +25,7 @@ import {
   type KeyboardEvent as ReactKeyboardEvent,
 } from "react";
 import { AnnouncementBar } from "@/components/site/announcement-bar";
+import { TopContactBar } from "@/components/site/top-contact-bar";
 import { useSite } from "@/components/site/site-context";
 import { navItems } from "@/lib/site";
 import { openBooking } from "@/components/site/booking";
@@ -41,7 +42,9 @@ const navIcons: Record<string, LucideIcon> = {
 };
 
 export function SiteHeader() {
-  const { site, whatsappLink } = useSite();
+  const { site, whatsappLink, topbar, announcement } = useSite();
+  // a strip (phone numbers or an announcement) sits above the menu: the menu bar then touches it instead of floating 14px below
+  const stripShown = (topbar.enabled && !!site.primaryPhone.display) || (announcement.enabled && !!announcement.text);
   // The drawer is open only while we are still on the page it was opened from,
   // so any navigation closes it without needing an effect.
   const [openedOn, setOpenedOn] = useState<string | null>(null);
@@ -143,11 +146,12 @@ export function SiteHeader() {
 
   return (
     <>
+      <TopContactBar />
       <AnnouncementBar />
     <header
       className={`site-header${scrolled ? " is-scrolled" : ""}${
         menuOpen ? " is-menu-open" : ""
-      }`}
+      }${stripShown ? " has-strip" : ""}`}
     >
       <div className="nav-bar">
         <div className="shell nav-inner">

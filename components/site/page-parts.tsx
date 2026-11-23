@@ -12,6 +12,7 @@ import type { LucideIcon } from "lucide-react";
 import type { CSSProperties, ReactNode } from "react";
 import { BookButton, WhatsAppButton } from "@/components/site/book-button";
 import type { BookingPrefill } from "@/components/site/booking";
+import { ikUrl } from "@/lib/cms/images";
 import {
   destinationCategories,
   type Destination,
@@ -45,6 +46,7 @@ export function PageHero({
   crumbs,
   image = "default",
   imageBase,
+  imageUrl,
   mobileImageBase,
   vivid = false,
   imageRatio,
@@ -58,6 +60,8 @@ export function PageHero({
   image?: DestinationCategory | "default";
   /** Use a specific hero photo: files named `<imageBase>-800/1200/1600.webp` in /public. */
   imageBase?: string;
+  /** A photo the owner uploaded in the admin (an ImageKit or /public address). Used instead of the built-in one when set. */
+  imageUrl?: string;
   /** Portrait photo for phones: `<mobileImageBase>-480/720/1122.webp` in /public. */
   mobileImageBase?: string;
   /** Show the photo at full brightness with a light overlay (default is a dim backdrop). */
@@ -90,8 +94,14 @@ export function PageHero({
             />
           ) : null}
           <img
-            src={`/${base}-1600.webp`}
-            srcSet={`/${base}-800.webp 800w, /${base}-1200.webp 1200w, /${base}-1600.webp 1600w`}
+            src={imageUrl ? ikUrl(imageUrl, 1600) : `/${base}-1600.webp`}
+            srcSet={
+              imageUrl
+                ? imageUrl.includes("imagekit.io")
+                  ? `${ikUrl(imageUrl, 800)} 800w, ${ikUrl(imageUrl, 1200)} 1200w, ${ikUrl(imageUrl, 1600)} 1600w`
+                  : undefined
+                : `/${base}-800.webp 800w, /${base}-1200.webp 1200w, /${base}-1600.webp 1600w`
+            }
             sizes="100vw"
             width={1600}
             height={600}

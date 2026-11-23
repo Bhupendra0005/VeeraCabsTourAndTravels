@@ -11,6 +11,7 @@ export type NavIcon =
   | "coupons"
   | "routes"
   | "home"
+  | "about"
   | "contact"
   | "fleet"
   | "destinations"
@@ -65,6 +66,7 @@ export const ADMIN_NAV: NavGroup[] = [
     title: "Website pages",
     items: [
       { href: "/admin/pages/home", label: "Home page", icon: "home", permission: "content.manage" },
+      { href: "/admin/pages/about", label: "About page", icon: "about", permission: "content.manage" },
       { href: "/admin/pages/contact", label: "Contact & business", icon: "contact", permission: "content.manage" },
       { href: "/admin/pages/services", label: "Services", icon: "services", permission: "content.manage" },
       { href: "/admin/pages/destinations", label: "Destinations", icon: "destinations", permission: "content.manage" },

@@ -1,21 +1,36 @@
 import "server-only";
 import { headers } from "next/headers";
-import { acceptsVariant, normalise, queriesFor } from "@/lib/booking/place-match";
+import { normalise } from "@/lib/booking/place-match";
 import { getBookingPage } from "@/lib/server/cms/content";
 
 /**
  * Road distance between places typed by the customer, for outstation fares worked out per kilometre.
- *  1. Each place is turned into coordinates with Photon (OpenStreetMap), the same free service that suggests addresses.
- *  2. OpenRouteService gives the driving distance and time through all of them (ORS_API_KEY, server side only).
+ *  1. Each place is turned into coordinates with Google Places Text Search (it understands temples, airports and areas, not just addresses).
+ *  2. The Google Routes API gives the driving distance and time through all of them.
+ * Both use a key that stays on the server (GOOGLE_MAPS_SERVER_KEY, or NEXT_PUBLIC_GOOGLE_MAPS_KEY as a fallback).
  * The customer's browser only ever sends the place names: coordinates and distance are always worked out here, so
- * the fare cannot be influenced from the browser. Without ORS_API_KEY the feature is off and fixed route fares stay in use.
+ * the fare cannot be influenced from the browser. Without a key the feature is off and fixed route fares stay in use.
  */
 
-const PHOTON = (process.env.PLACES_API_URL || "https://photon.komoot.io/api/").replace(/\/?$/, "/");
-const ORS = (process.env.ORS_API_URL || "https://api.openrouteservice.org").replace(/\/+$/, "");
-const INDIA = "68.1,6.7,97.4,35.7"; // min_lon, min_lat, max_lon, max_lat
+const GEOCODE = "https://places.googleapis.com/v1/places:searchText";
+const ROUTES = "https://routes.googleapis.com/directions/v2:computeRoutes";
 // Where the business is (Pune). A name like "Shirdi Sai Baba Temple" exists in many states: places near here win.
 const BIAS = { lat: 18.5204, lon: 73.8567 };
+
+const googleKey = () => process.env.GOOGLE_MAPS_SERVER_KEY || process.env.NEXT_PUBLIC_GOOGLE_MAPS_KEY || "";
+
+/**
+ * One key for everything: the browser key is limited to the website's address (HTTP referrer), so when it is used from the server
+ * the website's address is sent along (GOOGLE_MAPS_REFERER, default NEXT_PUBLIC_SITE_URL). A separate server key needs none.
+ */
+function googleHeaders(key: string): Record<string, string> {
+  const headers: Record<string, string> = { "Content-Type": "application/json", "X-Goog-Api-Key": key };
+  if (!process.env.GOOGLE_MAPS_SERVER_KEY) {
+    const referer = process.env.GOOGLE_MAPS_REFERER || process.env.NEXT_PUBLIC_SITE_URL;
+    if (referer) headers.Referer = `${referer.replace(/\/+$/, "")}/`;
+  }
+  return headers;
+}
 
 export const MAX_PLACES = 5; // from + up to 3 stops + to
 const MAX_PLACE_LENGTH = 100;
@@ -30,8 +45,8 @@ export type RoadRoute = {
   to: string;
 };
 
-/** True when a routing key is configured on the server. */
-export const distanceConfigured = () => !!process.env.ORS_API_KEY;
+/** True when a Google Maps key is configured on the server. */
+export const distanceConfigured = () => !!googleKey();
 
 /** Outstation fares are worked out per km when the owner switched it on (Online booking) and a routing key exists. */
 export async function pricedByDistance(): Promise<boolean> {
@@ -95,52 +110,43 @@ async function allowNewLookup(): Promise<boolean> {
 
 /* -------------------------------- geocoding -------------------------------- */
 
-type Point = [number, number]; // [longitude, latitude]
+type Point = { lat: number; lng: number };
 type Found = { point: Point; label: string };
 
-const text = (value: unknown) => (typeof value === "string" ? value.trim() : "");
-
-/** "Taj Lands End, Bandra West, Mumbai, Maharashtra" from a Photon result. */
-function labelOf(properties: Record<string, unknown>): string {
-  const parts = [
-    text(properties.name) || [text(properties.housenumber), text(properties.street)].filter(Boolean).join(" "),
-    text(properties.district) || text(properties.locality),
-    text(properties.city) || text(properties.county),
-    text(properties.state),
-  ].filter(Boolean);
-  return [...new Set(parts)].join(", ");
-}
-
-/** Throws when the geocoder is down (so a temporary failure is not remembered as "no such place"). */
-async function photon(query: string, original: string): Promise<Found | null> {
-  const url = `${PHOTON}?q=${encodeURIComponent(query)}&limit=5&lang=en&bbox=${INDIA}&lat=${BIAS.lat}&lon=${BIAS.lon}`;
-  const res = await fetch(url, {
-    headers: { "User-Agent": "VeeraToursBooking/1.0", Accept: "application/json" },
+/** Throws when Google is unreachable or the key is refused (so a temporary failure is not remembered as "no such place"). */
+async function googleGeocode(place: string, key: string): Promise<Found | null> {
+  const res = await fetch(GEOCODE, {
+    method: "POST",
+    headers: { ...googleHeaders(key), "X-Goog-FieldMask": "places.location,places.formattedAddress,places.displayName" },
+    body: JSON.stringify({
+      textQuery: place,
+      regionCode: "IN",
+      languageCode: "en",
+      pageSize: 1,
+      locationBias: { circle: { center: { latitude: BIAS.lat, longitude: BIAS.lon }, radius: 50000 } },
+    }),
     signal: AbortSignal.timeout(5000),
   });
   if (!res.ok) throw new Error(`geocoder ${res.status}`);
-  const data = (await res.json()) as { features?: { geometry?: { coordinates?: unknown }; properties?: Record<string, unknown> }[] };
-  for (const feature of data.features ?? []) {
-    const c = feature.geometry?.coordinates;
-    const properties = feature.properties ?? {};
-    const inIndia = text(properties.countrycode).toUpperCase() === "IN";
-    if (!(inIndia && Array.isArray(c) && typeof c[0] === "number" && typeof c[1] === "number" && Number.isFinite(c[0]) && Number.isFinite(c[1]))) continue;
-    const label = labelOf(properties) || query;
-    if (acceptsVariant(original, query, label)) return { point: [c[0], c[1]], label };
-  }
-  return null;
+  const data = (await res.json()) as {
+    places?: { formattedAddress?: string; displayName?: { text?: string }; location?: { latitude?: unknown; longitude?: unknown } }[];
+  };
+  const first = data.places?.[0]; // no match: Google answers {} (not an error)
+  const lat = Number(first?.location?.latitude);
+  const lng = Number(first?.location?.longitude);
+  if (!first || !Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+  const name = (first.displayName?.text || "").trim();
+  const address = (first.formattedAddress || "").trim();
+  const label = name && !address.toLowerCase().startsWith(name.toLowerCase()) ? [name, address].filter(Boolean).join(", ") : address || name || place;
+  return { point: { lat, lng }, label };
 }
 
-async function geocode(place: string): Promise<Found | null> {
-  const key = `geo:${normalise(place)}`;
-  const hit = recall<Found | null>(key);
+async function geocode(place: string, key: string): Promise<Found | null> {
+  const cacheKey = `geo:${normalise(place)}`;
+  const hit = recall<Found | null>(cacheKey);
   if (hit) return hit.value;
   try {
-    for (const query of queriesFor(place)) {
-      const found = await photon(query, place);
-      if (found) return remember(key, found);
-    }
-    return remember(key, null); // a place that does not exist is also worth remembering
+    return remember(cacheKey, await googleGeocode(place, key)); // a place that does not exist is also worth remembering
   } catch (error) {
     console.error("Geocoding failed", error instanceof Error ? error.message : error);
     return null; // a temporary failure is not remembered
@@ -149,12 +155,14 @@ async function geocode(place: string): Promise<Found | null> {
 
 /* --------------------------------- routing --------------------------------- */
 
+const waypoint = ({ lat, lng }: Point) => ({ location: { latLng: { latitude: lat, longitude: lng } } });
+
 /**
  * Driving distance and time from the first place to the last, through the places in between (stops).
- * Returns null when a place cannot be found, the routing service is down or not configured, or there were too many lookups.
+ * Returns null when a place cannot be found, Google is down or not configured, or there were too many lookups.
  */
 export async function roadRoute(places: string[]): Promise<RoadRoute | null> {
-  const key = process.env.ORS_API_KEY;
+  const key = googleKey();
   const names = places.map((place) => place.trim()).filter(Boolean);
   if (!key || names.length < 2 || names.length > MAX_PLACES || names.some((name) => name.length < 2 || name.length > MAX_PLACE_LENGTH)) return null;
 
@@ -168,25 +176,31 @@ export async function roadRoute(places: string[]): Promise<RoadRoute | null> {
 
   const found: Found[] = [];
   for (const name of names) {
-    const place = await geocode(name);
+    const place = await geocode(name, key);
     if (!place) return null;
     found.push(place);
   }
-  const points = found.map((place) => place.point);
 
   try {
-    const res = await fetch(`${ORS}/v2/directions/driving-car`, {
+    const res = await fetch(ROUTES, {
       method: "POST",
-      headers: { Authorization: key, "Content-Type": "application/json", Accept: "application/json" },
-      // radiuses -1: snap each point to the nearest road however far (a village address can be off the mapped roads)
-      body: JSON.stringify({ coordinates: points, radiuses: points.map(() => -1) }),
+      headers: { ...googleHeaders(key), "X-Goog-FieldMask": "routes.distanceMeters,routes.duration" },
+      body: JSON.stringify({
+        origin: waypoint(found[0].point),
+        destination: waypoint(found[found.length - 1].point),
+        intermediates: found.slice(1, -1).map((place) => waypoint(place.point)),
+        travelMode: "DRIVE",
+        routingPreference: "TRAFFIC_UNAWARE",
+        regionCode: "IN",
+        units: "METRIC",
+      }),
       signal: AbortSignal.timeout(8000),
     });
     if (!res.ok) throw new Error(`routing ${res.status}`);
-    const data = (await res.json()) as { routes?: { summary?: { distance?: unknown; duration?: unknown } }[] };
-    const summary = data.routes?.[0]?.summary;
-    const meters = Number(summary?.distance);
-    const seconds = Number(summary?.duration);
+    const data = (await res.json()) as { routes?: { distanceMeters?: unknown; duration?: unknown }[] };
+    const route = data.routes?.[0];
+    const meters = Number(route?.distanceMeters);
+    const seconds = parseFloat(String(route?.duration ?? "")); // "12345s"
     if (!Number.isFinite(meters) || !Number.isFinite(seconds) || meters < 1000) return null; // under 1 km is not an outstation trip
     return remember(routeKey, {
       distanceKm: Math.round(meters / 1000),

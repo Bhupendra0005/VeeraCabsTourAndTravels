@@ -16,7 +16,7 @@ export type BookingPageDoc = {
   titleLead: string;
   titleEmphasis: string;
   description: string;
-  /** Outstation fares worked out from the road distance between the two places the customer types (needs ORS_API_KEY). */
+  /** Outstation fares worked out from the road distance between the two places the customer types (needs a Google Maps key on the server). */
   distancePricing: boolean;
   /** Search tabs. Outstation One-Way and Round-Trip are always on. */
   enableAirport: boolean;

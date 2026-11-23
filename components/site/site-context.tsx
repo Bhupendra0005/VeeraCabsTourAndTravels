@@ -5,6 +5,9 @@ import { mapsDirectionsUrl, mapsOpenUrl, mapEmbedUrl, whatsappLink, type SiteDat
 
 export type Announcement = { enabled: boolean; text: string; linkLabel: string; linkHref: string };
 
+/** The phone number strip above the menu. */
+export type Topbar = { enabled: boolean; label: string; showSecondary: boolean; showHours: boolean };
+
 export type NavService = { slug: string; title: string };
 
 type SiteContextValue = {
@@ -12,6 +15,7 @@ type SiteContextValue = {
   services: NavService[];
   vehicles: string[];
   announcement: Announcement;
+  topbar: Topbar;
   whatsappLink: (message?: string) => string;
   mapsOpenUrl: () => string;
   mapsDirectionsUrl: () => string;
@@ -24,12 +28,14 @@ const SiteContext = createContext<SiteContextValue | null>(null);
 export function SiteProvider({
   site,
   announcement,
+  topbar,
   services,
   vehicles,
   children,
 }: {
   site: SiteData;
   announcement: Announcement;
+  topbar: Topbar;
   services: NavService[];
   vehicles: string[];
   children: ReactNode;
@@ -38,6 +44,7 @@ export function SiteProvider({
     () => ({
       site,
       announcement,
+      topbar,
       services,
       vehicles,
       whatsappLink: (message) => whatsappLink(message, site),
@@ -45,7 +52,7 @@ export function SiteProvider({
       mapsDirectionsUrl: () => mapsDirectionsUrl(site),
       mapEmbedUrl: () => mapEmbedUrl(site),
     }),
-    [site, announcement, services, vehicles],
+    [site, announcement, topbar, services, vehicles],
   );
   return <SiteContext.Provider value={value}>{children}</SiteContext.Provider>;
 }

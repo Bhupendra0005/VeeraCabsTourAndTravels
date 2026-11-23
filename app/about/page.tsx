@@ -1,76 +1,36 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import {
-  ArrowRight,
-  BadgeIndianRupee,
-  CalendarCheck,
-  Check,
-  Clock3,
-  MapPin,
-  Phone,
-  Send,
-  ThumbsUp,
-} from "lucide-react";
+import { ArrowRight, Check, Clock3, MapPin, Phone } from "lucide-react";
 import { BookButton, WhatsAppButton } from "@/components/site/book-button";
 import { AboutPhotos } from "@/components/site/about-photos";
 import { PageShell } from "@/components/site/page-shell";
-import {
-  CtaBand,
-  PageHero,
-  SectionHead,
-  delay,
-} from "@/components/site/page-parts";
+import { CtaBand, PageHero, SectionHead, delay } from "@/components/site/page-parts";
+import { resolveIcon } from "@/lib/cms/icons";
+import { toAboutPhotos } from "@/lib/cms/about-photos";
 import { photoSrc, photoSrcSet } from "@/lib/cms/images";
-import {
-  getAreas,
-  getDestinations,
-  getFeatures,
-  getFleet,
-  getServices,
-  getSite,
-} from "@/lib/server/cms/content";
+import { getAbout, getAreas, getDestinations, getFeatures, getFleet, getServices, getSite } from "@/lib/server/cms/content";
 
-export const metadata: Metadata = {
-  title: "About Us",
-  description:
-    "Veera Tours & Travels is a cab and tour service in Hadapsar, Pune: airport transfers, one-way cabs, outstation trips and tour packages across Maharashtra.",
-  alternates: { canonical: "/about" },
-};
+/** Everything on this page is edited in Admin > Pages > About page. */
 
+export async function generateMetadata(): Promise<Metadata> {
+  const { seo } = await getAbout();
+  return { title: seo.title || "About Us", description: seo.description || undefined, alternates: { canonical: "/about" } };
+}
 
-const values = [
-  "You know the fare before you book",
-  "Licensed and polite drivers",
-  "Clean cars with AC",
-  "A real person to talk to, any time",
-  "We know Pune well, and we travel across India",
-];
-
-const steps = [
-  {
-    icon: Send,
-    title: "Search your trip",
-    text: "Open Book Online and enter where to pick you up, where to go and the date.",
-  },
-  {
-    icon: BadgeIndianRupee,
-    title: "See the fixed fare",
-    text: "Compare cars for your group size and see the full fare before you pay.",
-  },
-  {
-    icon: CalendarCheck,
-    title: "Pay and confirm",
-    text: "Pay securely online, part now or in full, and your car is booked. Your e-ticket arrives by email.",
-  },
-  {
-    icon: ThumbsUp,
-    title: "Enjoy the ride",
-    text: "Your driver comes on time. You sit back while he takes care of the road.",
-  },
-];
+/** A heading made of two parts: the plain words, then the highlighted ones (any of them may be empty). */
+function Heading({ start, highlight, tag }: { start: string; highlight: string; tag: "em" | "gold" }) {
+  return (
+    <>
+      {start}
+      {start && highlight ? " " : ""}
+      {highlight ? tag === "em" ? <em>{highlight}</em> : <span className="gold">{highlight}</span> : null}
+    </>
+  );
+}
 
 export default async function AboutPage() {
-  const [areas, destinations, features, fleet, servicePages, site] = await Promise.all([
+  const [about, areas, destinations, features, fleet, servicePages, site] = await Promise.all([
+    getAbout(),
     getAreas(),
     getDestinations(),
     getFeatures(),
@@ -78,28 +38,28 @@ export default async function AboutPage() {
     getServices(),
     getSite(),
   ]);
-  const stats = [
-    { value: "24/7", label: "Hours, our desk is open" },
-    { value: String(destinations.length), label: "Places we take you to" },
-    { value: String(areas.length), label: "Pune areas we cover" },
-    { value: String(servicePages.length), label: "Types of service" },
-  ];
+  const counts = { destinations: destinations.length, areas: areas.length, services: servicePages.length, fleet: fleet.length } as const;
+  const stats = about.stats
+    .map((stat) => ({
+      label: stat.label,
+      value: stat.source === "manual" ? stat.value : String(counts[stat.source as keyof typeof counts] ?? stat.value),
+    }))
+    .filter((stat) => stat.value);
+  const photos = toAboutPhotos(about.photos.items);
+
   return (
     <PageShell>
       <PageHero
-        eyebrow="About us"
-        title={
-          <>
-            Good travel begins with a <em>trusted ride.</em>
-          </>
-        }
-        description="We are a cab and tour service in Pune. We help you reach the airport, travel to other cities and enjoy road trips, with a clean car and a friendly driver."
+        eyebrow={about.hero.eyebrow}
+        title={<Heading start={about.hero.titleStart} highlight={about.hero.titleHighlight} tag="em" />}
+        description={about.hero.description}
         crumbs={[{ label: "Home", href: "/" }, { label: "About" }]}
         imageBase="hero-pune"
+        imageUrl={about.hero.image || undefined}
         imageRatio="16 / 9"
         vivid
       >
-        <BookButton>Book your ride</BookButton>
+        <BookButton>{about.hero.bookLabel || "Book your ride"}</BookButton>
         <WhatsAppButton />
       </PageHero>
 
@@ -107,111 +67,91 @@ export default async function AboutPage() {
       <section className="section ab-story-section">
         <div className="shell ab-story">
           <div className="ab-media" data-reveal="left">
-            <AboutPhotos />
-            <div className="ab-float">
-              <span className="ab-float-dot" aria-hidden="true" />
-              <span>
-                <b>Open 24/7</b>
-                <small>Airport and late-night pickups</small>
-              </span>
-            </div>
+            <AboutPhotos photos={photos} badge={about.photos.badge} />
+            {about.photos.openTitle || about.photos.openText ? (
+              <div className="ab-float">
+                <span className="ab-float-dot" aria-hidden="true" />
+                <span>
+                  <b>{about.photos.openTitle}</b>
+                  <small>{about.photos.openText}</small>
+                </span>
+              </div>
+            ) : null}
           </div>
 
           <div className="ab-copy" data-reveal="right">
-            <span className="mini-label">Who we are</span>
+            <span className="mini-label">{about.story.label}</span>
             <h2>
-              A Pune cab service that keeps things <em>simple and honest.</em>
+              <Heading start={about.story.titleStart} highlight={about.story.titleHighlight} tag="em" />
             </h2>
-            <p>
-              Veera Tours &amp; Travels is a cab and tour service. Our office is
-              at Monal Park, Hadapsar, in Pune. You can book a car with a driver
-              for the airport, for a day around the city, for a trip to another
-              city, or for a holiday tour.
-            </p>
-            <p>
-              Our idea is simple. Travel should feel easy. So you get a
-              confirmed car, a polite driver and the price before you start. No
-              hidden surprises, and a real person to speak to whenever you need
-              help.
-            </p>
-            <ul className="ab-values">
-              {values.map((item) => (
-                <li key={item}>
-                  <Check aria-hidden="true" />
-                  {item}
-                </li>
-              ))}
-            </ul>
+            {about.story.paragraphs.map((paragraph) => (
+              <p key={paragraph}>{paragraph}</p>
+            ))}
+            {about.story.values.length > 0 ? (
+              <ul className="ab-values">
+                {about.story.values.map((item) => (
+                  <li key={item}>
+                    <Check aria-hidden="true" />
+                    {item}
+                  </li>
+                ))}
+              </ul>
+            ) : null}
           </div>
         </div>
       </section>
 
       {/* Stats */}
-      <section className="ab-stats-section">
-        <div className="shell">
-          <div className="ab-stats" data-reveal="scale">
-            {stats.map((stat) => (
-              <div className="ab-stat" key={stat.label}>
-                <b>{stat.value}</b>
-                <span>{stat.label}</span>
-              </div>
-            ))}
+      {stats.length > 0 ? (
+        <section className="ab-stats-section">
+          <div className="shell">
+            <div className="ab-stats" data-reveal="scale">
+              {stats.map((stat) => (
+                <div className="ab-stat" key={stat.label}>
+                  <b>{stat.value}</b>
+                  <span>{stat.label}</span>
+                </div>
+              ))}
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
+      ) : null}
 
       {/* How it works */}
-      <section className="section">
-        <div className="shell">
-          <SectionHead
-            eyebrow="How it works"
-            title={
-              <>
-                Booking a ride in <span className="gold">four easy steps.</span>
-              </>
-            }
-            description="No app to download. Search your route, see the fare and book online in a few minutes."
-          />
-          <ol className="ab-steps">
-            {steps.map(({ icon: Icon, title, text }, index) => (
-              <li
-                className="ab-step"
-                key={title}
-                data-reveal
-                style={delay(index, 80)}
-              >
-                <span className="ab-step-icon">
-                  <Icon aria-hidden="true" />
-                </span>
-                <span className="ab-step-num">0{index + 1}</span>
-                <h3>{title}</h3>
-                <p>{text}</p>
-              </li>
-            ))}
-          </ol>
-        </div>
-      </section>
+      {about.steps.items.length > 0 ? (
+        <section className="section">
+          <div className="shell">
+            <SectionHead
+              eyebrow={about.steps.label}
+              title={<Heading start={about.steps.titleStart} highlight={about.steps.titleHighlight} tag="gold" />}
+              description={about.steps.description || undefined}
+            />
+            <ol className="ab-steps">
+              {about.steps.items.map(({ icon, title, text }, index) => {
+                const Icon = resolveIcon(icon);
+                return (
+                  <li className="ab-step" key={`${title}-${index}`} data-reveal style={delay(index, 80)}>
+                    <span className="ab-step-icon">
+                      <Icon aria-hidden="true" />
+                    </span>
+                    <span className="ab-step-num">0{index + 1}</span>
+                    <h3>{title}</h3>
+                    <p>{text}</p>
+                  </li>
+                );
+              })}
+            </ol>
+          </div>
+        </section>
+      ) : null}
 
       {/* Why Veera */}
       <section className="section routes-section">
         <div className="shell">
-          <SectionHead
-            eyebrow="Why choose Veera"
-            title={
-              <>
-                Comfortable, safe and{" "}
-                <span className="gold">always on time.</span>
-              </>
-            }
-          />
+          <SectionHead eyebrow={about.why.label} title={<Heading start={about.why.titleStart} highlight={about.why.titleHighlight} tag="gold" />} />
           <div className="why-cards about-why">
             {features.map(({ icon: Icon, title, text }, index) => (
-              <article
-                className="why-card"
-                key={title}
-                data-reveal
-                style={delay(index, 60)}
-              >
+              <article className="why-card" key={title} data-reveal style={delay(index, 60)}>
                 <span className="why-card-top">
                   <span className="why-icon">
                     <Icon aria-hidden="true" />
@@ -229,48 +169,33 @@ export default async function AboutPage() {
       {/* Fleet */}
       <section className="section">
         <div className="shell">
-          <SectionHead
-            eyebrow="Our fleet"
-            title={
-              <>
-                Select the right car for{" "}
-                <span className="gold">your journey.</span>
-              </>
-            }
-          />
+          <SectionHead eyebrow={about.fleet.label} title={<Heading start={about.fleet.titleStart} highlight={about.fleet.titleHighlight} tag="gold" />} />
           <div className="fleet-grid">
-            {fleet.map(
-              ({ icon: Icon, photo, image, title, seats, luggage, description }, index) => (
-                <article
-                  className="fleet-card"
-                  key={title}
-                  data-reveal
-                  style={delay(index, 65)}
-                >
-                  <div className="fleet-photo">
-                    <img
-                      src={photoSrc({ photo, image }, 800)}
-                      srcSet={photoSrcSet({ photo, image })}
-                      sizes="(max-width: 640px) 90vw, (max-width: 1100px) 45vw, 22vw"
-                      width={800}
-                      height={420}
-                      alt={`${title} by Veera Tours & Travels`}
-                      loading="lazy"
-                      decoding="async"
-                    />
-                    <span className="fleet-icon">
-                      <Icon aria-hidden="true" />
-                    </span>
-                  </div>
-                  <h4>{title}</h4>
-                  <p>{description}</p>
-                  <div className="fleet-meta">
-                    <span>{seats}</span>
-                    <span>{luggage}</span>
-                  </div>
-                </article>
-              ),
-            )}
+            {fleet.map(({ icon: Icon, photo, image, title, seats, luggage, description }, index) => (
+              <article className="fleet-card" key={title} data-reveal style={delay(index, 65)}>
+                <div className="fleet-photo">
+                  <img
+                    src={photoSrc({ photo, image }, 800)}
+                    srcSet={photoSrcSet({ photo, image })}
+                    sizes="(max-width: 640px) 90vw, (max-width: 1100px) 45vw, 22vw"
+                    width={800}
+                    height={420}
+                    alt={`${title} by Veera Tours & Travels`}
+                    loading="lazy"
+                    decoding="async"
+                  />
+                  <span className="fleet-icon">
+                    <Icon aria-hidden="true" />
+                  </span>
+                </div>
+                <h4>{title}</h4>
+                <p>{description}</p>
+                <div className="fleet-meta">
+                  <span>{seats}</span>
+                  <span>{luggage}</span>
+                </div>
+              </article>
+            ))}
           </div>
         </div>
       </section>
@@ -280,8 +205,8 @@ export default async function AboutPage() {
         <div className="shell">
           <div className="ab-visit" data-reveal>
             <div className="ab-visit-copy">
-              <span className="mini-label">Visit us</span>
-              <h3>Drop by our Hadapsar office</h3>
+              <span className="mini-label">{about.visit.label}</span>
+              <h3>{about.visit.title}</h3>
               <ul>
                 <li>
                   <MapPin aria-hidden="true" />
@@ -295,22 +220,19 @@ export default async function AboutPage() {
                   <Phone aria-hidden="true" />
                   <a href={site.primaryPhone.href}>{site.primaryPhone.display}</a>
                   {" · "}
-                  <a href={site.secondaryPhone.href}>
-                    {site.secondaryPhone.display}
-                  </a>
+                  <a href={site.secondaryPhone.href}>{site.secondaryPhone.display}</a>
                 </li>
               </ul>
             </div>
-            <Link className="btn btn-gold" href="/contact">
-              Get directions
-              <ArrowRight aria-hidden="true" />
-            </Link>
+            {about.visit.buttonLabel ? (
+              <Link className="btn btn-gold" href={about.visit.buttonLink || "/contact"}>
+                {about.visit.buttonLabel}
+                <ArrowRight aria-hidden="true" />
+              </Link>
+            ) : null}
           </div>
 
-          <CtaBand
-            title="Let’s plan your next journey."
-            text="Tell us where you want to go and the date. We will take care of the rest."
-          />
+          <CtaBand title={about.cta.title} text={about.cta.text} />
         </div>
       </section>
     </PageShell>

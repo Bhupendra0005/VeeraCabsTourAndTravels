@@ -1,12 +1,14 @@
 import type { Metadata } from "next";
 import { HomePage } from "@/components/site/home-page";
 import type { HomeSearch } from "@/components/site/hero";
+import { toAboutPhotos } from "@/lib/cms/about-photos";
 import { destinationCategories } from "@/lib/content";
 import { parseSearch } from "@/lib/booking/search";
 import { pricedByDistance } from "@/lib/server/bookings/distance";
 import { listSearchOptions } from "@/lib/server/bookings/service";
 import { getHomeReviews } from "@/lib/server/bookings/reviews";
 import {
+  getAbout,
   getBookingPage,
   getBookingSettings,
   getAreas,
@@ -21,7 +23,7 @@ import {
 export const metadata: Metadata = { alternates: { canonical: "/" } };
 
 export default async function Home() {
-  const [home, fleet, features, faqs, destinations, areas, reviews] = await Promise.all([
+  const [home, fleet, features, faqs, destinations, areas, reviews, about] = await Promise.all([
     getHome(),
     getFleetData(),
     getFeaturesData(),
@@ -29,6 +31,7 @@ export default async function Home() {
     getDestinations(),
     getAreas(),
     getHomeReviews(12),
+    getAbout(),
   ]);
 
   // suggestions for the "where to" box in the hero
@@ -67,5 +70,5 @@ export default async function Home() {
     console.error("Home search box unavailable, using the simple bar", error);
   }
 
-  return <HomePage home={home} fleet={fleet} features={features} faqs={faqs} dropOptions={dropOptions} search={search} reviews={reviews} />;
+  return <HomePage home={home} fleet={fleet} features={features} faqs={faqs} dropOptions={dropOptions} search={search} reviews={reviews} aboutPhotos={toAboutPhotos(about.photos.items)} aboutBadge={about.photos.badge} />;
 }

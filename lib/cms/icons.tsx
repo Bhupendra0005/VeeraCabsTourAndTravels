@@ -1,15 +1,21 @@
 import {
+  BadgeIndianRupee,
   BusFront,
   CalendarCheck,
   CarFront,
   Clock3,
   Headphones,
+  Landmark,
   MapPin,
+  Mountain,
+  Navigation,
   Plane,
   Route,
+  Send,
   ShieldCheck,
   Sparkles,
   Star,
+  ThumbsUp,
   Users,
   Wallet,
   type LucideIcon,
@@ -32,6 +38,12 @@ export const ICONS: Record<string, LucideIcon | typeof WhatsAppIcon> = {
   plane: Plane,
   route: Route,
   star: Star,
+  send: Send,
+  rupee: BadgeIndianRupee,
+  thumbs: ThumbsUp,
+  landmark: Landmark,
+  mountain: Mountain,
+  navigation: Navigation,
 };
 
 export const ICON_OPTIONS = [
@@ -49,6 +61,12 @@ export const ICON_OPTIONS = [
   { value: "plane", label: "Plane" },
   { value: "route", label: "Route" },
   { value: "star", label: "Star" },
+  { value: "send", label: "Paper plane (search)" },
+  { value: "rupee", label: "Rupee (price)" },
+  { value: "thumbs", label: "Thumbs up" },
+  { value: "landmark", label: "Temple / landmark" },
+  { value: "mountain", label: "Mountain / hill station" },
+  { value: "navigation", label: "Navigation arrow" },
 ];
 
 export function resolveIcon(key: string, fallback = "star") {
