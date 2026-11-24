@@ -62,7 +62,7 @@ export type RouteFare = {
   vehicle: string;
   /** Base fare in paise for the requested trip type. */
   fare: number;
-  /** Hourly rentals only: the package and what it charges beyond its limits (rupees). */
+  /** Hourly rentals: the package and what it charges beyond its limits (rupees). Airport: its own extra-km rate, if set. */
   hours?: number;
   extraKmRate?: number;
   extraHourRate?: number;
@@ -194,6 +194,8 @@ async function faresForRoute(route: RoadRoute, trip: DistanceTrip): Promise<Rout
         days,
         rates: { ratePerKm: vehicle.ratePerKm ?? 0, minKmPerDay: vehicle.minKmPerDay ?? 0, minFare: vehicle.minFare ?? 0 },
         oneWayReturnPercent: settings.oneWayReturnPercent,
+        // Google's toll is for a car: each vehicle pays its own share of it ("Toll compared to a car" in Vehicles)
+        tollRupees: route.tollRupees ? (route.tollRupees * Math.max(0, vehicle.tollPercent ?? 100)) / 100 : 0,
       });
       return {
         routeId: "",
@@ -221,6 +223,7 @@ async function airportFares(airport: string, tripType: BookingTripType, address:
     durationHours: 0,
     vehicle: row.vehicle,
     fare: paise(row.fare),
+    extraKmRate: row.extraKmRate > 0 ? row.extraKmRate : undefined,
   }));
 }
 
@@ -1034,7 +1037,11 @@ function describePhoneFare(resolved: PhoneFare): string {
   const b = resolved.fare?.breakup;
   if (!b) return "";
   const where = resolved.source === "manual_km" ? `${b.km} km (typed by staff)` : `${b.km} km by road`;
-  const extra = [b.returnPercent > 0 ? `+${b.returnPercent}% one-way return` : "", resolved.fare?.allowance ? `driver allowance Rs ${resolved.fare.allowance / 100}` : ""].filter(Boolean);
+  const extra = [
+    b.returnPercent > 0 ? `+${b.returnPercent}% one-way return` : "",
+    b.toll > 0 ? `toll Rs ${b.toll / 100} (Google estimate, FASTag)` : "",
+    resolved.fare?.allowance ? `driver allowance Rs ${resolved.fare.allowance / 100}` : "",
+  ].filter(Boolean);
   return `Fare by distance: ${where}, ${b.billedKm} km billed at Rs ${b.ratePerKm}/km${extra.length ? `, ${extra.join(", ")}` : ""}.`;
 }
 

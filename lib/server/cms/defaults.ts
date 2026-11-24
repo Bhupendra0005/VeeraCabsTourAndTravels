@@ -15,12 +15,12 @@ function iconKey(component: unknown): string {
 
 const CAPACITY: Record<string, number> = { Sedan: 4, "Premium SUV": 7, "Spacious MPV": 6, "Tempo Traveller": 17 };
 /** Sample listing details per vehicle (cab type, fuel, models, boot bags, extra-km rate in ₹). The owner edits these in Fleet. */
-type CabDetails = { category: string; fuel: string; models: string; bags: number; extraKmRate: number; minKmPerDay: number; driverAllowance: number; ratePerKm: number; minFare: number; listDiscountPercent: number };
+type CabDetails = { category: string; fuel: string; models: string; bags: number; extraKmRate: number; minKmPerDay: number; driverAllowance: number; ratePerKm: number; minFare: number; listDiscountPercent: number; tollPercent: number };
 const CAB_DETAILS: Record<string, CabDetails> = {
-  Sedan: { category: "Sedan", fuel: "Diesel", models: "Dzire, Etios", bags: 2, extraKmRate: 12, minKmPerDay: 300, driverAllowance: 0, ratePerKm: 12, minFare: 0, listDiscountPercent: 0 },
-  "Premium SUV": { category: "SUV", fuel: "Diesel", models: "Innova Crysta", bags: 4, extraKmRate: 19, minKmPerDay: 300, driverAllowance: 0, ratePerKm: 19, minFare: 0, listDiscountPercent: 0 },
-  "Spacious MPV": { category: "MPV", fuel: "Diesel", models: "Ertiga", bags: 3, extraKmRate: 15, minKmPerDay: 300, driverAllowance: 0, ratePerKm: 15, minFare: 0, listDiscountPercent: 0 },
-  "Tempo Traveller": { category: "Tempo Traveller", fuel: "Diesel", models: "", bags: 10, extraKmRate: 26, minKmPerDay: 300, driverAllowance: 0, ratePerKm: 26, minFare: 0, listDiscountPercent: 0 },
+  Sedan: { category: "Sedan", fuel: "Diesel", models: "Dzire, Etios", bags: 2, extraKmRate: 12, minKmPerDay: 300, driverAllowance: 0, ratePerKm: 12, minFare: 0, listDiscountPercent: 0, tollPercent: 100 },
+  "Premium SUV": { category: "SUV", fuel: "Diesel", models: "Innova Crysta", bags: 4, extraKmRate: 19, minKmPerDay: 300, driverAllowance: 0, ratePerKm: 19, minFare: 0, listDiscountPercent: 0, tollPercent: 100 },
+  "Spacious MPV": { category: "MPV", fuel: "Diesel", models: "Ertiga", bags: 3, extraKmRate: 15, minKmPerDay: 300, driverAllowance: 0, ratePerKm: 15, minFare: 0, listDiscountPercent: 0, tollPercent: 100 },
+  "Tempo Traveller": { category: "Tempo Traveller", fuel: "Diesel", models: "", bags: 10, extraKmRate: 26, minKmPerDay: 300, driverAllowance: 0, ratePerKm: 26, minFare: 0, listDiscountPercent: 0, tollPercent: 160 },
 };
 
 export const SITE_INFO_DEFAULTS = {
@@ -176,7 +176,7 @@ export const FLEET_DEFAULTS = {
     seats: vehicle.seats,
     capacity: CAPACITY[vehicle.title] ?? 4,
     luggage: vehicle.luggage,
-    ...(CAB_DETAILS[vehicle.title] ?? ({ category: "Sedan", fuel: "Diesel", models: "", bags: 2, extraKmRate: 12, minKmPerDay: 300, driverAllowance: 0, ratePerKm: 12, minFare: 0, listDiscountPercent: 0 } satisfies CabDetails)),
+    ...(CAB_DETAILS[vehicle.title] ?? ({ category: "Sedan", fuel: "Diesel", models: "", bags: 2, extraKmRate: 12, minKmPerDay: 300, driverAllowance: 0, ratePerKm: 12, minFare: 0, listDiscountPercent: 0, tollPercent: 100 } satisfies CabDetails)),
     description: vehicle.description,
     icon: iconKey(vehicle.icon),
     image: "",

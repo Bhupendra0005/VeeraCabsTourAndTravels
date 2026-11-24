@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { ArrowRight, Briefcase, CalendarDays, Car, Check, CheckCircle2, ChevronRight, Clock3, FileText, Fuel, Info, MapPin, MapPinned, Pencil, Route, ShieldCheck, Snowflake, ThumbsUp, UserRound, Users } from "lucide-react";
+import { ArrowRight, Briefcase, CalendarDays, Car, Check, CheckCircle2, ChevronRight, CircleX, Clock3, FileText, Fuel, Info, MapPin, MapPinned, Pencil, Route, ShieldCheck, Snowflake, ThumbsUp, UserRound, Users } from "lucide-react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ReviewForm } from "@/components/booking/review-form";
@@ -21,6 +21,7 @@ import {
 import { tripDays } from "@/lib/booking/outstation";
 import { refundSentence } from "@/lib/booking/refund";
 import { cabHeading } from "@/lib/booking/fleet";
+import { linesFor } from "@/lib/booking/extras";
 import {
   isSearchComplete,
   parseRouteId,
@@ -98,7 +99,7 @@ export default async function ReviewPage({
   const heading = cabHeading(fare.vehicle, meta?.models ?? "");
   const bootBags = meta?.bags ?? 2;
   const includedKm = fare.billedKm ?? fare.distanceKm * (search.tripType === "round_trip" ? 2 : 1);
-  // the "minimum km per day" rule only matters for a round trip that lasts two days or more
+  // the "minimum km per day" rule applies to every day of a round trip (a same-day trip too)
   const tripLengthDays = tripDays(search.date, search.tripType === "round_trip" ? search.returnDate : null);
   const minKmDay = meta?.minKmPerDay ?? 0;
   const airportTrip = isAirport(search.tripType);
@@ -115,12 +116,11 @@ export default async function ReviewPage({
   const cancelAfter = settings.freeCancelMinutes > 0;
   const activeAddons = extras.addons.filter((addon) => addon.active);
   const activeCoupons = extras.coupons.filter((coupon) => coupon.active);
-  // One-way fares include toll, tax and parking; on a round trip they are charged extra, as per actuals
-  const isTollLine = (title: string) => /toll|tax|parking/i.test(title);
-  const tollExtra = search.tripType === "round_trip";
-  const activeInclusions = extras.inclusions.filter((item) => item.active);
-  const inclusions = activeInclusions.filter((item) => !(tollExtra && isTollLine(item.title)));
-  const extraCharges = tollExtra ? activeInclusions.filter((item) => isTollLine(item.title)) : [];
+  // the owner picks, per line, which trip types it is shown on (Admin > Online booking > Fees & extras)
+  const inclusions = linesFor(extras.inclusions, search.tripType);
+  const exclusions = linesFor(extras.exclusions, search.tripType);
+  // airport rows can carry their own extra-km rate; otherwise the vehicle's rate from the Fleet
+  const extraKmRate = fare.extraKmRate ?? meta?.extraKmRate ?? 0;
 
   return (
     <PageShell footer={false}>
@@ -366,16 +366,12 @@ export default async function ReviewPage({
                     <span>
                       <b>{hourly ? `${fare.hours} hrs & ${includedKm} Km included` : `${includedKm} Km included`}</b>
                       <small>
-                        {hourly
-                          ? `₹${fare.extraKmRate ?? 0}/km and ₹${fare.extraHourRate ?? 0}/hr will apply beyond the package`
-                          : meta?.extraKmRate
-                            ? `₹${meta.extraKmRate}/km will apply beyond included kms`
-                            : "Extra kms are charged beyond the included kms"}
+                        {hourly || extraKmRate > 0 ? "Extra km charges are shown under Exclusions below" : "Extra kms are charged beyond the included kms"}
                       </small>
                     </span>
                   </li>
                 ) : null}
-                {search.tripType === "round_trip" && tripLengthDays >= 2 && minKmDay > 0 ? (
+                {search.tripType === "round_trip" && minKmDay > 0 ? (
                   <li>
                     <span className="rv-incl-icon">
                       <Route aria-hidden="true" />
@@ -383,7 +379,9 @@ export default async function ReviewPage({
                     <span>
                       <b>Minimum {minKmDay} km per day</b>
                       <small>
-                        Your trip is {tripLengthDays} days, so at least {tripLengthDays * minKmDay} km ({tripLengthDays} x {minKmDay}) is charged, even if the cab runs less.
+                        {tripLengthDays === 1
+                          ? `At least ${minKmDay} km is charged for your trip, even if the cab runs less.`
+                          : `Your trip is ${tripLengthDays} days, so at least ${tripLengthDays * minKmDay} km (${tripLengthDays} x ${minKmDay}) is charged, even if the cab runs less.`}
                       </small>
                     </span>
                   </li>
@@ -417,18 +415,42 @@ export default async function ReviewPage({
                     </li>
                   );
                 })}
-                {extraCharges.map((item) => (
-                  <li key={item.title}>
-                    <span className="rv-incl-icon rv-incl-icon--extra">
-                      <Info aria-hidden="true" />
-                    </span>
-                    <span>
-                      <b>{item.title}: extra</b>
-                      <small>Toll, State Tax and Parking are not in the fare. They are added extra, as per actuals.</small>
-                    </span>
-                  </li>
-                ))}
               </ul>
+              {hourly || extraKmRate > 0 || exclusions.length > 0 ? (
+                <>
+                  <h3 className="mt-5 mb-3 flex items-center gap-2 text-[15px] font-bold">
+                    <CircleX className="size-[18px] text-[#b86e00]" aria-hidden="true" /> Exclusions (paid extra)
+                  </h3>
+                  <ul className="rv-incl">
+                    {hourly || extraKmRate > 0 ? (
+                      <li>
+                        <span className="rv-incl-icon rv-incl-icon--extra">
+                          <Route aria-hidden="true" />
+                        </span>
+                        <span>
+                          <b>
+                            {hourly
+                              ? `Extra km ₹${fare.extraKmRate ?? 0}/km, extra hour ₹${fare.extraHourRate ?? 0}/hr`
+                              : `Extra km: ₹${extraKmRate}/km`}
+                          </b>
+                          <small>{includedKm > 0 ? `Charged beyond the ${includedKm} km${hourly ? ` and ${fare.hours} hrs` : ""} in your fare.` : "Charged for any km beyond the trip."}</small>
+                        </span>
+                      </li>
+                    ) : null}
+                    {exclusions.map((item) => (
+                      <li key={item.title}>
+                        <span className="rv-incl-icon rv-incl-icon--extra">
+                          <Info aria-hidden="true" />
+                        </span>
+                        <span>
+                          <b>{item.title}</b>
+                          {item.text ? <small>{item.text}</small> : null}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </>
+              ) : null}
               <div className="rv-policies">
                 <Link href="/terms" target="_blank">
                   <FileText aria-hidden="true" /> View policies <ArrowRight aria-hidden="true" />

@@ -43,7 +43,7 @@ function FarePreviewBox({ result }: { result: PreviewState }) {
   const distance = b
     ? b.tripType !== "round_trip"
       ? `Distance ${b.km} km x ₹${b.ratePerKm}/km`
-      : `${b.billedKm} km (${b.billedKm > b.km * 2 ? `${b.days} days x ${b.minKmPerDay} km minimum` : `${b.km} km each way`}) x ₹${b.ratePerKm}/km`
+      : `${b.billedKm} km (${b.billedKm > b.km * 2 ? `${b.days} ${b.days === 1 ? "day" : "days"} x ${b.minKmPerDay} km minimum` : `${b.km} km each way`}) x ₹${b.ratePerKm}/km`
     : "";
   return (
     <div className="grid gap-3 rounded-xl border border-brand/30 bg-brand/5 p-4 text-sm">
@@ -68,6 +68,12 @@ function FarePreviewBox({ result }: { result: PreviewState }) {
               <div className="flex justify-between gap-4">
                 <dt className="text-muted">One-way return charge ({b.returnPercent}%)</dt>
                 <dd>{formatINR(b.returnCharge)}</dd>
+              </div>
+            ) : null}
+            {b.toll > 0 ? (
+              <div className="flex justify-between gap-4">
+                <dt className="text-muted">Toll (Google estimate, FASTag)</dt>
+                <dd>{formatINR(b.toll)}</dd>
               </div>
             ) : null}
             {b.minFareTopUp > 0 ? (

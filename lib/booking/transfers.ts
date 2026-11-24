@@ -10,6 +10,8 @@ export type AirportFareRow = {
   fare: number;
   /** Kilometres the fare covers, 0 = not mentioned. */
   includedKm: number;
+  /** Rupees per km beyond the included km; 0 = use the vehicle's rate from the Fleet. */
+  extraKmRate: number;
   active: boolean;
 };
 
@@ -43,10 +45,10 @@ const VEHICLES: [string, number][] = [
 /** Sample fares: the owner must replace them with real ones. */
 export const DEFAULT_AIRPORT: AirportDoc = {
   fares: [
-    { airport: AIRPORT, vehicle: "Sedan", fare: 900, includedKm: 25, active: true },
-    { airport: AIRPORT, vehicle: "Premium SUV", fare: 1500, includedKm: 25, active: true },
-    { airport: AIRPORT, vehicle: "Spacious MPV", fare: 1300, includedKm: 25, active: true },
-    { airport: AIRPORT, vehicle: "Tempo Traveller", fare: 2500, includedKm: 25, active: true },
+    { airport: AIRPORT, vehicle: "Sedan", fare: 900, includedKm: 25, extraKmRate: 0, active: true },
+    { airport: AIRPORT, vehicle: "Premium SUV", fare: 1500, includedKm: 25, extraKmRate: 0, active: true },
+    { airport: AIRPORT, vehicle: "Spacious MPV", fare: 1300, includedKm: 25, extraKmRate: 0, active: true },
+    { airport: AIRPORT, vehicle: "Tempo Traveller", fare: 2500, includedKm: 25, extraKmRate: 0, active: true },
   ],
 };
 
@@ -92,6 +94,7 @@ export const AIRPORT_FIELDS: Field[] = [
     itemMeta: [
       { key: "fare", prefix: "₹" },
       { key: "includedKm", suffix: " km included" },
+      { key: "extraKmRate", prefix: "₹", suffix: " / extra km" },
     ],
     maxItems: 120,
     addLabel: "Add fare",
@@ -100,6 +103,16 @@ export const AIRPORT_FIELDS: Field[] = [
       { type: "text", key: "vehicle", label: "Vehicle (same as the Fleet name)", required: true, max: 40 },
       { type: "number", key: "fare", label: "Fixed fare (₹, before GST)", min: 1, max: 1000000, step: 1, defaultValue: 900 },
       { type: "number", key: "includedKm", label: "Kilometres included (0 = not mentioned)", min: 0, max: 500, step: 1, defaultValue: 25 },
+      {
+        type: "number",
+        key: "extraKmRate",
+        label: "Charge per extra km (₹)",
+        min: 0,
+        max: 500,
+        step: 1,
+        defaultValue: 0,
+        hint: "Charged beyond the kilometres included. 0 = use this vehicle's extra-km rate from Vehicles.",
+      },
       { type: "toggle", key: "active", label: "Offer this fare", defaultValue: true },
     ],
   },

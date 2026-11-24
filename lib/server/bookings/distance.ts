@@ -43,7 +43,32 @@ export type RoadRoute = {
   /** The places the lookup actually found for the first and the last point, so the customer can see what the fare is based on. */
   from: string;
   to: string;
+  /**
+   * Toll Google expects along the route for a car with FASTag, one way, in whole rupees: 0 = no toll on the route,
+   * undefined = not asked for, or Google knows there are tolls but not their price.
+   */
+  tollRupees?: number;
 };
+
+/** Whether the owner wants the toll in one-way fares (asking Google for it costs more per lookup, so only then). */
+async function wantsToll(): Promise<boolean> {
+  try {
+    return (await getBookingPage()).oneWayToll !== false;
+  } catch {
+    return false;
+  }
+}
+
+type GoogleMoney = { currencyCode?: string; units?: string | number; nanos?: number };
+
+/** Rupees from Google's toll info: absent = no toll expected; present without an INR price = unknown. */
+function tollFrom(info: { estimatedPrice?: GoogleMoney[] } | undefined): number | undefined {
+  if (!info) return 0;
+  const inr = (info.estimatedPrice ?? []).filter((price) => price.currencyCode === "INR");
+  if (inr.length === 0) return undefined;
+  const rupees = inr.reduce((sum, price) => sum + Number(price.units ?? 0) + Number(price.nanos ?? 0) / 1e9, 0);
+  return Number.isFinite(rupees) && rupees >= 0 ? Math.round(rupees) : undefined;
+}
 
 /** True when a Google Maps key is configured on the server. */
 export const distanceConfigured = () => !!googleKey();
@@ -166,7 +191,8 @@ export async function roadRoute(places: string[]): Promise<RoadRoute | null> {
   const names = places.map((place) => place.trim()).filter(Boolean);
   if (!key || names.length < 2 || names.length > MAX_PLACES || names.some((name) => name.length < 2 || name.length > MAX_PLACE_LENGTH)) return null;
 
-  const routeKey = `route:${names.map(normalise).join("|")}`;
+  const withToll = await wantsToll();
+  const routeKey = `route:${withToll ? "toll:" : ""}${names.map(normalise).join("|")}`;
   const hit = recall<RoadRoute | null>(routeKey);
   if (hit) return hit.value;
   if (!(await allowNewLookup())) {
@@ -184,7 +210,10 @@ export async function roadRoute(places: string[]): Promise<RoadRoute | null> {
   try {
     const res = await fetch(ROUTES, {
       method: "POST",
-      headers: { ...googleHeaders(key), "X-Goog-FieldMask": "routes.distanceMeters,routes.duration" },
+      headers: {
+        ...googleHeaders(key),
+        "X-Goog-FieldMask": withToll ? "routes.distanceMeters,routes.duration,routes.travelAdvisory.tollInfo" : "routes.distanceMeters,routes.duration",
+      },
       body: JSON.stringify({
         origin: waypoint(found[0].point),
         destination: waypoint(found[found.length - 1].point),
@@ -193,11 +222,15 @@ export async function roadRoute(places: string[]): Promise<RoadRoute | null> {
         routingPreference: "TRAFFIC_UNAWARE",
         regionCode: "IN",
         units: "METRIC",
+        // the cabs have FASTag: without it Google quotes the cash rate, which is double
+        ...(withToll ? { extraComputations: ["TOLLS"], routeModifiers: { vehicleInfo: { emissionType: "DIESEL" }, tollPasses: ["IN_FASTAG"] } } : {}),
       }),
       signal: AbortSignal.timeout(8000),
     });
     if (!res.ok) throw new Error(`routing ${res.status}`);
-    const data = (await res.json()) as { routes?: { distanceMeters?: unknown; duration?: unknown }[] };
+    const data = (await res.json()) as {
+      routes?: { distanceMeters?: unknown; duration?: unknown; travelAdvisory?: { tollInfo?: { estimatedPrice?: GoogleMoney[] } } }[];
+    };
     const route = data.routes?.[0];
     const meters = Number(route?.distanceMeters);
     const seconds = parseFloat(String(route?.duration ?? "")); // "12345s"
@@ -207,6 +240,7 @@ export async function roadRoute(places: string[]): Promise<RoadRoute | null> {
       durationHours: Math.max(0.5, Math.round((seconds / 3600) * 10) / 10),
       from: found[0].label,
       to: found[found.length - 1].label,
+      tollRupees: withToll ? tollFrom(route?.travelAdvisory?.tollInfo) : undefined,
     });
   } catch (error) {
     console.error("Routing failed", error instanceof Error ? error.message : error);

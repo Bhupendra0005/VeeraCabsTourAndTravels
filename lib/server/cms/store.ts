@@ -1,5 +1,7 @@
 import "server-only";
 import { cache } from "react";
+import { BOOKING_EXTRAS_KEY, normaliseExtras, type BookingExtras } from "@/lib/booking/extras";
+import { AIRPORT_KEY } from "@/lib/booking/transfers";
 import { mergeDefaults } from "@/lib/cms/validate";
 import { db } from "@/lib/server/core/db";
 
@@ -9,6 +11,13 @@ import { db } from "@/lib/server/core/db";
  * the website show real values instead of blanks.
  */
 function backfillNewFields<T>(key: string, defaults: T, merged: T): T {
+  if (key === BOOKING_EXTRAS_KEY) return normaliseExtras(merged as BookingExtras) as T;
+  if (key === AIRPORT_KEY) {
+    // airport rows saved before "Charge per extra km" existed: 0 = use the vehicle's rate from the Fleet
+    const fares = (merged as { fares?: Record<string, unknown>[] }).fares;
+    if (!Array.isArray(fares)) return merged;
+    return { ...(merged as object), fares: fares.map((row) => ({ ...row, extraKmRate: typeof row.extraKmRate === "number" ? row.extraKmRate : 0 })) } as T;
+  }
   if (key !== "fleet") return merged;
   const base = (defaults as { items?: Record<string, unknown>[] }).items;
   const saved = (merged as { items?: Record<string, unknown>[] }).items;
@@ -17,7 +26,7 @@ function backfillNewFields<T>(key: string, defaults: T, merged: T): T {
     const same = base.find((candidate) => candidate.title === item.title);
     const filled: Record<string, unknown> = { ...item };
     if (same) {
-      for (const field of ["category", "fuel", "models", "bags", "extraKmRate", "minKmPerDay", "driverAllowance", "minFare", "listDiscountPercent"]) {
+      for (const field of ["category", "fuel", "models", "bags", "extraKmRate", "minKmPerDay", "driverAllowance", "minFare", "listDiscountPercent", "tollPercent"]) {
         if (filled[field] === undefined || filled[field] === null) filled[field] = same[field];
       }
     }
@@ -30,6 +39,7 @@ function backfillNewFields<T>(key: string, defaults: T, merged: T): T {
     if (filled.minKmPerDay === undefined || filled.minKmPerDay === null) filled.minKmPerDay = 300;
     if (filled.minFare === undefined || filled.minFare === null) filled.minFare = 0;
     if (filled.driverAllowance === undefined || filled.driverAllowance === null) filled.driverAllowance = 0;
+    if (filled.tollPercent === undefined || filled.tollPercent === null) filled.tollPercent = 100;
     return filled;
   });
   return { ...(merged as object), items } as T;

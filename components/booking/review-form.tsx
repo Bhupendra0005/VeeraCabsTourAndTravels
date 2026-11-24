@@ -32,8 +32,9 @@ import type { FareBreakup } from "@/lib/booking/outstation";
 /** "Distance 51 km x ₹14/km"; for a round trip it also says how the billed km came about. */
 function distanceLabel(b: FareBreakup): string {
   const rate = `₹${b.ratePerKm}/km`;
-  if (b.tripType !== "round_trip") return `Distance ${b.km} km x ${rate}`;
-  if (b.billedKm > b.km * 2) return `${b.billedKm} km (${b.days} days x ${b.minKmPerDay} km minimum) x ${rate}`;
+  // one-way: the return charge is folded into this line and not named, so no "km x rate" sum that would not add up
+  if (b.tripType !== "round_trip") return b.returnCharge > 0 ? `Distance ${b.km} km` : `Distance ${b.km} km x ${rate}`;
+  if (b.billedKm > b.km * 2) return `${b.billedKm} km (${b.days} ${b.days === 1 ? "day" : "days"} x ${b.minKmPerDay} km minimum) x ${rate}`;
   return `${b.billedKm} km (${b.km} km each way) x ${rate}`;
 }
 
@@ -168,12 +169,12 @@ export function ReviewForm(props: Props) {
                   <>
                     <div>
                       <dt className="pl-3 text-sm">{distanceLabel(props.distanceBreakup)}</dt>
-                      <dd className="text-sm font-normal! text-muted">{formatINR(props.distanceBreakup.kmCharge)}</dd>
+                      <dd className="text-sm font-normal! text-muted">{formatINR(props.distanceBreakup.kmCharge + props.distanceBreakup.returnCharge)}</dd>
                     </div>
-                    {props.distanceBreakup.returnCharge > 0 ? (
+                    {props.distanceBreakup.toll > 0 ? (
                       <div>
-                        <dt className="pl-3 text-sm">One-way return charge ({props.distanceBreakup.returnPercent}%)</dt>
-                        <dd className="text-sm font-normal! text-muted">{formatINR(props.distanceBreakup.returnCharge)}</dd>
+                        <dt className="pl-3 text-sm">Toll charges (included)</dt>
+                        <dd className="text-sm font-normal! text-muted">{formatINR(props.distanceBreakup.toll)}</dd>
                       </div>
                     ) : null}
                     {props.distanceBreakup.minFareTopUp > 0 ? (
@@ -238,12 +239,8 @@ export function ReviewForm(props: Props) {
             ) : null}
             {showBreakup && props.distanceBreakup ? (
               <p className="mt-3 text-xs leading-relaxed text-muted">
-                {props.distanceBreakup.returnCharge > 0
-                  ? `A one-way fare adds ${props.distanceBreakup.returnPercent}% because the driver drives back empty. `
-                  : props.distanceBreakup.tripType === "round_trip"
-                    ? "A round trip counts the distance both ways. "
-                    : ""}
-                The fare is the road distance x the rate of the cab you choose.
+                {props.distanceBreakup.tripType === "round_trip" ? "A round trip counts the distance both ways. " : ""}
+                The fare is worked out from the road distance and the cab you choose.
               </p>
             ) : null}
     </>

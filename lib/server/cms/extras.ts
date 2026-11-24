@@ -1,5 +1,5 @@
 import "server-only";
-import { BOOKING_EXTRAS_KEY, DEFAULT_BOOKING_EXTRAS, type BookingExtras } from "@/lib/booking/extras";
+import { BOOKING_EXTRAS_KEY, DEFAULT_BOOKING_EXTRAS, normaliseExtras, type BookingExtras } from "@/lib/booking/extras";
 import { mergeDefaults } from "@/lib/cms/validate";
 import { readRaw } from "@/lib/server/cms/store";
 
@@ -9,5 +9,5 @@ import { readRaw } from "@/lib/server/cms/store";
  */
 export async function readExtrasForEdit(): Promise<BookingExtras> {
   const raw = await readRaw(BOOKING_EXTRAS_KEY);
-  return raw === null ? DEFAULT_BOOKING_EXTRAS : mergeDefaults(DEFAULT_BOOKING_EXTRAS, raw);
+  return raw === null ? DEFAULT_BOOKING_EXTRAS : normaliseExtras(mergeDefaults(DEFAULT_BOOKING_EXTRAS, raw));
 }

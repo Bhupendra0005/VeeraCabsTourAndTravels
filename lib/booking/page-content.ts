@@ -18,6 +18,8 @@ export type BookingPageDoc = {
   description: string;
   /** Outstation fares worked out from the road distance between the two places the customer types (needs a Google Maps key on the server). */
   distancePricing: boolean;
+  /** One-way fares by distance include the toll Google expects on the route (FASTag rate, car), scaled per vehicle. */
+  oneWayToll: boolean;
   /** Search tabs. Outstation One-Way and Round-Trip are always on. */
   enableAirport: boolean;
   enableHourly: boolean;
@@ -63,6 +65,7 @@ export const DEFAULT_BOOKING_PAGE: BookingPageDoc = {
   heroPoints: [{ label: "Instant Booking" }, { label: "Safe & Reliable" }, { label: "Transparent Pricing" }],
   description: "Pick your route and date, choose a vehicle and pay securely. Your ticket and invoice arrive by email.",
   distancePricing: true,
+  oneWayToll: true,
   enableAirport: true,
   enableHourly: true,
   enableStops: true,
@@ -114,6 +117,7 @@ export const BOOKING_PAGE_FIELDS: Field[] = [
 
   /* Search & trip options */
   { type: "toggle", key: "distancePricing", label: "Outstation fares by distance", hint: "On: the customer types any pickup and drop place, the road distance is worked out and the fare is distance x the vehicle's rate per km (set in Vehicles). Off, or no routing key on the server: only the routes you priced in Routes & fares are offered." },
+  { type: "toggle", key: "oneWayToll", label: "Add toll to one-way fares", hint: "One-way fares by distance include the toll Google Maps expects on the route (FASTag rate for a car, scaled by each vehicle's \"Toll compared to a car\" in Vehicles). It is an estimate. Round trips are not changed. Off: no toll is added." },
   { type: "toggle", key: "enableAirport", label: "Show the Airport Transfers tab", hint: "It only appears when you have added airport fares." },
   { type: "toggle", key: "enableHourly", label: "Show the Hourly Rentals tab", hint: "It only appears when you have added hourly packages." },
   { type: "toggle", key: "showRoundTripTab", label: "Show the separate Outstation Round-Trip tab" },

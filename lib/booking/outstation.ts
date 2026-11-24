@@ -5,7 +5,7 @@ import type { BookingTripType } from "@/lib/booking/config";
 export type OutstationRates = {
   /** Rupees per kilometre. */
   ratePerKm: number;
-  /** Multi-day round trips are charged at least this many km for every day. */
+  /** Round trips are charged at least this many km for every day (a same-day trip too). */
   minKmPerDay: number;
   /** The fare never goes below this (rupees). 0 = no minimum. */
   minFare: number;
@@ -28,6 +28,8 @@ export type FareBreakup = {
   returnCharge: number;
   /** Paise added to reach the least fare of the vehicle (0 when not needed). */
   minFareTopUp: number;
+  /** One-way trips: the expected toll (FASTag) included in the fare, paise (0 = none). */
+  toll: number;
 };
 
 /** Calendar days a round trip covers, counting both the first and the last day. A bad or missing date counts as one day. */
@@ -41,11 +43,12 @@ export function tripDays(date: string, returnDate: string | null | undefined): n
 
 /**
  * Fare of one vehicle for a trip of `distanceKm` (one direction, by road).
- *  - round trip: both directions are driven; a trip of two or more days is charged at least minKmPerDay for each day.
+ *  - round trip: both directions are driven, and every day of the trip (a same-day trip too) is charged at least minKmPerDay.
  *  - one way: the driver also has to drive back empty, so a share of the fare (oneWayReturnPercent, set in Booking settings)
  *    is added, the same rule the fixed route fares always used.
  * The result is a whole number of rupees, in paise, and `billedKm` is the distance the fare was charged for.
  * `breakup` splits the fare into the lines the customer sees; its parts are whole rupees and add up to `fare`.
+ * `tollRupees` (one-way only) is the expected toll for this vehicle; it is added after the least fare, never scaled by the return share.
  */
 export function outstationPrice(opts: {
   distanceKm: number;
@@ -53,18 +56,20 @@ export function outstationPrice(opts: {
   days: number;
   rates: OutstationRates;
   oneWayReturnPercent: number;
+  tollRupees?: number;
 }): { fare: number; billedKm: number; breakup: FareBreakup } {
   const km = Math.max(0, Math.round(opts.distanceKm));
   const { ratePerKm, minKmPerDay, minFare } = opts.rates;
   const roundTrip = opts.tripType === "round_trip";
-  const billedKm = roundTrip ? Math.max(km * 2, opts.days >= 2 ? opts.days * Math.max(0, minKmPerDay) : 0) : km;
+  const billedKm = roundTrip ? Math.max(km * 2, Math.max(1, opts.days) * Math.max(0, minKmPerDay)) : km;
   const kmRupees = billedKm * ratePerKm;
   const returnPercent = roundTrip ? 0 : Math.max(0, opts.oneWayReturnPercent);
   const total = Math.round(kmRupees + (kmRupees * returnPercent) / 100);
   const base = Math.max(total, Math.round(Math.max(0, minFare)));
   const kmCharge = Math.round(kmRupees);
+  const toll = roundTrip ? 0 : Math.max(0, Math.round(opts.tollRupees ?? 0));
   return {
-    fare: base * 100,
+    fare: (base + toll) * 100,
     billedKm,
     breakup: {
       tripType: opts.tripType,
@@ -77,6 +82,7 @@ export function outstationPrice(opts: {
       returnPercent,
       returnCharge: (total - kmCharge) * 100,
       minFareTopUp: (base - total) * 100,
+      toll: toll * 100,
     },
   };
 }

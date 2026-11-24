@@ -1,8 +1,58 @@
-import type { Addon, Coupon } from "@/lib/booking/config";
+import type { Addon, BookingTripType, Coupon } from "@/lib/booking/config";
 import type { Field } from "@/lib/cms/types";
 
-/** Offers and wording around a booking. Edited by the owner in Admin > Website content > Booking offers. */
-export type Inclusion = { title: string; text: string; active: boolean };
+/**
+ * One line of "what the fare includes" or "what it does not include". The four switches pick the trips it is shown on
+ * (Airport covers pickup and drop; Local = hourly rentals).
+ */
+export type Inclusion = {
+  title: string;
+  text: string;
+  active: boolean;
+  oneWay: boolean;
+  roundTrip: boolean;
+  airport: boolean;
+  hourly: boolean;
+};
+
+const TRIP_FLAG: Record<BookingTripType, keyof Pick<Inclusion, "oneWay" | "roundTrip" | "airport" | "hourly">> = {
+  one_way: "oneWay",
+  round_trip: "roundTrip",
+  airport_pickup: "airport",
+  airport_drop: "airport",
+  hourly: "hourly",
+};
+
+/** Active lines meant for this trip type. */
+export function linesFor(items: Inclusion[], tripType: BookingTripType): Inclusion[] {
+  return items.filter((item) => item.active && item[TRIP_FLAG[tripType]] !== false);
+}
+
+const ALL_TRIPS = { oneWay: true, roundTrip: true, airport: true, hourly: true };
+const isTollLine = (title: string) => /toll|tax|parking/i.test(title);
+
+/**
+ * Lines saved before the trip switches existed have none: show them on every trip, except a toll/tax/parking inclusion,
+ * which was never shown as included on a round trip (it is charged extra there). Without this, the first save in the admin
+ * would turn every missing switch off.
+ */
+export function normaliseExtras(extras: BookingExtras): BookingExtras {
+  const fill = (items: unknown, legacyToll: boolean): Inclusion[] =>
+    (Array.isArray(items) ? (items as Partial<Inclusion>[]) : []).map((item) => {
+      const legacy = item.oneWay === undefined && item.roundTrip === undefined && item.airport === undefined && item.hourly === undefined;
+      const base = legacy ? { ...ALL_TRIPS, roundTrip: !(legacyToll && isTollLine(String(item.title ?? ""))) } : ALL_TRIPS;
+      return {
+        title: String(item.title ?? ""),
+        text: String(item.text ?? ""),
+        active: item.active !== false,
+        oneWay: item.oneWay ?? base.oneWay,
+        roundTrip: item.roundTrip ?? base.roundTrip,
+        airport: item.airport ?? base.airport,
+        hourly: item.hourly ?? base.hourly,
+      };
+    });
+  return { ...extras, inclusions: fill(extras.inclusions, true), exclusions: fill(extras.exclusions, false) };
+}
 
 export type BookingExtras = {
   /** Charge in rupees for each extra stop on an outstation trip. */
@@ -13,6 +63,8 @@ export type BookingExtras = {
   coupons: Coupon[];
   addons: Addon[];
   inclusions: Inclusion[];
+  /** What the fare does not include (paid extra), per trip type. */
+  exclusions: Inclusion[];
 };
 
 export const BOOKING_EXTRAS_KEY = "booking_extras";
@@ -60,11 +112,25 @@ export const DEFAULT_BOOKING_EXTRAS: BookingExtras = {
     },
   ],
   inclusions: [
-    { title: "Toll, tax and other charges", text: "Toll, State Tax and Parking charges are included", active: true },
-    { title: "Driver allowance", text: "Driver food and accommodation (stay) charges are included", active: true },
-    { title: "Fuel charges included", text: "Fuel cost for your trip is included in the fare", active: true },
+    { title: "Toll, tax and other charges", text: "Toll, State Tax and Parking charges are included", active: true, ...ALL_TRIPS, roundTrip: false },
+    { title: "Driver allowance", text: "Driver food and accommodation (stay) charges are included", active: true, ...ALL_TRIPS },
+    { title: "Fuel charges included", text: "Fuel cost for your trip is included in the fare", active: true, ...ALL_TRIPS },
+  ],
+  exclusions: [
+    { title: "Toll, State Tax and Parking", text: "Not in the fare. Paid extra, as per actuals.", active: true, oneWay: false, roundTrip: true, airport: false, hourly: false },
   ],
 };
+
+/** The fields of one inclusion or exclusion line, with a switch per trip type. */
+const lineFields = (what: string): Field[] => [
+  { type: "text", key: "title", label: "Title", required: true, max: 60 },
+  { type: "text", key: "text", label: "Details", max: 160 },
+  { type: "toggle", key: "active", label: "Show this line", defaultValue: true },
+  { type: "toggle", key: "oneWay", label: `${what} on One-way outstation`, defaultValue: true },
+  { type: "toggle", key: "roundTrip", label: `${what} on Round trip`, defaultValue: true },
+  { type: "toggle", key: "airport", label: `${what} on Airport transfer`, defaultValue: true },
+  { type: "toggle", key: "hourly", label: `${what} on Local (hourly rental)`, defaultValue: true },
+];
 
 export const BOOKING_EXTRAS_FIELDS: Field[] = [
   {
@@ -139,10 +205,18 @@ export const BOOKING_EXTRAS_FIELDS: Field[] = [
     itemSubtitle: "text",
     maxItems: 10,
     addLabel: "Add inclusion",
-    fields: [
-      { type: "text", key: "title", label: "Title", required: true, max: 60 },
-      { type: "text", key: "text", label: "Details", max: 160 },
-      { type: "toggle", key: "active", label: "Show this line", defaultValue: true },
-    ],
+    hint: "Each line has a switch per trip type, so it only shows on the trips it is true for.",
+    fields: lineFields("Show"),
+  },
+  {
+    type: "list",
+    key: "exclusions",
+    label: "What the fare does not include (exclusions)",
+    itemTitle: "title",
+    itemSubtitle: "text",
+    maxItems: 10,
+    addLabel: "Add exclusion",
+    hint: "Charges the customer pays extra, e.g. toll on a round trip, parking at the airport, night charges. The extra-km rate is shown automatically.",
+    fields: lineFields("Show"),
   },
 ];
