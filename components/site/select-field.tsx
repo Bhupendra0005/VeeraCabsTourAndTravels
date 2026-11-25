@@ -4,6 +4,7 @@ import { Check, ChevronDown } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import {
   useEffect,
+  useLayoutEffect,
   useRef,
   useState,
   type KeyboardEvent as ReactKeyboardEvent,
@@ -63,6 +64,32 @@ export function SelectField({
     };
     document.addEventListener("pointerdown", onPointerDown);
     return () => document.removeEventListener("pointerdown", onPointerDown);
+  }, [open]);
+
+  // Open towards the side that has room: a field can sit in the left or the right column (it moves when the Return date
+  // shows), and a list that opens past the card edge gets cut off
+  useLayoutEffect(() => {
+    const panel = listRef.current;
+    if (!open || !panel) return;
+    panel.style.left = "";
+    panel.style.right = "";
+    let minX = 8;
+    let maxX = document.documentElement.clientWidth - 8;
+    for (let node = panel.parentElement; node && node !== document.body; node = node.parentElement) {
+      const { overflowX } = getComputedStyle(node);
+      if (overflowX === "visible") continue;
+      const box = node.getBoundingClientRect();
+      minX = Math.max(minX, box.left);
+      maxX = Math.min(maxX, box.right);
+    }
+    const rect = panel.getBoundingClientRect();
+    if (rect.left < minX) {
+      panel.style.left = "0";
+      panel.style.right = "auto";
+    } else if (rect.right > maxX) {
+      panel.style.left = "auto";
+      panel.style.right = "0";
+    }
   }, [open]);
 
   // Keep the highlighted option visible

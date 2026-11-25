@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import type { ActionState } from "@/lib/admin/action-state";
 import { DOCUMENT_LAYOUT_FIELDS, DOCUMENT_LAYOUT_KEY, HEX_COLOR } from "@/lib/booking/document-layout";
 import { BOOKING_EXTRAS_KEY } from "@/lib/booking/extras";
-import { BOOKING_SETTINGS_FIELDS, BOOKING_SETTINGS_KEY } from "@/lib/booking/settings";
+import { BOOKING_SETTINGS_FIELDS, BOOKING_SETTINGS_KEY, MAX_ALERT_EMAILS, parseAlertEmails } from "@/lib/booking/settings";
 import { AIRPORT_KEY, HOURLY_KEY } from "@/lib/booking/transfers";
 import { getDocDefinition } from "@/lib/cms/docs";
 import { DocError, validateFields } from "@/lib/cms/validate";
@@ -31,6 +31,10 @@ async function crossChecks(key: string, doc: Record<string, unknown>) {
       seen.add(slab.hoursBefore);
     }
     doc.refundSlabs = ((doc.refundSlabs as { hoursBefore: number; percent: number }[]) ?? []).slice().sort((a, b) => b.hoursBefore - a.hoursBefore);
+    const alerts = parseAlertEmails(String(doc.ownerAlertEmails ?? ""));
+    if (alerts.bad.length > 0) throw new ActionError(`Booking alerts: "${alerts.bad[0].slice(0, 60)}" is not an email address.`);
+    if (alerts.emails.length > MAX_ALERT_EMAILS) throw new ActionError(`Booking alerts: at most ${MAX_ALERT_EMAILS} email addresses.`);
+    doc.ownerAlertEmails = alerts.emails.join(", ");
   }
 
   if (["destinations", "areas", "services"].includes(key)) {

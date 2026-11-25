@@ -23,7 +23,9 @@ import { listSellableRoutes } from "@/lib/server/bookings/sellable-routes";
 import { getAirportFares, getBookingExtras, getBookingPage, getBookingSettings, getFleet, getHourlyFares } from "@/lib/server/cms/content";
 import { sendEmail } from "@/lib/server/email/brevo";
 import { db } from "@/lib/server/core/db";
-import { cancellationEmail, confirmationEmail } from "@/lib/server/email/templates";
+import { cancellationEmail, confirmationEmail, ownerAlertEmail } from "@/lib/server/email/templates";
+import { parseAlertEmails } from "@/lib/booking/settings";
+import { siteUrl } from "@/lib/server/core/env";
 import { HttpError } from "@/lib/server/core/http";
 import { documentContext } from "@/lib/server/bookings/context";
 import { buildInvoicePdf, buildTicketPdf } from "@/lib/server/bookings/pdf";
@@ -838,6 +840,7 @@ export async function confirmPayment(orderId: string, razorpayPaymentId: string,
           await new Promise((resolve) => setTimeout(resolve, 4000));
           await sendConfirmation(confirmedBooking);
         }
+        await notifyOwner(confirmedBooking, "new");
       });
     }
   }
@@ -874,6 +877,31 @@ export async function sendConfirmation(booking: BookingRow): Promise<boolean> {
     // the booking is already confirmed and the ticket is downloadable; do not fail the payment
     console.error("Confirmation email failed", booking.ref, error);
     return false;
+  }
+}
+
+/**
+ * Emails the owner (Admin > Settings > Booking alerts) about a booking a customer made or cancelled online.
+ * Bookings the owner enters by phone are not sent. Never throws: a booking or a cancellation never fails because of it.
+ */
+export async function notifyOwner(booking: BookingRow, kind: "new" | "cancelled", refund = 0): Promise<void> {
+  try {
+    const ctx = await documentContext();
+    if (!ctx.rules.ownerAlerts) return;
+    const typed = parseAlertEmails(ctx.rules.ownerAlertEmails ?? "").emails;
+    const to = typed.length > 0 ? typed : parseAlertEmails(ctx.site.email).emails;
+    if (to.length === 0) return;
+    const paid = kind === "new" ? amountPaid(await loadPayments(booking.id)) : 0;
+    const mail = ownerAlertEmail(ctx.site, booking, { kind, paid, refund, adminUrl: `${siteUrl()}/admin/bookings/${booking.id}` });
+    for (const email of to) {
+      try {
+        await sendEmail({ to: email, ...mail });
+      } catch (error) {
+        console.error("Owner alert email failed", booking.ref, error);
+      }
+    }
+  } catch (error) {
+    console.error("Owner alert failed", booking.ref, error);
   }
 }
 

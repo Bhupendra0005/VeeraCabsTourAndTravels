@@ -194,6 +194,54 @@ ${card("Payment", pay, "blue")}
   };
 }
 
+/** For the owner: a customer booked and paid online, or cancelled. Customer details and a button to the booking in the admin. */
+export function ownerAlertEmail(site: SiteData, b: BookingRow, alert: { kind: "new" | "cancelled"; paid: number; refund: number; adminUrl: string }) {
+  const due = Math.max(0, b.total - alert.paid);
+  const isNew = alert.kind === "new";
+  const when = `${formatDate(b.travel_date)}, ${to12h(b.travel_time)}`;
+  const customer = rowsTable(
+    [
+      ["Name", b.traveller_name],
+      ["Mobile", `+91 ${b.traveller_phone}`],
+      ["Email", b.traveller_email],
+      ["Company (GST)", b.gst_company ? `${b.gst_company}${b.gstin ? ` (${b.gstin})` : ""}` : ""],
+    ].filter(([, v]) => v && v.trim()) as [string, string][],
+  );
+  const money = rowsTable(
+    isNew
+      ? [
+          ["Total fare", formatINR(b.total)],
+          ["Paid online", formatINR(alert.paid)],
+          ["Balance", due > 0 ? formatINR(due) : "Fully paid"],
+        ]
+      : [
+          ["Total fare", formatINR(b.total)],
+          ["Refund", alert.refund > 0 ? formatINR(alert.refund) : "No refund"],
+        ],
+  );
+  const button = `<table role="presentation" cellpadding="0" cellspacing="0" style="margin:22px 0 0"><tr><td style="border-radius:10px;background:#0096db"><a href="${esc(alert.adminUrl)}" style="display:inline-block;padding:12px 22px;font-size:15px;font-weight:700;color:#ffffff;text-decoration:none">Open booking in admin</a></td></tr></table>`;
+  return {
+    subject: isNew
+      ? `New booking ${b.ref}: ${b.from_city} to ${b.to_city}, ${when}`
+      : `Cancelled by customer ${b.ref}: ${b.from_city} to ${b.to_city}, ${when}`,
+    text: isNew
+      ? `New booking ${b.ref}: ${b.from_city} to ${b.to_city} on ${when}, ${b.vehicle_type}. Customer ${b.traveller_name} +91 ${b.traveller_phone}. Total ${formatINR(b.total)}, paid ${formatINR(alert.paid)}. ${alert.adminUrl}`
+      : `Booking ${b.ref} (${b.from_city} to ${b.to_city} on ${when}) was cancelled by the customer. Refund ${formatINR(alert.refund)}. ${alert.adminUrl}`,
+    html: layout(
+      site,
+      isNew ? "New booking received" : "Booking cancelled by the customer",
+      `<p style="margin:0">${isNew ? "A customer booked and paid online. Assign a driver and cab from the admin." : "The customer cancelled this booking. The cab is free again for this time."}</p>
+${tripBlock(b)}
+${card("Customer", customer)}
+${card(isNew ? "Payment" : "Refund", money, "blue")}
+${button}`,
+      isNew
+        ? { badge: { text: "New booking", color: "#15803d", bg: "#dcfce7" }, preheader: `${b.vehicle_type}, ${when}, ${formatINR(b.total)}` }
+        : { badge: { text: "Cancelled", color: "#b91c1c", bg: "#fee2e2" }, preheader: `Booking ${b.ref} was cancelled` },
+    ),
+  };
+}
+
 export function cancellationEmail(site: SiteData, rules: BookingSettings, b: BookingRow, refund: number) {
   void rules;
   const refundLine =

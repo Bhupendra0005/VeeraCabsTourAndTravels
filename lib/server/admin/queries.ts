@@ -112,9 +112,53 @@ export async function getDashboard() {
 
 /* ------------------------------- bookings ------------------------------- */
 
-export type BookingFilters = { q?: string; status?: string; from?: string; to?: string; driver?: string; page: number };
+/** Quick views on the Bookings page (the chips above the list). */
+export const BOOKING_VIEWS = ["upcoming", "today", "tomorrow", "no_driver", "booked_today", "past", "unpaid", "cancelled"] as const;
+export type BookingView = (typeof BOOKING_VIEWS)[number];
+export const isBookingView = (value: string | undefined): value is BookingView => BOOKING_VIEWS.includes(value as BookingView);
+
+export type BookingFilters = { q?: string; status?: string; from?: string; to?: string; view?: BookingView; trip?: string; source?: string; page: number };
 
 const STATUSES = ["pending_payment", "confirmed", "cancelled", "completed", "payment_failed"];
+const TRIPS = ["one_way", "round_trip", "airport_pickup", "airport_drop", "hourly"];
+
+/** The filters a view uses. Kept loose on purpose: Supabase's own builder types are too deep to check generically. */
+type Narrowable = {
+  eq(column: string, value: string): Narrowable;
+  in(column: string, values: string[]): Narrowable;
+  gte(column: string, value: string): Narrowable;
+  lt(column: string, value: string): Narrowable;
+};
+
+/** Narrows a bookings query to a view (the same for the list and for the counts on the chips). */
+function narrowToView<Q>(builder: Q, view: BookingView): Q {
+  return narrow(builder as unknown as Narrowable, view) as unknown as Q;
+}
+
+function narrow(query: Narrowable, view: BookingView): Narrowable {
+  const today = todayIst();
+  switch (view) {
+    case "upcoming": // confirmed trips from today on
+      return query.eq("status", "confirmed").gte("travel_date", today);
+    case "today":
+      return query.in("status", ["confirmed", "completed"]).eq("travel_date", today);
+    case "tomorrow":
+      return query.eq("status", "confirmed").eq("travel_date", todayIst(1));
+    case "no_driver": // confirmed trips from today on that still have no driver
+      return query.eq("status", "confirmed").eq("driver_name", "").gte("travel_date", today);
+    case "booked_today": // made today (India time), unpaid checkouts left out
+      return query.in("status", ["confirmed", "completed", "cancelled"]).gte("created_at", `${today}T00:00:00+05:30`);
+    case "past":
+      return query.in("status", ["confirmed", "completed"]).lt("travel_date", today);
+    case "unpaid":
+      return query.in("status", ["pending_payment", "payment_failed"]);
+    case "cancelled":
+      return query.eq("status", "cancelled");
+  }
+}
+
+/** Trips in a view are listed by when they run (soonest first; past ones latest first), the rest by when they were booked. */
+const TRAVEL_ORDER: Partial<Record<BookingView, "asc" | "desc">> = { upcoming: "asc", today: "asc", tomorrow: "asc", no_driver: "asc", past: "desc" };
 
 export async function listBookings(filters: BookingFilters) {
   let query = db().from("bookings").select(BOOKING_COLUMNS, { count: "exact" });
@@ -125,18 +169,34 @@ export async function listBookings(filters: BookingFilters) {
       ["ref", "traveller_name", "traveller_phone", "traveller_email", "from_city", "to_city"].map((c) => `${c}.ilike.%${q}%`).join(","),
     );
   }
+  if (filters.view) query = narrowToView(query, filters.view);
   if (filters.status && STATUSES.includes(filters.status)) query = query.eq("status", filters.status);
-  // "driver=none": confirmed trips from today on that still have no driver
-  if (filters.driver === "none") query = query.eq("status", "confirmed").eq("driver_name", "").gte("travel_date", todayIst());
+  if (filters.trip === "airport") query = query.in("trip_type", ["airport_pickup", "airport_drop"]);
+  else if (filters.trip && TRIPS.includes(filters.trip)) query = query.eq("trip_type", filters.trip);
+  if (filters.source === "online" || filters.source === "phone") query = query.eq("source", filters.source);
   if (filters.from && /^\d{4}-\d{2}-\d{2}$/.test(filters.from)) query = query.gte("travel_date", filters.from);
   if (filters.to && /^\d{4}-\d{2}-\d{2}$/.test(filters.to)) query = query.lte("travel_date", filters.to);
 
   const start = (filters.page - 1) * PAGE_SIZE;
-  const { data, count, error } = await query
-    .order("created_at", { ascending: false })
-    .range(start, start + PAGE_SIZE - 1);
+  const travel = filters.view ? TRAVEL_ORDER[filters.view] : undefined;
+  const ordered = travel
+    ? query.order("travel_date", { ascending: travel === "asc" }).order("travel_time", { ascending: travel === "asc" })
+    : query.order("created_at", { ascending: false });
+  const { data, count, error } = await ordered.range(start, start + PAGE_SIZE - 1);
   if (error) throw error;
   return { rows: (data ?? []) as unknown as BookingRow[], total: count ?? 0 };
+}
+
+/** How many bookings each quick view has right now, for the numbers on the chips. A failed count is left out. */
+export async function countBookingViews(): Promise<Partial<Record<BookingView, number>>> {
+  const shown: BookingView[] = ["upcoming", "today", "tomorrow", "no_driver", "booked_today"];
+  const counts = await Promise.all(
+    shown.map(async (view) => {
+      const { count, error } = await narrowToView(db().from("bookings").select("id", { count: "exact", head: true }), view);
+      return [view, error ? undefined : (count ?? 0)] as const;
+    }),
+  );
+  return Object.fromEntries(counts.filter(([, n]) => n !== undefined));
 }
 
 export async function getBookingWithPayments(id: string) {

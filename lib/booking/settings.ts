@@ -16,7 +16,24 @@ export type BookingSettings = {
   refundSlabs: RefundSlab[];
   minLeadMinutes: number;
   balanceCutoffHours: number;
+  /** Email the owner when a customer books and pays online, or cancels. */
+  ownerAlerts: boolean;
+  /** Where those emails go, separated by commas. Empty = the email address shown on the website. */
+  ownerAlertEmails: string;
 };
+
+const EMAIL = /^[^\s@,;<>"']+@[^\s@,;<>"']+\.[^\s@,;<>"']{2,}$/;
+export const MAX_ALERT_EMAILS = 5;
+
+/** The addresses typed in "Send booking alerts to": split, trimmed, lower case, no repeats. `bad` lists what is not an email. */
+export function parseAlertEmails(text: string): { emails: string[]; bad: string[] } {
+  const parts = text
+    .split(/[\s,;]+/)
+    .map((part) => part.trim().toLowerCase())
+    .filter(Boolean);
+  const emails = [...new Set(parts.filter((part) => part.length <= 120 && EMAIL.test(part)))];
+  return { emails, bad: parts.filter((part) => !(part.length <= 120 && EMAIL.test(part))) };
+}
 
 export const DEFAULT_BOOKING_SETTINGS: BookingSettings = {
   onlineBookingEnabled: true,
@@ -30,6 +47,8 @@ export const DEFAULT_BOOKING_SETTINGS: BookingSettings = {
   refundSlabs: [],
   minLeadMinutes: 120,
   balanceCutoffHours: 48,
+  ownerAlerts: true,
+  ownerAlertEmails: "",
 };
 
 export const BOOKING_SETTINGS_KEY = "booking_settings";
@@ -108,5 +127,13 @@ export const BOOKING_SETTINGS_FIELDS: Field[] = [
     min: 0,
     max: 720,
     step: 1,
+  },
+  { type: "toggle", key: "ownerAlerts", label: "Email me about new bookings and cancellations" },
+  {
+    type: "text",
+    key: "ownerAlertEmails",
+    label: "Send booking alerts to",
+    max: 400,
+    hint: "One or more email addresses, separated by commas. Empty = the email address shown on the website.",
   },
 ];

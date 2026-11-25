@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertCircle, CalendarClock, Plus, Trash2, Check, CheckCircle2, CircleX, Coins, CreditCard, Info, Loader2, Percent, Pencil, RotateCw, ShieldCheck, Umbrella, Wallet } from "lucide-react";
+import { AlertCircle, BellRing, CalendarClock, Mail, Plus, Trash2, Check, CheckCircle2, CircleX, Coins, CreditCard, Info, Loader2, Percent, Pencil, RotateCw, ShieldCheck, Umbrella, Wallet } from "lucide-react";
 import { useEffect, useId, useMemo, useState, useTransition, type ReactNode } from "react";
 import { Toggle } from "@/components/admin/toggle";
 import type { ActionState } from "@/lib/admin/action-state";
@@ -281,6 +281,36 @@ export function BookingSettingsForm({ initial }: { initial: BookingSettings }) {
           </div>
           <div className="mt-4 rounded-xl bg-white/5 p-3 text-sm" aria-live="polite">
             <span className="font-semibold">Customers will see:</span> {livePolicy}
+          </div>
+        </div>
+      </Panel>
+
+      <Panel icon={<BellRing />} title="Booking alerts" text="Get an email when a customer books and pays online, or cancels a booking.">
+        <div className="grid gap-4 rounded-2xl border border-white/10 bg-black/20 p-4 sm:p-5">
+          <div className="flex items-center gap-4">
+            <Toggle checked={draft.ownerAlerts} onChange={(v) => set("ownerAlerts", v)} label="Email me about new bookings and cancellations" />
+            <div>
+              <p className="font-semibold">Email me about new bookings and cancellations</p>
+              <p className="text-[13px] text-muted">Phone bookings you enter yourself are not emailed.</p>
+            </div>
+          </div>
+          <div>
+            <label htmlFor={`${base}-alerts`} className="mb-2 flex items-center gap-2 font-semibold">
+              <Mail className="size-4 text-brand-bright" aria-hidden="true" /> Send booking alerts to
+            </label>
+            <input
+              id={`${base}-alerts`}
+              type="text"
+              inputMode="email"
+              autoComplete="off"
+              value={draft.ownerAlertEmails}
+              maxLength={400}
+              disabled={!draft.ownerAlerts}
+              placeholder="owner@example.com, manager@example.com"
+              onChange={(e) => set("ownerAlertEmails", e.target.value)}
+              className="h-12 w-full rounded-xl border border-white/12 bg-black/30 px-4 text-sm outline-none transition hover:border-white/20 focus:border-brand focus:ring-4 focus:ring-brand/15 disabled:opacity-50"
+            />
+            <p className="mt-2 text-[13px] text-muted">Up to 5 addresses, separated by commas. Leave empty to use the email address shown on your website.</p>
           </div>
         </div>
       </Panel>

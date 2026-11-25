@@ -171,7 +171,10 @@ export function SelectMenu({
         {selected >= 0 && options[selected].swatch ? (
           <span className="size-5 shrink-0 rounded-md ring-1 ring-white/25" style={{ background: options[selected].swatch }} aria-hidden="true" />
         ) : null}
-        <span className={cn("min-w-0 flex-1 wrap-anywhere", !label && "text-white/35")}>{label || placeholder}</span>
+        {/* one line: a long choice ends in "..." (full text on hover) instead of breaking mid-word inside the box */}
+        <span className={cn("min-w-0 flex-1 truncate text-left", !label && "text-white/35")} title={label || placeholder}>
+          {label || placeholder}
+        </span>
         <ChevronDown className={cn("size-4 shrink-0 text-white/50 transition-transform duration-200", open && "rotate-180 text-brand-bright")} aria-hidden="true" />
       </button>
 
