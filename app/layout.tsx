@@ -4,7 +4,7 @@ import { ikUrl } from "@/lib/cms/images";
 import { getHome, getSeo, getFleet, getServices, getSite } from "@/lib/server/cms/content";
 import type { SiteData } from "@/lib/site";
 import { SITE_URL } from "@/lib/site-url";
-import "./globals.css";
+import "./site-styles.css";
 
 /** Google shows about 160 characters of a description: cut longer ones at a word instead of in the middle of one. */
 function clip(text: string, max = 158): string {
