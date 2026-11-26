@@ -110,7 +110,26 @@ function FarePreviewBox({ result }: { result: PreviewState }) {
   );
 }
 
-export function PhoneBookingForm({ cities, vehicles, gstPercent }: { cities: string[]; vehicles: { title: string; capacity: number }[]; gstPercent: number }) {
+/** Starting values when a quotation is being converted. */
+export type PhoneBookingInitial = {
+  quoteId: string;
+  tripType: string;
+  vehicle: string;
+  from: string;
+  to: string;
+  date: string;
+  time: string;
+  returnDate: string;
+  passengers: string;
+  pickupAddress: string;
+  name: string;
+  phone: string;
+  email: string;
+  fare: string;
+  note: string;
+};
+
+export function PhoneBookingForm({ cities, vehicles, gstPercent, initial }: { cities: string[]; vehicles: { title: string; capacity: number }[]; gstPercent: number; initial?: PhoneBookingInitial }) {
   const [state, action] = useActionState(createPhoneBookingAction, idle);
   const [v, setV] = useState({
     tripType: "one_way",
@@ -134,6 +153,7 @@ export function PhoneBookingForm({ cities, vehicles, gstPercent }: { cities: str
     note: "",
     sendEmail: true,
     allowFull: false,
+    ...initial,
   });
   const [preview, setPreview] = useState<PreviewState | null>(null);
   const [checking, startChecking] = useTransition();
@@ -163,6 +183,7 @@ export function PhoneBookingForm({ cities, vehicles, gstPercent }: { cities: str
 
   return (
     <form action={action} className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px] lg:items-start">
+      {initial ? <input type="hidden" name="quoteId" value={initial.quoteId} /> : null}
       <div className="grid min-w-0 gap-6">
         <Section icon={<Route />} title="Trip" hint="Type any two places. The fare is worked out from the distance between them, or from the km you type.">
           <div className="grid gap-5">

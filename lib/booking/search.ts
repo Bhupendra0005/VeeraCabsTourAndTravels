@@ -39,7 +39,7 @@ export function parseSearch(raw: Raw): SearchParams {
     date: /^\d{4}-\d{2}-\d{2}$/.test(date) ? date : "",
     time: /^([01]\d|2[0-3]):[0-5]\d$/.test(time) ? time : "",
     returnDate: /^\d{4}-\d{2}-\d{2}$/.test(returnDate) ? returnDate : "",
-    passengers: Number.isInteger(passengers) && passengers >= 1 && passengers <= 17 ? passengers : 1,
+    passengers: Number.isInteger(passengers) && passengers >= 1 && passengers <= 60 ? passengers : 1,
     bags: Number.isInteger(bags) && bags >= 0 && bags <= 20 ? bags : 0,
     airport: first(raw.airport).slice(0, 60),
     address: first(raw.address).slice(0, 120),

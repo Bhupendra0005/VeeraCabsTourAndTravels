@@ -1,6 +1,6 @@
 "use client";
 
-import { Building2, FilePlus2, IndianRupee, ListPlus, Plus, Trash2, UserRound, Wallet } from "lucide-react";
+import { Building2, FilePlus2, IndianRupee, ListPlus, Plus, ReceiptText, Trash2, UserRound, Wallet } from "lucide-react";
 import { useActionState, useState } from "react";
 import { FormMessage, SubmitButton } from "@/components/admin/form-parts";
 import { Chip, Choice, Section } from "@/components/admin/form-sections";
@@ -56,6 +56,9 @@ export function ManualInvoiceForm({ defaultGst }: { defaultGst: number }) {
     paid: "",
     method: "cash",
     note: "",
+    tollTerm: "",
+    parkingTerm: "",
+    taxTerm: "",
   });
   const [wantGst, setWantGst] = useState(false);
   const [lines, setLines] = useState<Line[]>([emptyLine()]);
@@ -146,6 +149,33 @@ export function ManualInvoiceForm({ defaultGst }: { defaultGst: number }) {
                 </Field>
               </div>
             ) : null}
+          </div>
+        </Section>
+
+        <Section icon={<ReceiptText />} title="Toll, parking & tax" hint="Printed on the invoice. Choose whether each one is in the price or paid extra, as per receipt.">
+          <div className="grid gap-4">
+            {(
+              [
+                ["tollTerm", "Toll"],
+                ["parkingTerm", "Parking"],
+                ["taxTerm", "State tax"],
+              ] as const
+            ).map(([key, label]) => (
+              <div key={key} className="flex flex-wrap items-center gap-x-4 gap-y-2">
+                <p className="w-24 text-sm font-semibold">{label}</p>
+                <div className="flex flex-wrap gap-2" role="radiogroup" aria-label={label}>
+                  {[
+                    { value: "included", label: "Included" },
+                    { value: "extra", label: "Extra, as per receipt" },
+                    { value: "", label: "Don't show" },
+                  ].map((option) => (
+                    <Choice key={option.value} name={key} value={option.value} checked={v[key] === option.value} onChange={() => setV((current) => ({ ...current, [key]: option.value }))}>
+                      {option.label}
+                    </Choice>
+                  ))}
+                </div>
+              </div>
+            ))}
           </div>
         </Section>
 

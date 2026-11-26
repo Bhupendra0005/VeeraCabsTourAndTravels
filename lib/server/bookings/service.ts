@@ -15,9 +15,10 @@ import {
   type Gender,
   type PayMode,
 } from "@/lib/booking/config";
+import type { AirportExtra } from "@/lib/booking/transfers";
 import { outstationPrice, tripDays, type FareBreakup } from "@/lib/booking/outstation";
 import type { SearchParams } from "@/lib/booking/search";
-import { pricedByDistance, roadRoute, type RoadRoute } from "@/lib/server/bookings/distance";
+import { distanceConfigured, pricedByDistance, roadRoute, type RoadRoute } from "@/lib/server/bookings/distance";
 import { getLocalPlaces } from "@/lib/server/bookings/places";
 import { listSellableRoutes } from "@/lib/server/bookings/sellable-routes";
 import { getAirportFares, getBookingExtras, getBookingPage, getBookingSettings, getFleet, getHourlyFares } from "@/lib/server/cms/content";
@@ -78,6 +79,10 @@ export type RouteFare = {
   matched?: { from: string; to: string };
   /** Fares worked out from the distance: the lines the fare is made of. */
   breakup?: FareBreakup;
+  /** Round trips: the toll to expect both ways, in rupees (a Google FASTag estimate, NOT part of the fare). */
+  tollApprox?: number;
+  /** Airport transfers longer than the included km: the extra already added to `fare`. */
+  airportExtra?: AirportExtra;
 };
 
 type FareJoin = {
@@ -210,23 +215,55 @@ async function faresForRoute(route: RoadRoute, trip: DistanceTrip): Promise<Rout
         billedKm,
         matched: { from: route.from, to: route.to },
         breakup,
+        // a round trip pays toll as per receipts: tell the customer roughly how much, there and back
+        ...(trip.tripType === "round_trip" && route.tollRupees
+          ? { tollApprox: Math.round((route.tollRupees * 2 * Math.max(0, vehicle.tollPercent ?? 100)) / 100) }
+          : {}),
       };
     });
 }
 
+/**
+ * True when the other end of an airport transfer is outside the city (farther by road than the owner's limit), so the
+ * fixed airport fare does not apply and the trip must be booked as outstation. If the distance cannot be worked out
+ * (no key, unknown place, Google down) the airport fare stays available.
+ */
+export async function isBeyondAirportLimit(airport: string, address: string): Promise<boolean> {
+  const limit = (await getBookingPage()).airportCityKm ?? 0;
+  if (!(limit > 0) || !airport || !address || !(await pricedByDistance())) return false;
+  // only an airport the owner serves: anything else has no fares anyway, and must not cost a map lookup
+  if (!(await getAirportFares()).fares.some((row) => row.active && row.airport === airport)) return false;
+  const route = await roadRoute([airport, address.slice(0, 100)]);
+  return !!route && route.distanceKm > limit;
+}
+
 async function airportFares(airport: string, tripType: BookingTripType, address: string): Promise<RouteFare[]> {
+  // enforced here, on the server, for the cab list, the review page and the payment alike
+  if (await isBeyondAirportLimit(airport, address)) return [];
   const rows = (await getAirportFares()).fares.filter((row) => row.active && row.airport === airport);
   const pickup = tripType === "airport_pickup";
-  return rows.map((row) => ({
-    routeId: "",
-    fromCity: pickup ? row.airport : address.slice(0, 60),
-    toCity: pickup ? address.slice(0, 60) : row.airport,
-    distanceKm: row.includedKm,
-    durationHours: 0,
-    vehicle: row.vehicle,
-    fare: paise(row.fare),
-    extraKmRate: row.extraKmRate > 0 ? row.extraKmRate : undefined,
-  }));
+  // road distance to the customer's place, to charge the km beyond what a fare includes (worked out here, never sent by the browser)
+  const [page, fleet] = await Promise.all([getBookingPage(), getFleet()]);
+  const wantsExtra = page.airportExtraKm !== false && distanceConfigured() && !!address && rows.some((row) => row.includedKm > 0);
+  const tripKm = wantsExtra ? ((await roadRoute([airport, address.slice(0, 100)]))?.distanceKm ?? 0) : 0;
+  return rows.map((row) => {
+    const rate = row.extraKmRate > 0 ? row.extraKmRate : (fleet.find((vehicle) => vehicle.title === row.vehicle)?.extraKmRate ?? 0);
+    // 0 km included means "not mentioned": there is nothing to charge beyond
+    const extraKm = row.includedKm > 0 ? Math.max(0, tripKm - row.includedKm) : 0;
+    const amount = paise(extraKm * rate);
+    const base = paise(row.fare);
+    return {
+      routeId: "",
+      fromCity: pickup ? row.airport : address.slice(0, 60),
+      toCity: pickup ? address.slice(0, 60) : row.airport,
+      distanceKm: row.includedKm,
+      durationHours: 0,
+      vehicle: row.vehicle,
+      fare: base + amount,
+      extraKmRate: rate > 0 ? rate : undefined,
+      ...(amount > 0 ? { billedKm: tripKm, airportExtra: { tripKm, includedKm: row.includedKm, extraKm, rate, base, amount } } : {}),
+    };
+  });
 }
 
 async function hourlyFares(city: string, packageLabel: string): Promise<RouteFare[]> {
@@ -637,7 +674,7 @@ export async function createBooking(customerId: string, input: BookingInput): Pr
   }
 
   const quote = buildQuote(
-    { baseFare: fare.fare, addons: addonsTotal, discount, serviceFee: Math.round(extras.serviceFee * 100), withInsurance: input.insurance, payMode: input.payMode },
+    { baseFare: fare.fare, addons: addonsTotal, discount, serviceFee: Math.round(extras.serviceFee * 100), withInsurance: false, payMode: input.payMode },
     settings,
   );
 

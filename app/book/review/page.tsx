@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { ArrowRight, Briefcase, CalendarDays, Car, Check, CheckCircle2, ChevronRight, CircleX, Clock3, FileText, Fuel, Info, MapPin, MapPinned, Pencil, Route, ShieldCheck, Snowflake, ThumbsUp, UserRound, Users } from "lucide-react";
+import { ArrowRight, Briefcase, CalendarDays, Car, Check, CheckCircle2, ChevronRight, CircleX, Clock3, FileText, Fuel, Info, MapPin, MapPinned, Pencil, Route, ShieldCheck, Snowflake, ThumbsUp, UserRound, Users, Wind } from "lucide-react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ReviewForm } from "@/components/booking/review-form";
@@ -16,11 +16,12 @@ import {
   formatINR,
   isAirport,
   isOutstation,
+  pickupTooSoon,
   to12h,
 } from "@/lib/booking/config";
 import { tripDays } from "@/lib/booking/outstation";
 import { refundSentence } from "@/lib/booking/refund";
-import { cabHeading } from "@/lib/booking/fleet";
+import { cabHeading, listOffer } from "@/lib/booking/fleet";
 import { linesFor } from "@/lib/booking/extras";
 import {
   isSearchComplete,
@@ -30,7 +31,7 @@ import {
   searchToQuery,
 } from "@/lib/booking/search";
 import { CustomerReviews } from "@/components/booking/customer-reviews";
-import { getVehicleReviews } from "@/lib/server/bookings/reviews";
+import { getHomeReviews, getVehicleReviews } from "@/lib/server/bookings/reviews";
 import { getLocalPlaces } from "@/lib/server/bookings/places";
 import { lookupTripFare } from "@/lib/server/bookings/service";
 import { getBookingExtras, getBookingPage, getBookingSettings, getFleet } from "@/lib/server/cms/content";
@@ -92,10 +93,14 @@ export default async function ReviewPage({
 
   const [settings, extras, fleet] = await Promise.all([getBookingSettings(), getBookingExtras(), getFleet()]);
   if (!settings.onlineBookingEnabled) redirect("/book");
+  // sooner than the owner's "Earliest bookable pickup": back to the results, which say why
+  if (pickupTooSoon(search.date, search.time, settings.minLeadMinutes)) redirect(`/book?${searchToQuery(search)}`);
   const meta = fleet.find((item) => item.title === fare.vehicle);
   const bookingPage = await getBookingPage();
   const places = await getLocalPlaces();
-  const customerReviews = bookingPage.enableReviews ? await getVehicleReviews(fare.vehicle) : { summary: null, reviews: [] };
+  const customerReviews = bookingPage.enableReviews ? await getVehicleReviews(fare.vehicle, 20) : { summary: null, reviews: [] };
+  // a cab nobody has reviewed yet: show the reviews of the business as a whole (website and owner-added), clearly worded so
+  const allReviews = bookingPage.enableReviews && !customerReviews.summary ? await getHomeReviews(20) : null;
   const heading = cabHeading(fare.vehicle, meta?.models ?? "");
   const bootBags = meta?.bags ?? 2;
   const includedKm = fare.billedKm ?? fare.distanceKm * (search.tripType === "round_trip" ? 2 : 1);
@@ -117,8 +122,19 @@ export default async function ReviewPage({
   const activeAddons = extras.addons.filter((addon) => addon.active);
   const activeCoupons = extras.coupons.filter((coupon) => coupon.active);
   // the owner picks, per line, which trip types it is shown on (Admin > Online booking > Fees & extras)
-  const inclusions = linesFor(extras.inclusions, search.tripType);
-  const exclusions = linesFor(extras.exclusions, search.tripType);
+  // a driver allowance with an amount (Vehicles) already has its own line with the rupees: the owner's general
+  // "Driver allowance" lines would only repeat it (or, as an exclusion, contradict it)
+  const allowanceShown = isOutstation(search.tripType) && (meta?.driverAllowance ?? 0) > 0;
+  const notRepeated = (item: { title: string }) => !(allowanceShown && /driver\s*(allowance|charge|bhatta)/i.test(item.title));
+  const inclusions = linesFor(extras.inclusions, search.tripType).filter(notRepeated);
+  // round trip: the expected toll is written into the owner's toll exclusion, or gets a line of its own
+  const ownExclusions = linesFor(extras.exclusions, search.tripType).filter(notRepeated);
+  const tollNote = fare.tollApprox ? `Toll about ${formatINR(fare.tollApprox * 100)} (FASTag estimate, there and back).` : "";
+  const exclusions = !tollNote
+    ? ownExclusions
+    : ownExclusions.some((item) => /toll/i.test(item.title))
+      ? ownExclusions.map((item) => (/toll/i.test(item.title) ? { ...item, text: `${tollNote} ${item.text}`.trim() } : item))
+      : [{ ...ownExclusions[0], title: "Toll charges", text: `${tollNote} Paid extra, as per receipt.` }, ...ownExclusions];
   // airport rows can carry their own extra-km rate; otherwise the vehicle's rate from the Fleet
   const extraKmRate = fare.extraKmRate ?? meta?.extraKmRate ?? 0;
 
@@ -201,6 +217,8 @@ export default async function ReviewPage({
             bags={search.bags}
             baseFare={fare.fare}
             distanceBreakup={fare.breakup}
+            airportExtra={fare.airportExtra}
+            offer={listOffer(fare.fare - (fare.allowance ?? 0) - (fare.breakup?.toll ?? 0), meta?.listDiscountPercent)}
             allowance={fare.allowance ? { perDay: meta?.driverAllowance ?? 0, days: fare.allowanceDays ?? 1, total: fare.allowance } : undefined}
             rules={{
               gstPercent: settings.gstPercent,
@@ -211,7 +229,6 @@ export default async function ReviewPage({
             }}
             addons={activeAddons}
             coupons={activeCoupons}
-            inclusionTitles={inclusions.map((item) => item.title)}
             defaultEmail={session?.email ?? ""}
             defaultName={profile?.name ?? ""}
             defaultPhone={profile?.phone ?? ""}
@@ -336,7 +353,7 @@ export default async function ReviewPage({
                   <p className="text-sm text-muted">{fare.vehicle}</p>
                   <ul className="m-0 flex list-none flex-wrap gap-2 p-0 text-[13px] font-semibold">
                     <li className="inline-flex items-center gap-1.5 rounded-full bg-(--panel-soft) px-3 py-1">
-                      <Snowflake className="size-3.5 text-brand" aria-hidden="true" /> AC
+                      {meta?.ac === "Non-AC" ? <Wind className="size-3.5 text-brand" aria-hidden="true" /> : <Snowflake className="size-3.5 text-brand" aria-hidden="true" />} {meta?.ac ?? "AC"}
                     </li>
                     <li className="inline-flex items-center gap-1.5 rounded-full bg-(--panel-soft) px-3 py-1">
                       <Users className="size-3.5 text-brand" aria-hidden="true" /> Seats {meta?.capacity ?? "-"}
@@ -418,7 +435,7 @@ export default async function ReviewPage({
               </ul>
               {hourly || extraKmRate > 0 || exclusions.length > 0 ? (
                 <>
-                  <h3 className="mt-5 mb-3 flex items-center gap-2 text-[15px] font-bold">
+                  <h3 className="flex items-center gap-2 pt-5 pb-3 text-[15px] font-bold">
                     <CircleX className="size-[18px] text-[#b86e00]" aria-hidden="true" /> Exclusions (paid extra)
                   </h3>
                   <ul className="rv-incl">
@@ -500,10 +517,10 @@ export default async function ReviewPage({
                 </span>
               </p>
             </SectionCard>
-            <CustomerReviews summary={customerReviews.summary} reviews={customerReviews.reviews} vehicle={fare.vehicle} />
+            <CustomerReviews summary={customerReviews.summary} reviews={customerReviews.reviews} vehicle={fare.vehicle} all={allReviews} />
           </ReviewForm>
           <p className={ui.muted}>
-            The fare of {formatINR(fare.fare)} is fixed for this route and vehicle. Your confirmation lists anything that is paid separately.
+            Your fare is fixed for this route and vehicle. Your confirmation lists anything that is paid separately.
           </p>
         </div>
       </section>

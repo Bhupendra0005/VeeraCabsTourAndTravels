@@ -112,14 +112,23 @@ export const DEFAULT_BOOKING_EXTRAS: BookingExtras = {
     },
   ],
   inclusions: [
-    { title: "Toll, tax and other charges", text: "Toll, State Tax and Parking charges are included", active: true, ...ALL_TRIPS, roundTrip: false },
+    { title: "Toll and State Tax", text: "Toll and State Tax are included in the fare", active: true, ...ALL_TRIPS, roundTrip: false },
     { title: "Driver allowance", text: "Driver food and accommodation (stay) charges are included", active: true, ...ALL_TRIPS },
-    { title: "Fuel charges included", text: "Fuel cost for your trip is included in the fare", active: true, ...ALL_TRIPS },
   ],
   exclusions: [
-    { title: "Toll, State Tax and Parking", text: "Not in the fare. Paid extra, as per actuals.", active: true, oneWay: false, roundTrip: true, airport: false, hourly: false },
+    // one-way fares include toll and tax; a round trip does not. Parking is always paid extra, as per actuals.
+    { title: "Toll and State Tax", text: "Not in the fare. Paid extra, as per actuals.", active: true, oneWay: false, roundTrip: true, airport: false, hourly: false },
+    { title: "Parking charges", text: "Not in the fare. Paid extra, as per actuals.", active: true, oneWay: true, roundTrip: true, airport: false, hourly: false },
   ],
 };
+
+/** The trip switches, also shown as on/off buttons under each line in the admin list. */
+const TRIP_QUICK_TOGGLES = [
+  { key: "oneWay", label: "One-way" },
+  { key: "roundTrip", label: "Round trip" },
+  { key: "airport", label: "Airport" },
+  { key: "hourly", label: "Local" },
+];
 
 /** The fields of one inclusion or exclusion line, with a switch per trip type. */
 const lineFields = (what: string): Field[] => [
@@ -205,6 +214,7 @@ export const BOOKING_EXTRAS_FIELDS: Field[] = [
     itemSubtitle: "text",
     maxItems: 10,
     addLabel: "Add inclusion",
+    quickToggles: TRIP_QUICK_TOGGLES,
     hint: "Each line has a switch per trip type, so it only shows on the trips it is true for.",
     fields: lineFields("Show"),
   },
@@ -216,6 +226,7 @@ export const BOOKING_EXTRAS_FIELDS: Field[] = [
     itemSubtitle: "text",
     maxItems: 10,
     addLabel: "Add exclusion",
+    quickToggles: TRIP_QUICK_TOGGLES,
     hint: "Charges the customer pays extra, e.g. toll on a round trip, parking at the airport, night charges. The extra-km rate is shown automatically.",
     fields: lineFields("Show"),
   },

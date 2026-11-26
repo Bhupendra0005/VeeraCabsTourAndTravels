@@ -27,18 +27,24 @@ import {
 import { openCheckout, postJson, verifyPayment, type PayOrder } from "@/lib/payments/checkout-client";
 import { ui } from "@/components/ui/styles";
 import { cn } from "@/lib/utils/cn";
+import type { ListOffer } from "@/lib/booking/fleet";
+import type { AirportExtra } from "@/lib/booking/transfers";
 import type { FareBreakup } from "@/lib/booking/outstation";
 
 /** "Distance 51 km x ₹14/km"; for a round trip it also says how the billed km came about. */
 function distanceLabel(b: FareBreakup): string {
+  // one-way: the customer sees no km count on this line (the return charge is folded into it too)
+  if (b.tripType !== "round_trip") return "Distance charges";
   const rate = `₹${b.ratePerKm}/km`;
-  // one-way: the return charge is folded into this line and not named, so no "km x rate" sum that would not add up
-  if (b.tripType !== "round_trip") return b.returnCharge > 0 ? `Distance ${b.km} km` : `Distance ${b.km} km x ${rate}`;
   if (b.billedKm > b.km * 2) return `${b.billedKm} km (${b.days} ${b.days === 1 ? "day" : "days"} x ${b.minKmPerDay} km minimum) x ${rate}`;
   return `${b.billedKm} km (${b.km} km each way) x ${rate}`;
 }
 
 type Props = {
+  /** The cab's "% off" offer, shown in rupees above the fare break-up (already reflected in the fare). */
+  offer?: ListOffer | null;
+  /** Airport transfers longer than the included km: the lines the base fare is made of. */
+  airportExtra?: AirportExtra;
   routeId: string;
   /** Hourly rentals: the city. Outstation: the pickup place. */
   from: string;
@@ -82,7 +88,6 @@ type Props = {
   addons: Addon[];
   coupons: Coupon[];
   /** Titles of the things the fare already includes, listed as "Included" in the fare break up. */
-  inclusionTitles: string[];
   defaultEmail: string;
   /** From the signed-in customer's profile. */
   defaultName: string;
@@ -111,13 +116,13 @@ export function ReviewForm(props: Props) {
   const [authed, setAuthed] = useState(props.loggedIn);
   const [loginOpen, setLoginOpen] = useState(false);
   const [addonLabels, setAddonLabels] = useState<string[]>([]);
-  const [insurance, setInsurance] = useState(false);
+  const insurance = false; // optional trip protection was removed
   const [couponCode, setCouponCode] = useState("");
   const [couponInput, setCouponInput] = useState("");
   const [couponError, setCouponError] = useState("");
   const [payMode, setPayMode] = useState<PayMode>("part");
   // a fare by distance is explained from the start: the customer sees what the price is made of
-  const [showBreakup, setShowBreakup] = useState(!!props.distanceBreakup);
+  const [showBreakup, setShowBreakup] = useState(!!props.distanceBreakup || !!props.airportExtra);
   const [accepted, setAccepted] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -157,26 +162,37 @@ export function ReviewForm(props: Props) {
   const full = quoteFor("full");
   const quote = payMode === "full" ? full : part;
 
+  // like MakeMyTrip, the driver allowance (already inside the fare) is listed under Taxes & Fees, not under Base Fare
+  const driverCharges = props.allowance?.total ?? 0;
+  // the one-way toll too: Base Fare is the km charge alone, the same figure the cab list shows
+  const tollCharges = props.distanceBreakup?.toll ?? 0;
+  const baseShown = quote.baseFare - driverCharges - tollCharges;
   const breakupLines = (
     <>
+            {props.offer ? (
+              <p className="mt-3 flex flex-wrap items-center gap-x-2 rounded-lg bg-[#e6f6ec] px-3 py-2 text-sm font-semibold text-[#0f8a4b]">
+                You save {formatINR(props.offer.saved)} ({props.offer.percent}% off)
+                <s className="font-normal text-[#5b6778]">{formatINR(props.offer.was)}</s>
+              </p>
+            ) : null}
             {showBreakup ? (
               <dl className={cn(ui.fareBreakdown, "mt-3")}>
                 <div>
                   <dt>Base Fare</dt>
-                  <dd>{formatINR(quote.baseFare)}</dd>
+                  <dd>{formatINR(baseShown)}</dd>
                 </div>
+                {!props.distanceBreakup && !props.airportExtra ? (
+                  <div>
+                    <dt className="pl-3 text-sm">Cab charges</dt>
+                    <dd className="text-sm font-normal! text-muted">{formatINR(baseShown)}</dd>
+                  </div>
+                ) : null}
                 {props.distanceBreakup ? (
                   <>
                     <div>
                       <dt className="pl-3 text-sm">{distanceLabel(props.distanceBreakup)}</dt>
                       <dd className="text-sm font-normal! text-muted">{formatINR(props.distanceBreakup.kmCharge + props.distanceBreakup.returnCharge)}</dd>
                     </div>
-                    {props.distanceBreakup.toll > 0 ? (
-                      <div>
-                        <dt className="pl-3 text-sm">Toll charges (included)</dt>
-                        <dd className="text-sm font-normal! text-muted">{formatINR(props.distanceBreakup.toll)}</dd>
-                      </div>
-                    ) : null}
                     {props.distanceBreakup.minFareTopUp > 0 ? (
                       <div>
                         <dt className="pl-3 text-sm">Minimum fare for this vehicle</dt>
@@ -185,20 +201,20 @@ export function ReviewForm(props: Props) {
                     ) : null}
                   </>
                 ) : null}
-                {props.allowance ? (
-                  <div>
-                    <dt className="pl-3 text-sm">
-                      Driver allowance ({formatINR(props.allowance.perDay * 100)} x {props.allowance.days} {props.allowance.days === 1 ? "day" : "days"})
-                    </dt>
-                    <dd className="text-sm font-normal! text-muted">{formatINR(props.allowance.total)}</dd>
-                  </div>
+                {props.airportExtra ? (
+                  <>
+                    <div>
+                      <dt className="pl-3 text-sm">Airport fare (up to {props.airportExtra.includedKm} km)</dt>
+                      <dd className="text-sm font-normal! text-muted">{formatINR(props.airportExtra.base)}</dd>
+                    </div>
+                    <div>
+                      <dt className="pl-3 text-sm">
+                        Extra {props.airportExtra.extraKm} km x ₹{props.airportExtra.rate}/km
+                      </dt>
+                      <dd className="text-sm font-normal! text-muted">{formatINR(props.airportExtra.amount)}</dd>
+                    </div>
+                  </>
                 ) : null}
-                {props.inclusionTitles.map((title) => (
-                  <div key={title}>
-                    <dt className="text-sm">{title}</dt>
-                    <dd className="text-sm font-normal! text-muted">Included</dd>
-                  </div>
-                ))}
                 {quote.addons > 0 ? (
                   <div>
                     <dt>{props.stops.length > 0 ? "Extra stops & special requests" : "Special requests"}</dt>
@@ -213,8 +229,22 @@ export function ReviewForm(props: Props) {
                 ) : null}
                 <div>
                   <dt>Taxes &amp; Fees</dt>
-                  <dd>{formatINR(quote.gst + quote.serviceFee)}</dd>
+                  <dd>{formatINR(driverCharges + tollCharges + quote.gst + quote.serviceFee)}</dd>
                 </div>
+                {tollCharges > 0 ? (
+                  <div>
+                    <dt className="pl-3 text-sm">Toll charges (included)</dt>
+                    <dd className="text-sm font-normal! text-muted">{formatINR(tollCharges)}</dd>
+                  </div>
+                ) : null}
+                {props.allowance ? (
+                  <div>
+                    <dt className="pl-3 text-sm">
+                      Driver Charges (food and stay{props.allowance.days > 1 ? `, ${props.allowance.days} days` : ""})
+                    </dt>
+                    <dd className="text-sm font-normal! text-muted">{formatINR(driverCharges)}</dd>
+                  </div>
+                ) : null}
                 <div>
                   <dt className="pl-3 text-sm">GST ({props.rules.gstPercent}%)</dt>
                   <dd className="text-sm font-normal! text-muted">{formatINR(quote.gst)}</dd>
@@ -503,19 +533,6 @@ export function ReviewForm(props: Props) {
         </section>
         ) : null}
 
-        {props.rules.insuranceEnabled ? (
-          <section className={ui.card}>
-            <label className={ui.check}>
-              <input type="checkbox" checked={insurance} onChange={(e) => setInsurance(e.target.checked)} />
-              <span>
-                <b>
-                  <ShieldCheck aria-hidden="true" /> Add trip protection for {formatINR(Math.round(props.rules.insuranceRupees * 100))}
-                </b>
-                <small>Optional cover for your journey. Recommended for long trips.</small>
-              </span>
-            </label>
-          </section>
-        ) : null}
       </div>
 
       <aside className="grid content-start gap-5 min-[860px]:self-stretch">

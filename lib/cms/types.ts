@@ -50,6 +50,8 @@ export type ListField = Base & {
   itemImage?: string;
   maxItems?: number;
   addLabel?: string;
+  /** Toggle sub-fields shown as on/off buttons right under each row, so they can be changed without opening the item. */
+  quickToggles?: { key: string; label: string }[];
 };
 
 export type Field =

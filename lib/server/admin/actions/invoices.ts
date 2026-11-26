@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import type { ActionState } from "@/lib/admin/action-state";
 import { audit } from "@/lib/server/admin/audit";
 import { ActionError, idOrThrow, run } from "@/lib/server/admin/actions/run";
+import { chargeLine, type ChargeTerm } from "@/lib/booking/charges";
 import { email as validEmail, isoDate, phone as validPhone } from "@/lib/server/core/validate";
 import { deleteManualInvoice, insertManualInvoice, type InvoiceItem, type PaymentMethod } from "@/lib/server/invoices";
 
@@ -50,6 +51,13 @@ function parseItems(raw: FormDataEntryValue | null): InvoiceItem[] {
   });
 }
 
+/** "included", "extra" or "" (not mentioned) from the form; anything else is refused. */
+function term(formData: FormData, key: string): ChargeTerm {
+  const value = text(formData, key, 10);
+  if (value !== "" && value !== "included" && value !== "extra") throw new ActionError("Invalid request.");
+  return value;
+}
+
 /**
  * The owner types an invoice by hand (a trip paid outside the website, a corporate bill, a tour package).
  * Every value is checked here again and the totals are computed on the server; the form's own figures are only a preview.
@@ -83,6 +91,9 @@ export async function createManualInvoiceAction(_prev: ActionState, formData: Fo
     const method = text(formData, "method", 8) as PaymentMethod;
     if (!METHODS.includes(method)) throw new ActionError("Choose how it was paid.");
 
+    // toll, parking and tax: written on the invoice as its own line, with no amount of its own
+    const terms = chargeLine({ toll: term(formData, "tollTerm"), tax: term(formData, "taxTerm"), parking: term(formData, "parkingTerm") });
+
     const created = await insertManualInvoice({
       invoice_date: isoDate(text(formData, "date", 10), "invoice date"),
       customer_name: customerName,
@@ -91,7 +102,7 @@ export async function createManualInvoiceAction(_prev: ActionState, formData: Fo
       customer_address: text(formData, "address", 160),
       gst_company: gstin ? gstCompany : "",
       gstin,
-      items,
+      items: terms ? [...items, { title: "Toll, parking & tax", detail: terms.detail, amount: 0, amountText: terms.label }] : items,
       subtotal,
       discount,
       gst_percent: gstPercent,

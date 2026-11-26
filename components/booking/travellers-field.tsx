@@ -10,7 +10,7 @@ type Props = {
   onChange: (value: { travellers: number; bags: number }) => void;
 };
 
-const MAX_TRAVELLERS = 17;
+const MAX_TRAVELLERS = 60;
 const MAX_BAGS = 20;
 
 function Stepper({

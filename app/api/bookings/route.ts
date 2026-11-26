@@ -20,7 +20,7 @@ export function POST(request: Request) {
       throw new HttpError(400, "Please accept the Terms & Conditions to continue.");
     }
     const passengers = Number(body.passengers);
-    if (!Number.isInteger(passengers) || passengers < 1 || passengers > 20) {
+    if (!Number.isInteger(passengers) || passengers < 1 || passengers > 60) {
       throw new HttpError(400, "Invalid number of passengers.");
     }
 
@@ -64,7 +64,7 @@ export function POST(request: Request) {
       name: str(body, "name", 2, 80),
       phone: phone(body.phone),
       email: email(body.email),
-      insurance: body.insurance === true,
+      insurance: false,
       payMode,
     });
     return json(order, 201);

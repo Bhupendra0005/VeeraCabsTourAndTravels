@@ -29,6 +29,9 @@ export type HourlyFareRow = {
 };
 
 export type AirportDoc = { fares: AirportFareRow[] };
+
+/** An airport fare that went past its included km: how the extra was worked out. Money in paise, `rate` in rupees. */
+export type AirportExtra = { tripKm: number; includedKm: number; extraKm: number; rate: number; base: number; amount: number };
 export type HourlyDoc = { fares: HourlyFareRow[] };
 
 export const AIRPORT_KEY = "airport_transfers";

@@ -113,6 +113,20 @@ export function departureAt(date: string, time: string): Date {
   return new Date(`${date}T${time}:00+05:30`);
 }
 
+/**
+ * Why this pickup cannot be booked online yet ("Earliest bookable pickup" in Booking settings), or null when it can.
+ * The message names the earliest time that works, in India time.
+ */
+export function pickupTooSoon(date: string, time: string, minLeadMinutes: number, now = Date.now()): string | null {
+  const departure = departureAt(date, time).getTime();
+  const earliest = now + Math.max(0, minLeadMinutes) * 60_000;
+  if (Number.isNaN(departure) || departure >= earliest) return null;
+  const from = new Intl.DateTimeFormat("en-IN", { weekday: "short", day: "2-digit", month: "short", hour: "numeric", minute: "2-digit", hour12: true, timeZone: "Asia/Kolkata" }).format(new Date(earliest));
+  return minLeadMinutes > 0
+    ? `Please choose a pickup time at least ${describeMinutes(minLeadMinutes)} from now. The earliest pickup you can book online is ${from}.`
+    : "This pickup time has already passed. Please choose a later time.";
+}
+
 /** Milliseconds from now until departure (negative once the trip has started). */
 export function msUntilDeparture(date: string, time: string, now = Date.now()): number {
   return departureAt(date, time).getTime() - now;

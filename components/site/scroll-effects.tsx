@@ -12,7 +12,7 @@ export function ScrollEffects() {
     const motionQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
 
     if (motionQuery.matches) {
-      revealNodes.forEach((node) => node.classList.add("is-revealed"));
+      revealNodes.forEach((node) => node.setAttribute("data-revealed", ""));
       return;
     }
 
@@ -20,7 +20,9 @@ export function ScrollEffects() {
       (entries) => {
         entries.forEach((entry) => {
           if (!entry.isIntersecting) return;
-          entry.target.classList.add("is-revealed");
+          // an attribute, not a class: React rewrites `className` when a component re-renders (an FAQ opening or
+          // closing), which would drop an added class and leave the item invisible
+          entry.target.setAttribute("data-revealed", "");
           revealObserver.unobserve(entry.target);
         });
       },

@@ -4,10 +4,11 @@ import { revalidatePath } from "next/cache";
 import { redirect, unstable_rethrow } from "next/navigation";
 import type { ActionState } from "@/lib/admin/action-state";
 import { audit } from "@/lib/server/admin/audit";
-import { ActionError, run } from "@/lib/server/admin/actions/run";
+import { ActionError, idOrThrow, run } from "@/lib/server/admin/actions/run";
 import { AdminAccessError, requireAdminAction } from "@/lib/server/admin/session";
 import { createPhoneBooking, previewPhoneFare, type PhoneBookingInput, type PhoneFarePreview } from "@/lib/server/bookings/service";
 import { HttpError } from "@/lib/server/core/http";
+import { getQuotation, markQuotationConverted } from "@/lib/server/quotations";
 import { email as validEmail, hhmm, isoDate, phone as validPhone } from "@/lib/server/core/validate";
 
 const text = (formData: FormData, key: string, max: number) =>
@@ -77,7 +78,17 @@ export async function createPhoneBookingAction(_prev: ActionState, formData: For
       sendEmail: formData.get("sendEmail") === "on",
     };
 
+    // converting a quotation: it must exist and not be a booking already (checked before anything is created)
+    const quoteId = text(formData, "quoteId", 36);
+    if (quoteId) {
+      const quote = await getQuotation(idOrThrow(quoteId));
+      if (!quote) throw new ActionError("This quotation no longer exists.");
+      if (quote.booking_id) throw new ActionError("This quotation is already a booking.");
+    }
+
     const created = await createPhoneBooking(input);
+    // the booking exists now: a failure to mark the quotation must not look like a failed booking
+    if (quoteId) await markQuotationConverted(quoteId, created.id).catch((error) => console.error("Quotation not marked as converted", quoteId, created.ref, error));
     await audit(admin, "booking.phone_created", { entity: "booking", entityId: created.id, meta: { ref: created.ref, received: input.received } });
     revalidatePath("/admin", "layout");
     redirect(`/admin/bookings/${created.id}?created=1${created.emailed ? "&emailed=1" : ""}`);

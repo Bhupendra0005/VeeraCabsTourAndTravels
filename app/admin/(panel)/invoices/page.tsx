@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Download, FilePlus2, Receipt } from "lucide-react";
+import { Download, FilePlus2, FileText, Receipt } from "lucide-react";
 import { ConfirmDelete } from "@/components/admin/confirm-delete";
 import { Alert, Badge, ButtonLink, DataTable, EmptyState, PageHeader, buttonClass } from "@/components/admin/ui";
 import { can } from "@/lib/admin/permissions";
@@ -45,11 +45,16 @@ export default async function AdminInvoicesPage({ searchParams }: { searchParams
         title="Invoices"
         description="Invoices made by hand. Invoices for website and phone bookings are on each booking's page."
         actions={
-          canCreate ? (
-            <ButtonLink href="/admin/invoices/new">
-              <FilePlus2 aria-hidden="true" /> New invoice
+          <span className="flex flex-wrap gap-2">
+            <ButtonLink href="/admin/invoices/quotations" variant="secondary">
+              <FileText aria-hidden="true" /> Quotations
             </ButtonLink>
-          ) : null
+            {canCreate ? (
+              <ButtonLink href="/admin/invoices/new">
+                <FilePlus2 aria-hidden="true" /> New invoice
+              </ButtonLink>
+            ) : null}
+          </span>
         }
       />
 

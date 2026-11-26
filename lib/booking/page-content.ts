@@ -22,6 +22,10 @@ export type BookingPageDoc = {
   oneWayToll: boolean;
   /** Search tabs. Outstation One-Way and Round-Trip are always on. */
   enableAirport: boolean;
+  /** Airport transfers farther than this by road (km) become outstation trips. 0 = no limit. */
+  airportCityKm: number;
+  /** Airport fares add the extra-km charge for road distance beyond the km included. */
+  airportExtraKm: boolean;
   enableHourly: boolean;
   /** "+ Add Stops" on outstation trips, and how many stops a customer may add. */
   enableStops: boolean;
@@ -67,6 +71,8 @@ export const DEFAULT_BOOKING_PAGE: BookingPageDoc = {
   distancePricing: true,
   oneWayToll: true,
   enableAirport: true,
+  airportCityKm: 40,
+  airportExtraKm: true,
   enableHourly: true,
   enableStops: true,
   maxStops: 3,
@@ -119,6 +125,8 @@ export const BOOKING_PAGE_FIELDS: Field[] = [
   { type: "toggle", key: "distancePricing", label: "Outstation fares by distance", hint: "On: the customer types any pickup and drop place, the road distance is worked out and the fare is distance x the vehicle's rate per km (set in Vehicles). Off, or no routing key on the server: only the routes you priced in Routes & fares are offered." },
   { type: "toggle", key: "oneWayToll", label: "Add toll to one-way fares", hint: "One-way fares by distance include the toll Google Maps expects on the route (FASTag rate for a car, scaled by each vehicle's \"Toll compared to a car\" in Vehicles). It is an estimate. Round trips are not changed. Off: no toll is added." },
   { type: "toggle", key: "enableAirport", label: "Show the Airport Transfers tab", hint: "It only appears when you have added airport fares." },
+  { type: "number", key: "airportCityKm", label: "Airport transfer: city limit (km from the airport)", min: 0, max: 500, step: 5, defaultValue: 40, hint: "A pickup or drop farther than this by road is not a city transfer: the customer is moved to Outstation One-Way fares. 0 = no limit. Needs the Google Maps key." },
+  { type: "toggle", key: "airportExtraKm", label: "Airport transfer: add the extra km charge", hint: "When the road distance between the airport and the customer's place is more than the km included in the fare, each extra km is added at that row's extra-km rate (or the vehicle's). Needs the Google Maps key." },
   { type: "toggle", key: "enableHourly", label: "Show the Hourly Rentals tab", hint: "It only appears when you have added hourly packages." },
   { type: "toggle", key: "showRoundTripTab", label: "Show the separate Outstation Round-Trip tab" },
   { type: "toggle", key: "oneWayReturn", label: "One-Way tab: optional Return date", hint: "Adding a return date turns the search into a round trip, exactly like MakeMyTrip." },

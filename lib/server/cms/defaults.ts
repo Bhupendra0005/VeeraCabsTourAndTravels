@@ -177,6 +177,7 @@ export const FLEET_DEFAULTS = {
     capacity: CAPACITY[vehicle.title] ?? 4,
     luggage: vehicle.luggage,
     ...(CAB_DETAILS[vehicle.title] ?? ({ category: "Sedan", fuel: "Diesel", models: "", bags: 2, extraKmRate: 12, minKmPerDay: 300, driverAllowance: 0, ratePerKm: 12, minFare: 0, listDiscountPercent: 0, tollPercent: 100 } satisfies CabDetails)),
+    ac: "AC",
     description: vehicle.description,
     icon: iconKey(vehicle.icon),
     image: "",

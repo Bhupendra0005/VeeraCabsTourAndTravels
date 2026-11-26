@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { ArrowLeftRight, BadgeCheck, CarFront, Clock3, MapPin, Route, ShieldCheck, Sparkles } from "lucide-react";
 import { CabList, type CabOption } from "@/components/booking/cab-list";
 import { ScrollToResults } from "@/components/booking/scroll-to-results";
@@ -13,16 +14,17 @@ import {
   formatINR,
   isAirport,
   isOutstation,
+  pickupTooSoon,
   to12h,
 } from "@/lib/booking/config";
 import { photoSrc } from "@/lib/cms/images";
 import { quoteHref } from "@/lib/booking/quote";
 import { isSearchComplete, parseSearch, searchToQuery } from "@/lib/booking/search";
-import { cabHeading } from "@/lib/booking/fleet";
+import { cabHeading, listOffer } from "@/lib/booking/fleet";
 import { getBookingExtras, getBookingPage, getBookingSettings, getFleet } from "@/lib/server/cms/content";
 import { getVehicleRatings } from "@/lib/server/bookings/reviews";
 import { pricedByDistance } from "@/lib/server/bookings/distance";
-import { busyVehicles, isFullyBooked, listSearchOptions, searchFares, type RouteFare, type SearchOptions } from "@/lib/server/bookings/service";
+import { busyVehicles, isFullyBooked, isBeyondAirportLimit, listSearchOptions, searchFares, type RouteFare, type SearchOptions } from "@/lib/server/bookings/service";
 import { ui } from "@/components/ui/styles";
 
 export const metadata: Metadata = {
@@ -47,6 +49,28 @@ export default async function BookPage({
   const tabOn = isAirport(params.tripType) ? page.enableAirport : params.tripType === "hourly" ? page.enableHourly : true;
   let searched = false;
 
+  // an airport transfer to or from a place outside the city is an outstation trip: send the customer there, places filled in
+  if (isAirport(params.tripType) && tabOn && isSearchComplete(params)) {
+    const beyond = await isBeyondAirportLimit(params.airport, params.address).catch((error) => {
+      console.error("Airport distance check failed", error);
+      return false;
+    });
+    if (beyond) {
+      const pickup = params.tripType === "airport_pickup";
+      const query = searchToQuery({
+        tripType: "one_way",
+        from: pickup ? params.airport : params.address,
+        to: pickup ? params.address : params.airport,
+        date: params.date,
+        time: params.time,
+        passengers: params.passengers,
+        bags: params.bags,
+      });
+      redirect(`/book?${query}&moved=airport${wantedCab ? `&cab=${encodeURIComponent(wantedCab)}` : ""}`);
+    }
+  }
+  const movedFromAirport = rawParams.moved === "airport" && params.tripType === "one_way";
+
   let options: SearchOptions = { cities: { from: [], to: {} }, stopCities: [], airports: [], places: [], hourlyCities: [], hourlyPackages: {} };
   let fares: RouteFare[] = [];
   let unavailable = false;
@@ -69,6 +93,8 @@ export default async function BookPage({
   }
 
   const [fleet, settings, extras, ratings] = await Promise.all([getFleet(), getBookingSettings(), getBookingExtras(), page.enableReviews ? getVehicleRatings() : Promise.resolve({})]);
+  // the owner's "Earliest bookable pickup": no cabs are offered for a pickup sooner than that
+  const tooSoon = searched ? pickupTooSoon(params.date, params.time, settings.minLeadMinutes) : null;
   const capacity = (name: string) => fleet.find((vehicle) => vehicle.title === name)?.capacity ?? 0;
   // only vehicles that are shown on the site and seat the group
   const seating = fares.filter((fare) => capacity(fare.vehicle) >= params.passengers);
@@ -94,21 +120,29 @@ export default async function BookPage({
     const meta = fleet.find((item) => item.title === fare.vehicle);
     const heading = cabHeading(fare.vehicle, meta?.models ?? "");
     const bags = meta?.bags ?? 2;
-    const discountPercent = Math.max(0, Math.min(70, Math.round(meta?.listDiscountPercent ?? 0)));
+    // the card's price is the km charge alone (like the review page's Base Fare); driver allowance, toll and taxes are
+    // shown beside it and added in the final amount
+    const kmFare = fare.fare - (fare.allowance ?? 0) - (fare.breakup?.toll ?? 0);
+    const otherCharges = fare.fare - kmFare + Math.round((fare.fare * settings.gstPercent) / 100) + Math.round(extras.serviceFee * 100);
+    const offer = listOffer(kmFare, meta?.listDiscountPercent);
     return {
       vehicle: fare.vehicle,
       name: heading.name,
       similar: heading.similar,
       category: meta?.category || fare.vehicle,
       fuel: meta?.fuel || "Diesel",
+      ac: meta?.ac ?? "AC",
       seats: meta?.seats ?? `${capacity(fare.vehicle)} seats`,
       bags,
       image: meta ? photoSrc(meta, 480) : "",
-      fare: fare.fare,
-      listFare: discountPercent > 0 && discountPercent < 100 ? Math.round(fare.fare / (1 - discountPercent / 100)) : null,
-      discountPercent,
-      gst: Math.round((fare.fare * settings.gstPercent) / 100),
+      fare: kmFare,
+      listFare: offer?.was ?? null,
+      discountPercent: offer?.percent ?? 0,
+      otherCharges,
       href: `/book/review?${searchToQuery({ ...params, routeId: fare.routeId || undefined, vehicle: fare.vehicle })}`,
+      extraNote: fare.airportExtra
+        ? `${fare.airportExtra.tripKm} km trip: includes ${formatINR(fare.airportExtra.amount)} for ${fare.airportExtra.extraKm} extra km (beyond ${fare.airportExtra.includedKm} km, at ₹${fare.airportExtra.rate}/km)`
+        : null,
       hint: highlighted && bags < 10 ? `${highlighted.description || `Add ${highlighted.label}`} @ ₹${highlighted.rupees}` : null,
       rating: (ratings as Record<string, { avg: number; count: number }>)[fare.vehicle] ?? null,
     };
@@ -177,6 +211,8 @@ export default async function BookPage({
           ) : (
             <SearchCollapse title={summaryTitle} subtitle={summarySub} enabled={searched}>
               <SearchForm
+                // moved from the airport tab: start the form again so it shows the outstation tab with the same places
+                key={movedFromAirport ? searchToQuery(params) : "search"}
                 options={options}
                 initial={params}
                 tabs={[
@@ -198,6 +234,11 @@ export default async function BookPage({
 
         <section className={showHero ? "mmt-body mmt-body--hero" : "mmt-body"}>
           <div className="mmt-wrap mmt-wrap--wide grid gap-4">
+            {movedFromAirport ? (
+              <p className="rounded-xl border border-[#f3d9a4] bg-[#fff8e6] px-4 py-3 text-sm font-semibold text-[#6b5314]" role="status">
+                This location is outside the city, so it is booked as an Outstation One-Way trip. The fares below are outstation fares.
+              </p>
+            ) : null}
             {searched && !unavailable ? (
               <>
                 <div className="bk-results-head scroll-mt-24" id="results">
@@ -217,14 +258,19 @@ export default async function BookPage({
                     </p>
                     <h2 className="bk-results-title">{heading}</h2>
                   </div>
-                  {cabs.length > 0 ? (
+                  {cabs.length > 0 && !tooSoon ? (
                     <p className="bk-count-pill">
                       <CarFront aria-hidden="true" /> {cabs.length} {cabs.length === 1 ? "cab" : "cabs"} available
                     </p>
                   ) : null}
                 </div>
 
-                {cabs.length === 0 ? (
+                {tooSoon ? (
+                  <div className={ui.card} role="alert">
+                    <h3 className={ui.cardTitle}>Choose a later pickup time</h3>
+                    <p className={ui.muted}>{tooSoon} Need a cab sooner? Call or WhatsApp us.</p>
+                  </div>
+                ) : cabs.length === 0 ? (
                   <div className={ui.card}>
                     <h3 className={ui.cardTitle}>No fixed-fare cab for this search</h3>
                     <p className={ui.muted}>

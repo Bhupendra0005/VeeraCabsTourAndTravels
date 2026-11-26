@@ -81,25 +81,19 @@ export function termsSections(s: BookingSettings): LegalSection[] {
     ],
   },
   {
-    title: "5. Trip protection (optional)",
-    body: [
-      "If you add trip protection, the charge is shown on your invoice. Cover details are shared separately with your booking confirmation.",
-    ],
-  },
-  {
-    title: "6. Liability",
+    title: "5. Liability",
     body: [
       "We take reasonable care to provide safe and punctual service. We are not liable for loss or delay caused by events beyond our control, and our liability is limited to the amount you paid for the booking.",
     ],
   },
   {
-    title: "7. Privacy",
+    title: "6. Privacy",
     body: [
       "We use your name, phone number and email only to provide your booking, send your ticket and invoice, and give support. We do not sell your data. The Privacy Policy page has the full details.",
     ],
   },
   {
-    title: "8. Governing law",
+    title: "7. Governing law",
     body: ["These terms are governed by the laws of India. Courts at Pune, Maharashtra have jurisdiction."],
   },
   ];

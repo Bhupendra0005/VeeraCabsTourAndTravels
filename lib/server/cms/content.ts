@@ -82,6 +82,8 @@ export type FleetVehicle = {
   /** Listing details; older saved fleets may not have them yet, so each has a fallback. */
   category?: string;
   fuel?: string;
+  /** "AC" or "Non-AC"; a vehicle saved before this existed is AC. */
+  ac?: string;
   models?: string;
   bags?: number;
   extraKmRate?: number;
@@ -104,7 +106,7 @@ export async function getFleet(): Promise<FleetVehicle[]> {
     .map((vehicle) => {
       // a fleet saved before the listing fields existed has none of them: use the built-in values for that vehicle name
       const base = FLEET_DEFAULTS.items.find((item) => item.title === vehicle.title);
-      const stored = vehicle as Partial<Pick<FleetVehicle, "category" | "fuel" | "models" | "bags" | "extraKmRate" | "minKmPerDay" | "driverAllowance" | "ratePerKm" | "minFare" | "listDiscountPercent" | "count" | "tollPercent">>;
+      const stored = vehicle as Partial<Pick<FleetVehicle, "category" | "fuel" | "models" | "bags" | "extraKmRate" | "minKmPerDay" | "driverAllowance" | "ratePerKm" | "minFare" | "listDiscountPercent" | "count" | "tollPercent" | "ac">>;
       return {
         ...vehicle,
         category: stored.category || base?.category,
@@ -119,6 +121,7 @@ export async function getFleet(): Promise<FleetVehicle[]> {
         listDiscountPercent: stored.listDiscountPercent ?? base?.listDiscountPercent,
         count: stored.count ?? 0,
         tollPercent: stored.tollPercent ?? base?.tollPercent ?? 100,
+        ac: stored.ac === "Non-AC" ? "Non-AC" : "AC",
         icon: resolveIcon(vehicle.icon, "car") as Icon,
       };
     });

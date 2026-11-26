@@ -338,6 +338,7 @@ export const DOCS: DocDefinition[] = [
         itemImage: "image",
         itemMeta: [
           { key: "category" },
+          { key: "ac" },
           { key: "fuel" },
           { key: "extraKmRate", prefix: "₹", suffix: " / extra km" },
           { key: "count", suffix: " vehicles" },
@@ -347,7 +348,7 @@ export const DOCS: DocDefinition[] = [
         sections: [
           { title: "Name & photo", keys: ["title", "icon", "image", "description"] },
           { title: "Seats & luggage", keys: ["seats", "capacity", "luggage", "bags", "count"] },
-          { title: "Type & pricing", keys: ["category", "fuel", "models", "ratePerKm", "minFare", "extraKmRate", "minKmPerDay", "driverAllowance", "tollPercent", "listDiscountPercent"] },
+          { title: "Type & pricing", keys: ["category", "ac", "fuel", "models", "ratePerKm", "minFare", "extraKmRate", "minKmPerDay", "driverAllowance", "tollPercent", "listDiscountPercent"] },
           { title: "On the website", keys: ["active"] },
         ],
         maxItems: 20,
@@ -358,6 +359,17 @@ export const DOCS: DocDefinition[] = [
           { type: "number", key: "capacity", label: "Maximum passengers", min: 1, max: 60, step: 1, defaultValue: 4 },
           { type: "text", key: "luggage", label: "Luggage", max: 40 },
           { type: "text", key: "category", label: "Cab type (filter on the booking page)", max: 24, placeholder: "Sedan", hint: "For example Hatchback, Sedan, SUV, MPV, Tempo Traveller. Vehicles with the same text are grouped in the filter." },
+          {
+            type: "select",
+            key: "ac",
+            label: "AC or Non-AC",
+            options: [
+              { value: "AC", label: "AC" },
+              { value: "Non-AC", label: "Non-AC" },
+            ],
+            defaultValue: "AC",
+            hint: "Shown on the cab card. For a bus offered both ways, add it twice (for example \"Bus 32 Seater AC\" and \"Bus 32 Seater Non-AC\"), each with its own rate.",
+          },
           { type: "text", key: "fuel", label: "Fuel type (filter on the booking page)", max: 16, placeholder: "Diesel", hint: "For example Diesel, Petrol, CNG, Electric." },
           { type: "text", key: "models", label: "Example models", max: 60, placeholder: "Dzire, Etios", hint: "Shown as \"Dzire, Etios or similar\". Leave empty to show only the vehicle name." },
           { type: "number", key: "bags", label: "Bags that fit in the boot", min: 0, max: 40, step: 1, defaultValue: 2 },

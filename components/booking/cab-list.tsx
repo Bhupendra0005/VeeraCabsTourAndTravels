@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowRight, ArrowUpDown, Briefcase, ChevronUp, Filter, Fuel, Package, Snowflake, Star, Users } from "lucide-react";
+import { ArrowRight, ArrowUpDown, Briefcase, ChevronUp, Filter, Fuel, Package, Route, Snowflake, Star, Users, Wind } from "lucide-react";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { RatingBadge } from "@/components/booking/stars";
@@ -15,18 +15,23 @@ export type CabOption = {
   similar: boolean;
   category: string;
   fuel: string;
+  /** "AC" or "Non-AC". */
+  ac: string;
   seats: string;
   bags: number;
   image: string;
-  /** Base fare and GST, in paise. */
+  /** The km charge (the price shown big), in paise. `otherCharges` below is everything added to it. */
   fare: number;
   /** The usual price when the owner shows "% off" (struck through), else null. */
   listFare: number | null;
   discountPercent: number;
-  gst: number;
+  /** Driver allowance, toll, GST and service fee, in paise. */
+  otherCharges: number;
   href: string;
   /** One-line offer under the card (the highlighted special request), or null. */
   hint: string | null;
+  /** Airport transfers: the extra-km charge already in the fare, in words; null when there is none. */
+  extraNote?: string | null;
   /** Average of real customer reviews, when there are any. */
   rating: { avg: number; count: number } | null;
 };
@@ -46,7 +51,7 @@ const FUEL_BADGE: Record<string, string> = {
   Petrol: "bg-rose-600",
 };
 
-function countBy(cabs: CabOption[], key: "category" | "fuel" | "name") {
+function countBy(cabs: CabOption[], key: "category" | "fuel" | "name" | "ac") {
   return cabs.reduce<Record<string, number>>((acc, cab) => ({ ...acc, [cab[key]]: (acc[cab[key]] ?? 0) + 1 }), {});
 }
 
@@ -103,21 +108,26 @@ export function CabList({ cabs, filters, bestValue, initialVehicle }: { cabs: Ca
   const modelCounts = useMemo(() => countBy(cabs, "name"), [cabs]);
   const typeCounts = useMemo(() => countBy(cabs, "category"), [cabs]);
   const fuelCounts = useMemo(() => countBy(cabs, "fuel"), [cabs]);
+  const [acs, setAcs] = useState<string[]>([]);
+  const acOptions = useMemo(() => [...new Set(cabs.map((cab) => cab.ac))], [cabs]);
+  const acCounts = useMemo(() => countBy(cabs, "ac"), [cabs]);
+  // only worth showing when the search really has both
+  const showAcFilter = acOptions.length > 1;
   // the cheapest cab of the whole search wears the ribbon, whatever the filters or the sorting
   const cheapest = useMemo(() => cabs.reduce((best, cab) => (cab.fare < best.fare ? cab : best), cabs[0]), [cabs]);
 
   const shown = useMemo(() => {
     const list = cabs.filter(
-      (cab) => (!types.length || types.includes(cab.category)) && (!fuels.length || fuels.includes(cab.fuel)) && (!models.length || models.includes(cab.name)),
+      (cab) => (!types.length || types.includes(cab.category)) && (!fuels.length || fuels.includes(cab.fuel)) && (!models.length || models.includes(cab.name)) && (!acs.length || acs.includes(cab.ac)),
     );
     const seats = (cab: CabOption) => Number.parseInt(cab.seats, 10) || 0;
     return list.sort((a, b) => (sort === "price-desc" ? b.fare - a.fare : sort === "seats" ? seats(b) - seats(a) || a.fare - b.fare : a.fare - b.fare));
-  }, [cabs, types, fuels, models, sort]);
+  }, [cabs, types, fuels, models, acs, sort]);
 
   const toggle = (setter: (fn: (current: string[]) => string[]) => void) => (value: string) =>
     setter((current) => (current.includes(value) ? current.filter((item) => item !== value) : [...current, value]));
-  const filtered = types.length > 0 || fuels.length > 0 || models.length > 0;
-  const anyFilter = filters.type || filters.model || filters.fuel || filters.sort;
+  const filtered = types.length > 0 || fuels.length > 0 || models.length > 0 || acs.length > 0;
+  const anyFilter = filters.type || filters.model || filters.fuel || filters.sort || showAcFilter;
 
   return (
     <div className={cn("grid items-start gap-6", anyFilter && "md:grid-cols-[300px_minmax(0,1fr)]")}>
@@ -125,7 +135,7 @@ export function CabList({ cabs, filters, bestValue, initialVehicle }: { cabs: Ca
         <div className="grid content-start gap-3 md:sticky md:top-24">
           <div className="bk-fbar md:hidden">
             <button type="button" className="bk-filter-toggle" aria-expanded={filtersOpen} onClick={() => setFiltersOpen((open) => !open)}>
-              <Filter aria-hidden="true" /> {filtersOpen ? "Hide filters" : `Filters & sort${types.length + fuels.length + models.length ? ` (${types.length + fuels.length + models.length})` : ""}`}
+              <Filter aria-hidden="true" /> {filtersOpen ? "Hide filters" : `Filters & sort${types.length + fuels.length + models.length + acs.length ? ` (${types.length + fuels.length + models.length + acs.length})` : ""}`}
             </button>
           </div>
           <aside className={cn("bk-filters", filtersOpen ? "block" : "hidden md:block")} aria-label="Filters">
@@ -141,6 +151,7 @@ export function CabList({ cabs, filters, bestValue, initialVehicle }: { cabs: Ca
                     setTypes([]);
                     setFuels([]);
                     setModels([]);
+                    setAcs([]);
                   }}
                 >
                   Clear All
@@ -148,6 +159,7 @@ export function CabList({ cabs, filters, bestValue, initialVehicle }: { cabs: Ca
               ) : null}
             </header>
             <div className="bk-filters-body">
+              {showAcFilter ? <FilterGroup title="AC / Non-AC" options={acOptions} counts={acCounts} selected={acs} onToggle={toggle(setAcs)} /> : null}
               {filters.type ? <FilterGroup title="Cab Type" options={typeOptions} counts={typeCounts} selected={types} onToggle={toggle(setTypes)} /> : null}
               {filters.model ? <FilterGroup title="Cab Model" options={modelOptions} counts={modelCounts} selected={models} onToggle={toggle(setModels)} /> : null}
               {filters.fuel ? <FilterGroup title="Fuel Type" options={fuelOptions} counts={fuelCounts} selected={fuels} onToggle={toggle(setFuels)} /> : null}
@@ -216,9 +228,9 @@ export function CabList({ cabs, filters, bestValue, initialVehicle }: { cabs: Ca
                       <ul className="bk-chips">
                         <li>
                           <span>
-                            <Snowflake aria-hidden="true" />
+                            {cab.ac === "Non-AC" ? <Wind aria-hidden="true" /> : <Snowflake aria-hidden="true" />}
                           </span>
-                          AC
+                          {cab.ac}
                         </li>
                         <li>
                           <span>
@@ -238,18 +250,25 @@ export function CabList({ cabs, filters, bestValue, initialVehicle }: { cabs: Ca
                     <div className="bk-card-price">
                       {cab.listFare ? (
                         <span className="bk-off">
-                          <em>{cab.discountPercent}% off</em>
+                          <em>
+                            {formatINR(cab.listFare - cab.fare)} off ({cab.discountPercent}%)
+                          </em>
                           <s>{formatINR(cab.listFare)}</s>
                         </span>
                       ) : null}
                       <b>{formatINR(cab.fare)}</b>
-                      <small>+ Tax &amp; Fee {formatINR(cab.gst)}</small>
+                      <small>+ Taxes &amp; charges {formatINR(cab.otherCharges)}</small>
                       <Link className="btn btn-gold bk-cta" href={cab.href}>
                         Select Cab
                         <ArrowRight aria-hidden="true" />
                       </Link>
                     </div>
                   </div>
+                  {cab.extraNote ? (
+                    <p className="bk-hint">
+                      <Route aria-hidden="true" /> {cab.extraNote}
+                    </p>
+                  ) : null}
                   {cab.hint ? (
                     <p className="bk-hint">
                       <Package aria-hidden="true" /> {cab.hint}

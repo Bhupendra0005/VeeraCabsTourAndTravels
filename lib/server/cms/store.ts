@@ -40,6 +40,8 @@ function backfillNewFields<T>(key: string, defaults: T, merged: T): T {
     if (filled.minFare === undefined || filled.minFare === null) filled.minFare = 0;
     if (filled.driverAllowance === undefined || filled.driverAllowance === null) filled.driverAllowance = 0;
     if (filled.tollPercent === undefined || filled.tollPercent === null) filled.tollPercent = 100;
+    // vehicles saved before the AC / Non-AC choice existed were all shown as AC
+    if (filled.ac !== "AC" && filled.ac !== "Non-AC") filled.ac = "AC";
     return filled;
   });
   return { ...(merged as object), items } as T;

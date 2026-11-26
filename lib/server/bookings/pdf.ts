@@ -1,6 +1,8 @@
 import "server-only";
 import { rgb, type RGB } from "pdf-lib";
 import { TRIP_TYPE_LABEL, describeMinutes, formatDate } from "@/lib/booking/config";
+import { chargeLine, chargeTerms } from "@/lib/booking/charges";
+import type { QuotationRow } from "@/lib/server/quotations";
 import { accentHex, paletteFrom } from "@/lib/booking/document-layout";
 import {
   C,
@@ -24,7 +26,8 @@ import { PAYMENT_METHOD_LABEL, type ManualInvoiceRow } from "@/lib/server/invoic
 export { buildTicketPdf };
 export type { PdfContext };
 
-type Item = { icon: string; title: string; detail?: string; amount: number };
+/** `amountText` replaces the rupee amount on the right (for a line that is a statement, not a charge). */
+type Item = { icon: string; title: string; detail?: string; amount: number; amountText?: string };
 type PaymentLine = { date: string; label: string; ref: string; amount: number; refunded: boolean };
 
 /** Everything the invoice page shows. Built from a booking or from a hand-made invoice, drawn the same way. */
@@ -42,6 +45,8 @@ type InvoiceModel = {
   paidShown: number;
   bar: { label: string; amount: number; tone: "blue" | "amber" | "green" };
   payments: PaymentLine[];
+  /** Set for a quotation: it is drawn like an invoice, without anything about money received. */
+  quote?: { validUntil: string };
 };
 
 const GREEN_BORDER = rgb(0.7, 0.88, 0.76);
@@ -55,6 +60,43 @@ export async function buildInvoicePdf(b: BookingRow, payments: PaymentRow[], ctx
 export async function buildManualInvoicePdf(inv: ManualInvoiceRow, ctx: PdfContext): Promise<Uint8Array> {
   const hex = accentHex(ctx.layout);
   return withPalette(hex ? paletteFrom(hex) : null, () => renderInvoice(manualModel(inv), ctx));
+}
+
+/** A quotation (Admin > Invoices > Quotations). Same design as an invoice. */
+export async function buildQuotationPdf(q: QuotationRow, ctx: PdfContext): Promise<Uint8Array> {
+  const hex = accentHex(ctx.layout);
+  return withPalette(hex ? paletteFrom(hex) : null, () => renderInvoice(quotationModel(q), ctx));
+}
+
+function quotationModel(q: QuotationRow): InvoiceModel {
+  const percent = Number.isInteger(q.gst_percent) ? String(q.gst_percent) : q.gst_percent.toFixed(2).replace(/0+$/, "");
+  const trip = `${q.from_city} to ${q.to_city}  |  ${TRIP_TYPE_LABEL[q.trip_type]}  |  ${q.vehicle_type}  |  ${q.passengers} passengers  |  Travel date ${formatDate(q.travel_date)}${q.return_date ? `  |  Return ${formatDate(q.return_date)}` : ""}`;
+  return {
+    invoiceNo: q.quote_no,
+    status: { label: "Quotation", tone: "amber", icon: "file-text" },
+    billed: [
+      ["user", q.customer_name, true],
+      ["phone", `+91 ${q.customer_phone}`, false],
+      ["mail", q.customer_email || "-", false],
+    ],
+    details: [
+      ["Quotation No.", q.quote_no],
+      ["Date", istDate(q.quote_date)],
+      ["Valid Until", q.valid_until ? istDate(q.valid_until) : "-"],
+    ],
+    items: [
+      // the trip is written under the first line
+      ...q.items.map((item, index) => ({ icon: "car", title: item.title, detail: [index === 0 ? trip : "", item.detail].filter(Boolean).join("  |  ") || undefined, amount: item.amount })),
+      ...(q.discount > 0 ? [{ icon: "layers", title: "Discount", amount: -q.discount }] : []),
+      ...(q.gst > 0 ? [{ icon: "layers", title: `GST @ ${percent}%`, amount: q.gst }] : []),
+    ],
+    note: q.note || "This is a price quotation, not a booking. Your cab is reserved once you confirm.",
+    total: q.total,
+    paidShown: 0,
+    bar: { label: "Balance due", amount: q.total, tone: "blue" },
+    payments: [],
+    quote: { validUntil: q.valid_until ? istDate(q.valid_until) : "" },
+  };
 }
 
 function bookingModel(b: BookingRow, payments: PaymentRow[], ctx: PdfContext): InvoiceModel {
@@ -73,6 +115,9 @@ function bookingModel(b: BookingRow, payments: PaymentRow[], ctx: PdfContext): I
       : due > 0
         ? { label: "Part paid", tone: "amber", icon: "layers" }
         : { label: "Paid", tone: "green", icon: "check" };
+
+  const chargeTermsFor = chargeTerms(b.trip_type);
+  const terms = chargeTermsFor ? chargeLine(chargeTermsFor) : null;
 
   return {
     invoiceNo: b.invoice_no,
@@ -100,6 +145,7 @@ function bookingModel(b: BookingRow, payments: PaymentRow[], ctx: PdfContext): I
         detail: `${b.from_city} to ${b.to_city}  |  ${TRIP_TYPE_LABEL[b.trip_type]}  |  ${b.vehicle_type}  |  Travel date ${formatDate(b.travel_date)}`,
         amount: b.base_fare,
       },
+      ...(terms ? [{ icon: "layers", title: "Toll, parking & tax", detail: terms.detail, amount: 0, amountText: terms.label }] : []),
       ...(b.addons_total > 0 ? [{ icon: "layers", title: `Special requests${b.addons ? ` (${b.addons})` : ""}`, amount: b.addons_total }] : []),
       ...(b.discount > 0 ? [{ icon: "layers", title: `Coupon discount${b.coupon_code ? ` (${b.coupon_code})` : ""}`, amount: -b.discount }] : []),
       { icon: "layers", title: `GST @ ${rules.gstPercent}%`, amount: b.gst },
@@ -162,7 +208,7 @@ function manualModel(inv: ManualInvoiceRow): InvoiceModel {
       ["Payment", method || (inv.amount_paid > 0 ? "Received" : "Pending")],
     ],
     items: [
-      ...inv.items.map((item) => ({ icon: "car", title: item.title, detail: item.detail || undefined, amount: item.amount })),
+      ...inv.items.map((item) => ({ icon: item.amountText ? "layers" : "car", title: item.title, detail: item.detail || undefined, amount: item.amount, amountText: item.amountText })),
       ...(inv.discount > 0 ? [{ icon: "layers", title: "Discount", amount: -inv.discount }] : []),
       ...(inv.gst > 0 ? [{ icon: "layers", title: `GST @ ${percent}%`, amount: inv.gst }] : []),
     ],
@@ -192,12 +238,13 @@ async function renderInvoice(m: InvoiceModel, ctx: PdfContext): Promise<Uint8Arr
 
   const logo = await loadCustomLogo(layout.look.logoImage);
   // the invoice never shows the cab photo (the e-ticket still does, if switched on)
-  const { canvas: c, assets } = await createDocument(`Invoice ${m.invoiceNo}`, null, logo);
-  drawFooter(c, assets, site, `Invoice: ${m.invoiceNo}`, layout.footer);
+  const { canvas: c, assets } = await createDocument(`${m.quote ? "Quotation" : "Invoice"} ${m.invoiceNo}`, null, logo);
+  drawFooter(c, assets, site, `${m.quote ? "Quotation" : "Invoice"}: ${m.invoiceNo}`, layout.footer);
+  const showPayments = layout.invoice.showPayments && !m.quote;
   const bodyTop = drawHeader(c, assets, site, {
     layout: "row",
-    title: layout.invoice.title || "TAX INVOICE",
-    subtitle: layout.invoice.subtitle,
+    title: m.quote ? "QUOTATION" : layout.invoice.title || "TAX INVOICE",
+    subtitle: m.quote ? "Price estimate for your trip" : layout.invoice.subtitle,
     icon: "file-text",
     status: layout.invoice.showStatus ? m.status : undefined,
     showContact: layout.look.showContact,
@@ -217,7 +264,7 @@ async function renderInvoice(m: InvoiceModel, ctx: PdfContext): Promise<Uint8Arr
 
   const leftX = X(42);
   const leftW = u(471);
-  band(leftX, metaTop, leftW, metaH, "user", "BILLED TO");
+  band(leftX, metaTop, leftW, metaH, "user", m.quote ? "QUOTATION FOR" : "BILLED TO");
   m.billed.forEach(([icon, value, bold], index) => {
     const centre = metaTop + u(96) + index * u(46);
     c.icon(icon, leftX + u(36), centre - u(13), u(26), C.navy, 1.9);
@@ -227,7 +274,7 @@ async function renderInvoice(m: InvoiceModel, ctx: PdfContext): Promise<Uint8Arr
 
   const rightX = X(545);
   const rightW = u(468);
-  band(rightX, metaTop, rightW, metaH, "clipboard-list", "INVOICE DETAILS");
+  band(rightX, metaTop, rightW, metaH, "clipboard-list", m.quote ? "QUOTATION DETAILS" : "INVOICE DETAILS");
   m.details.forEach(([label, value], index) => {
     const centre = metaTop + u(94) + index * u(45);
     c.text(label, rightX + u(34), centre + u(7), { size: fs(20), color: C.muted });
@@ -246,7 +293,7 @@ async function renderInvoice(m: InvoiceModel, ctx: PdfContext): Promise<Uint8Arr
     .map((line) => line.trim())
     .filter(Boolean)
     .flatMap((line) => c.wrap(line, u(900), termSize));
-  const compact = termWrapped.length > 0 && layout.invoice.showPayments;
+  const compact = termWrapped.length > 0 && showPayments;
   let gap = compact ? u(20) : u(30);
 
   const detailWidth = u(971) - u(300);
@@ -259,7 +306,7 @@ async function renderInvoice(m: InvoiceModel, ctx: PdfContext): Promise<Uint8Arr
   const tightH = (item: Item) => (item.detail ? u(56) : u(44));
   // the payments list at its smallest (rows of u(40)) also has to fit above the footer
   const payCount = Math.max(1, m.payments.length);
-  const payMin = layout.invoice.showPayments ? (compact ? u(62) : u(82)) + payCount * u(40) + (payCount - 1) * u(10) : 0;
+  const payMin = showPayments ? (compact ? u(62) : u(82)) + payCount * u(40) + (payCount - 1) * u(10) : 0;
   const chrome = (g: number) => metaTop + metaH + g + headerH + u(10) + g + sumH + payMin;
   let tight = false;
   let squeeze = 1;
@@ -289,10 +336,10 @@ async function renderInvoice(m: InvoiceModel, ctx: PdfContext): Promise<Uint8Arr
         const detail = fitText(c, item.detail, detailWidth, fs(17), fs(15), false);
         c.text(title.text, X(164), centre - u(4), { size: title.size, bold: true, color: C.ink });
         c.text(detail.text, X(164), centre + u(19), { size: detail.size, color: C.muted });
-        c.text(money(item.amount), X(978), centre - u(4), { size: fs(23), bold: true, color: C.ink, align: "right" });
+        c.text(item.amountText ?? money(item.amount), X(978), centre - u(4), { size: item.amountText ? fs(19) : fs(23), bold: true, color: C.ink, align: "right" });
       } else {
         c.text(title.text, X(164), centre + u(8), { size: title.size, bold: true, color: C.ink });
-        c.text(money(item.amount), X(978), centre + u(8), { size: fs(23), bold: true, color: C.ink, align: "right" });
+        c.text(item.amountText ?? money(item.amount), X(978), centre + u(8), { size: item.amountText ? fs(19) : fs(23), bold: true, color: C.ink, align: "right" });
       }
       if (index < items.length - 1) c.rule(X(76), X(980), rowTop + h, C.cardBorder, 0.7);
       rowTop += h;
@@ -303,10 +350,10 @@ async function renderInvoice(m: InvoiceModel, ctx: PdfContext): Promise<Uint8Arr
     if (item.detail) {
       c.text(title.text, X(164), rowTop + u(36), { size: title.size, bold: true, color: C.ink });
       c.paragraph(item.detail, X(164), rowTop + u(60), detailWidth, { size: fs(17), color: C.muted, lineHeight: u(24) });
-      c.text(money(item.amount), X(978), rowTop + u(36), { size: fs(23), bold: true, color: C.ink, align: "right" });
+      c.text(item.amountText ?? money(item.amount), X(978), rowTop + u(36), { size: item.amountText ? fs(19) : fs(23), bold: true, color: C.ink, align: "right" });
     } else {
       c.text(title.text, X(164), centre + u(8), { size: title.size, bold: true, color: C.ink });
-      c.text(money(item.amount), X(978), centre + u(8), { size: fs(23), bold: true, color: C.ink, align: "right" });
+      c.text(item.amountText ?? money(item.amount), X(978), centre + u(8), { size: item.amountText ? fs(19) : fs(23), bold: true, color: C.ink, align: "right" });
     }
     if (index < items.length - 1) c.rule(X(76), X(980), rowTop + h, C.cardBorder, 0.7);
     rowTop += h;
@@ -317,7 +364,7 @@ async function renderInvoice(m: InvoiceModel, ctx: PdfContext): Promise<Uint8Arr
 
   c.card(X(44), sumTop + u(4), u(487), sumH - u(10));
   c.iconBadge("info", X(76), sumTop + u(26), u(36), { fill: C.blue, color: C.white });
-  c.text("BALANCE", X(126), sumTop + u(54), { size: fs(23), bold: true, color: C.blueMid, tracking: 0.4 });
+  c.text(m.quote ? "NOTE" : "BALANCE", X(126), sumTop + u(54), { size: fs(23), bold: true, color: C.blueMid, tracking: 0.4 });
   c.paragraph(m.note, X(78), sumTop + u(98), u(400), { size: fs(18), color: C.muted, lineHeight: u(25) });
 
   const totX = X(561);
@@ -328,20 +375,27 @@ async function renderInvoice(m: InvoiceModel, ctx: PdfContext): Promise<Uint8Arr
   c.text("TOTAL", totX + u(34), sumTop + u(48), { size: fs(24), bold: true, color: C.blueMid, tracking: 0.4 });
   c.text(money(m.total), totX + totW - u(34), sumTop + u(54), { size: fs(42), bold: true, color: C.navy, align: "right" });
   c.rule(totX + u(30), totX + totW - u(30), sumTop + u(74), C.cardBorder, 0.7);
-  c.text("Amount paid", totX + u(34), sumTop + u(112), { size: fs(21), color: C.muted });
-  c.text(money(m.paidShown), totX + totW - u(34), sumTop + u(112), { size: fs(23), bold: true, color: C.green, align: "right" });
-  const barFill: RGB = m.bar.tone === "blue" ? C.blueBg : m.bar.tone === "amber" ? C.amberBg : C.greenBg;
-  const barText: RGB = m.bar.tone === "blue" ? C.blue : m.bar.tone === "amber" ? C.amber : C.green;
-  const barBorder: RGB = m.bar.tone === "blue" ? C.cardBorder : m.bar.tone === "amber" ? C.amberBorder : GREEN_BORDER;
-  c.box(totX + u(16), sumTop + u(126), totW - u(32), u(52), { fill: barFill, stroke: barBorder, radius: u(14), width: 0.9 });
-  c.text(m.bar.label, totX + u(34), sumTop + u(160), { size: fs(21), color: C.ink });
-  c.text(money(m.bar.amount), totX + totW - u(34), sumTop + u(162), { size: fs(27), bold: true, color: barText, align: "right" });
+  if (m.quote) {
+    c.text("Including GST", totX + u(34), sumTop + u(112), { size: fs(21), color: C.muted });
+    c.box(totX + u(16), sumTop + u(126), totW - u(32), u(52), { fill: C.blueBg, stroke: C.cardBorder, radius: u(14), width: 0.9 });
+    c.text(m.quote.validUntil ? "Price valid until" : "Price quotation", totX + u(34), sumTop + u(160), { size: fs(21), color: C.ink });
+    c.text(m.quote.validUntil, totX + totW - u(34), sumTop + u(161), { size: fs(23), bold: true, color: C.blue, align: "right" });
+  } else {
+    c.text("Amount paid", totX + u(34), sumTop + u(112), { size: fs(21), color: C.muted });
+    c.text(money(m.paidShown), totX + totW - u(34), sumTop + u(112), { size: fs(23), bold: true, color: C.green, align: "right" });
+    const barFill: RGB = m.bar.tone === "blue" ? C.blueBg : m.bar.tone === "amber" ? C.amberBg : C.greenBg;
+    const barText: RGB = m.bar.tone === "blue" ? C.blue : m.bar.tone === "amber" ? C.amber : C.green;
+    const barBorder: RGB = m.bar.tone === "blue" ? C.cardBorder : m.bar.tone === "amber" ? C.amberBorder : GREEN_BORDER;
+    c.box(totX + u(16), sumTop + u(126), totW - u(32), u(52), { fill: barFill, stroke: barBorder, radius: u(14), width: 0.9 });
+    c.text(m.bar.label, totX + u(34), sumTop + u(160), { size: fs(21), color: C.ink });
+    c.text(money(m.bar.amount), totX + totW - u(34), sumTop + u(162), { size: fs(27), bold: true, color: barText, align: "right" });
+  }
 
   /* ---------------- payments received ---------------- */
   let contentEnd = sumTop + sumH;
   // the list is left out when even its smallest form would run into the footer: "Amount paid" above already shows the money
   const payFits = sumTop + sumH + payMin <= pageEnd + u(4);
-  if (layout.invoice.showPayments && payFits) {
+  if (showPayments && payFits) {
     const listed = m.payments;
     const payTop = sumTop + sumH + (compact ? u(16) : u(32));
     c.icon("credit-card", X(54), payTop - u(2), u(38), C.blue, 1.8);

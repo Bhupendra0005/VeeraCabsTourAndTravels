@@ -1381,6 +1381,34 @@ function ListEditor({ field, items, path, onChange }: { field: ListField; items:
                 <div className="flex shrink-0 gap-1 max-sm:w-full max-sm:justify-end max-sm:border-t max-sm:border-line max-sm:pt-2.5">{actionButtons(item, index)}</div>
               </div>
 
+              {field.quickToggles?.length ? (
+                <div className="flex flex-wrap items-center gap-2 border-t border-white/10 px-3 py-2.5" role="group" aria-label={`${titleOf(item)}: shown on`}>
+                  <span className="text-xs font-semibold text-muted">Show on:</span>
+                  {field.quickToggles.map((quick) => {
+                    const on = item[quick.key] !== false;
+                    return (
+                      <button
+                        key={quick.key}
+                        type="button"
+                        role="switch"
+                        aria-checked={on}
+                        onClick={() => replace(items.map((current, i) => (i === index ? { ...current, [quick.key]: !on } : current)))}
+                        className={cn(
+                          "inline-flex min-h-9 items-center gap-2 rounded-lg border px-3 text-xs font-bold transition",
+                          on ? "border-brand-bright/50 bg-brand/15 text-white" : "border-white/10 bg-white/4 text-white/50 hover:border-white/25",
+                        )}
+                      >
+                        <span className={cn("relative h-4 w-7 rounded-full transition-colors", on ? "bg-brand" : "bg-white/20")} aria-hidden="true">
+                          <span className={cn("absolute top-0.5 left-0.5 size-3 rounded-full bg-white transition-transform", on && "translate-x-3")} />
+                        </span>
+                        {quick.label}
+                        <span className={on ? "text-brand-bright" : "text-white/40"}>{on ? "On" : "Off"}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : null}
+
               {confirmDelete === index ? (
                 <div className="mx-3 mb-3 flex flex-wrap items-center gap-2 rounded-lg border border-red-400/40 bg-red-400/10 px-3 py-2 text-sm">
                   Delete &quot;{titleOf(item)}&quot;?

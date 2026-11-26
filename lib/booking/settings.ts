@@ -40,7 +40,7 @@ export const DEFAULT_BOOKING_SETTINGS: BookingSettings = {
   maintenanceMessage: "Online booking is paused for a short while. Please call or WhatsApp us to book.",
   gstPercent: 5,
   partPayPercent: 25,
-  insuranceEnabled: true,
+  insuranceEnabled: false,
   insuranceRupees: 99,
   oneWayReturnPercent: 80,
   freeCancelMinutes: 720, // full refund up to 12 hours before pickup
@@ -88,8 +88,9 @@ export const BOOKING_SETTINGS_FIELDS: Field[] = [
     step: 1,
     hint: "A one-way trip also counts the driver's drive back. This share of the one-way fare is added to it: 80 turns a ₹5,000 fare into ₹9,000. 0 = off.",
   },
-  { type: "toggle", key: "insuranceEnabled", label: "Offer optional trip protection" },
-  { type: "number", key: "insuranceRupees", label: "Trip protection price (₹)", min: 0, max: 5000, step: 1 },
+  // trip protection was removed from booking: kept in the data, not shown in the form, never offered
+  { type: "toggle", key: "insuranceEnabled", label: "Offer optional trip protection", hidden: true },
+  { type: "number", key: "insuranceRupees", label: "Trip protection price (₹)", min: 0, max: 5000, step: 1, hidden: true },
   {
     type: "number",
     key: "freeCancelMinutes",

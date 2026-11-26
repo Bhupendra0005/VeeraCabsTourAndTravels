@@ -1,8 +1,11 @@
 import "server-only";
 import { db } from "@/lib/server/core/db";
 
-/** One line on a hand-made invoice. `amount` is in paise. */
-export type InvoiceItem = { title: string; detail: string; amount: number };
+/**
+ * One line on a hand-made invoice. `amount` is in paise. A statement line (toll, parking and tax terms) has amount 0
+ * and `amountText`, printed in place of the money.
+ */
+export type InvoiceItem = { title: string; detail: string; amount: number; amountText?: string };
 
 export type PaymentMethod = "" | "cash" | "upi" | "bank" | "card" | "online";
 

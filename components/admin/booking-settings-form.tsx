@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertCircle, BellRing, CalendarClock, Mail, Plus, Trash2, Check, CheckCircle2, CircleX, Coins, CreditCard, Info, Loader2, Percent, Pencil, RotateCw, ShieldCheck, Umbrella, Wallet } from "lucide-react";
+import { AlertCircle, BellRing, CalendarClock, Mail, Plus, Trash2, Check, CheckCircle2, CircleX, Coins, CreditCard, Info, Loader2, Percent, Pencil, RotateCw, ShieldCheck, Wallet } from "lucide-react";
 import { useEffect, useId, useMemo, useState, useTransition, type ReactNode } from "react";
 import { Toggle } from "@/components/admin/toggle";
 import type { ActionState } from "@/lib/admin/action-state";
@@ -14,7 +14,7 @@ import { cn } from "@/lib/utils/cn";
 /** Numbers may be empty while the owner is typing. */
 type SlabDraft = { hoursBefore: number | ""; percent: number | "" };
 type Draft = { [K in Exclude<keyof BookingSettings, "refundSlabs">]: BookingSettings[K] extends number ? number | "" : BookingSettings[K] } & { refundSlabs: SlabDraft[] };
-type NumKey = "gstPercent" | "partPayPercent" | "balanceCutoffHours" | "insuranceRupees" | "freeCancelMinutes" | "minLeadMinutes" | "oneWayReturnPercent";
+type NumKey = "gstPercent" | "partPayPercent" | "balanceCutoffHours" | "freeCancelMinutes" | "minLeadMinutes" | "oneWayReturnPercent";
 
 /** Limits come from the same schema the server validates against. */
 const limits = (key: NumKey) => BOOKING_SETTINGS_FIELDS.find((f): f is NumberField => f.type === "number" && f.key === key)!;
@@ -140,7 +140,7 @@ export function BookingSettingsForm({ initial }: { initial: BookingSettings }) {
 
   const save = () =>
     start(async () => {
-      const keys: NumKey[] = ["gstPercent", "partPayPercent", "balanceCutoffHours", "insuranceRupees", "freeCancelMinutes", "minLeadMinutes", "oneWayReturnPercent"];
+      const keys: NumKey[] = ["gstPercent", "partPayPercent", "balanceCutoffHours", "freeCancelMinutes", "minLeadMinutes", "oneWayReturnPercent"];
       if (keys.some((k) => draft[k] === "")) {
         setResult({ ok: false, error: "Please fill in every number before saving." });
         return;
@@ -223,18 +223,8 @@ export function BookingSettingsForm({ initial }: { initial: BookingSettings }) {
           </div>
         </Panel>
 
-        <Panel icon={<ShieldCheck />} title="Booking Rules" text="Configure trip protection, cancellation and booking windows.">
+        <Panel icon={<ShieldCheck />} title="Booking Rules" text="Configure cancellation and booking windows.">
           <div className="divide-y divide-white/8 rounded-2xl border border-white/10 bg-black/20 p-4 sm:p-5">
-            <div className="flex items-center gap-4 pb-4">
-              <Toggle checked={draft.insuranceEnabled} onChange={(v) => set("insuranceEnabled", v)} label="Offer optional trip protection" />
-              <div>
-                <p className="font-semibold">Offer optional trip protection</p>
-                <p className="text-[13px] text-muted">Let customers add trip protection at the time of booking.</p>
-              </div>
-            </div>
-            <Row icon={<Umbrella />} title="Trip protection price (₹)" hint="Additional amount for trip protection.">
-              {num("insuranceRupees", "Trip protection price", "₹")}
-            </Row>
             <Row icon={<CircleX />} title="Full refund until (minutes before pickup)" hint="Customers get a full refund if they cancel at least this long before pickup. 60 means until 1 hour before pickup. Partial refunds can follow (see Partial refund steps below).">
               {num("freeCancelMinutes", "Full refund until", "min")}
             </Row>

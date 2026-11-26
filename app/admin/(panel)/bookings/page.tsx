@@ -212,7 +212,8 @@ export default async function AdminBookingsPage({ searchParams }: { searchParams
         <>
           <p className="-mb-2 text-sm text-muted">
             <b className="text-white">{result.total}</b> {result.total === 1 ? "booking" : "bookings"}
-            {filtered ? " match your filters" : " in total"}
+            {/* a quick view on its own is not a "filter": its chip already says what is listed */}
+            {anyField ? (result.total === 1 ? " matches your filters" : " match your filters") : view ? " in this view" : " in total"}
           </p>
           <DataTable
             rows={result.rows}
