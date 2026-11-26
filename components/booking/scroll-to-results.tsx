@@ -17,13 +17,18 @@ export function ScrollToResults({ targetId }: { targetId: string }) {
     let wanted = false;
     try {
       wanted = sessionStorage.getItem(SCROLL_FLAG) === "1";
-      sessionStorage.removeItem(SCROLL_FLAG);
     } catch {
       // storage blocked: just skip the scroll
     }
     if (!wanted) return;
     // wait a tick so the layout (phone search bar folding up, new results) has settled
     const timer = window.setTimeout(() => {
+      // cleared only now: in development the effect runs twice, and the first run is cancelled before it scrolls
+      try {
+        sessionStorage.removeItem(SCROLL_FLAG);
+      } catch {
+        // storage blocked
+      }
       document.getElementById(targetId)?.scrollIntoView({ behavior: "smooth", block: "start" });
     }, 80);
     return () => window.clearTimeout(timer);

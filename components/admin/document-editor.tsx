@@ -635,6 +635,8 @@ function FieldView({ field, value, path, onChange }: ViewProps) {
             ) : null}
             <input
               id={id}
+              type={field.type === "text" ? field.format : undefined}
+              style={field.type === "text" && field.format ? { colorScheme: "dark" } : undefined}
               value={text}
               onChange={(e) => onChange(path, digitsOnly ? e.target.value.replace(/\D/g, "") : upper ? e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "") : e.target.value)}
               maxLength={field.type === "text" ? (field.max ?? 200) : (field.max ?? 500)}
@@ -1190,7 +1192,9 @@ function ListEditor({ field, items, path, onChange }: { field: ListField; items:
   const kinds = useMemo(() => {
     if (items.length <= 6 || !field.itemSubtitle) return [];
     const seen = new Set(items.map((item) => subtitleOf(item)).filter(Boolean));
-    return seen.size >= 2 && seen.size <= 8 ? [...seen] : [];
+    // only short values that repeat are categories: long text (an FAQ answer) or a different value on every row is not
+    const categories = seen.size >= 2 && seen.size <= 8 && seen.size < items.length && [...seen].every((value) => value.length <= 40);
+    return categories ? [...seen] : [];
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [items, field.itemSubtitle]);
   const activeKind = kinds.includes(only) ? only : "";
@@ -1210,6 +1214,17 @@ function ListEditor({ field, items, path, onChange }: { field: ListField; items:
           <Plus aria-hidden="true" /> {field.addLabel ?? "Add"}
         </Button>
       </div>
+
+      {/* say why the Add button is off; short lists also show their limit before it is reached */}
+      {items.length >= max ? (
+        <p className="rounded-lg border border-amber-400/30 bg-amber-400/10 px-3.5 py-2.5 text-sm font-semibold text-amber-200" role="status">
+          Limit reached: {items.length} of {max}. Delete one to add a new one.
+        </p>
+      ) : max <= 12 ? (
+        <p className="text-xs text-muted">
+          You can add up to {max}. Used: {items.length}.
+        </p>
+      ) : null}
 
       {items.length > 6 ? (
         <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder={`Search ${field.label.toLowerCase()}...`} aria-label={`Search ${field.label}`} className={inputClass} />

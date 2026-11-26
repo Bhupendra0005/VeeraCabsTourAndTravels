@@ -218,13 +218,22 @@ export function CabList({ cabs, filters, bestValue, initialVehicle }: { cabs: Ca
                         </h3>
                         {cab.rating ? <RatingBadge avg={cab.rating.avg} count={cab.rating.count} /> : null}
                       </div>
-                      {cab.similar || cab.category !== cab.name ? (
-                        <p className="bk-card-sub">
-                          {[cab.similar ? cab.vehicle : "", cab.category !== cab.vehicle || !cab.similar ? cab.category : ""]
-                            .filter((part, i, all) => part && all.indexOf(part) === i && part !== cab.name)
-                            .join(" • ")}
-                        </p>
-                      ) : null}
+                      {(() => {
+                        const vehicle = cab.similar && cab.vehicle !== cab.name ? cab.vehicle : "";
+                        const category = (cab.category !== cab.vehicle || !cab.similar) && cab.category !== cab.name && cab.category !== vehicle ? cab.category : "";
+                        // phones hide the vehicle name here (it nearly repeats the heading) and keep the cab type
+                        return vehicle || category ? (
+                          <p className="bk-card-sub">
+                            {vehicle ? (
+                              <span className="bk-sub-name">
+                                {vehicle}
+                                {category ? " • " : ""}
+                              </span>
+                            ) : null}
+                            {category}
+                          </p>
+                        ) : null;
+                      })()}
                       <ul className="bk-chips">
                         <li>
                           <span>

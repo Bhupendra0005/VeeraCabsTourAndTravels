@@ -45,7 +45,7 @@ function sample(): { booking: BookingRow; payments: PaymentRow[] } {
     gst_company: "",
     gstin: "",
     gst: 94_500,
-    insurance: 9_900,
+    insurance: 0,
     total: 1_994_400,
     pay_mode: "part",
     advance_due: 498_600,

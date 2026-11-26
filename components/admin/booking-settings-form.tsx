@@ -211,8 +211,27 @@ export function BookingSettingsForm({ initial }: { initial: BookingSettings }) {
             <Row icon={<Percent />} title="GST on fare (%)" hint="Tax applied on the total fare. Confirm the right rate with your accountant.">
               {num("gstPercent", "GST on fare", "%")}
             </Row>
-            <Row icon={<Percent />} title="One-way return charge (%)" hint="A one-way trip also counts the driver's drive back: this share of the one-way fare is added on top. 80 turns a ₹5,000 fare into ₹9,000. 0 = off.">
-              {num("oneWayReturnPercent", "One-way return charge", "%")}
+            <Row
+              icon={<Percent />}
+              title="One-way multiplier"
+              hint={`A one-way fare is the km charge x this number, for the driver's drive back. 1.80 turns ₹5,000 into ₹9,000. 1 = off.${draft.oneWayReturnPercent === "" ? "" : ` Now: ₹5,000 becomes ₹${Math.round(5000 * (1 + Number(draft.oneWayReturnPercent) / 100)).toLocaleString("en-IN")}.`}`}
+            >
+              {/* stored as the share added on top (80 %), typed as a multiplier (1.80 times), like MindYourFleet */}
+              <div className="flex h-11 w-36 shrink-0 overflow-hidden rounded-xl border border-white/12 bg-black/30 transition focus-within:border-brand focus-within:ring-4 focus-within:ring-brand/15">
+                <input
+                  id={`${base}-oneWayMultiplier`}
+                  type="number"
+                  inputMode="decimal"
+                  aria-label="One-way multiplier"
+                  min={1}
+                  max={1 + limits("oneWayReturnPercent").max / 100}
+                  step={0.05}
+                  value={draft.oneWayReturnPercent === "" ? "" : Number((1 + Number(draft.oneWayReturnPercent) / 100).toFixed(2))}
+                  onChange={(e) => set("oneWayReturnPercent", (e.target.value === "" ? "" : Math.max(0, Math.round((Number(e.target.value) - 1) * 100))) as never)}
+                  className="min-w-0 flex-1 bg-transparent px-3 text-sm font-semibold outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                />
+                <span className="grid min-w-11 place-items-center border-l border-white/10 bg-white/5 px-2 text-sm font-semibold text-white/70">times</span>
+              </div>
             </Row>
             <Row icon={<Wallet />} title="Advance for part payment (%)" hint="Share of the total paid online to reserve the cab.">
               {num("partPayPercent", "Advance for part payment", "%")}

@@ -106,8 +106,9 @@ export default async function AboutPage() {
         <section className="ab-stats-section">
           <div className="shell">
             <div className="ab-stats" data-reveal="scale">
+              {/* words such as "All Over India" are set smaller than a short number */}
               {stats.map((stat) => (
-                <div className="ab-stat" key={stat.label}>
+                <div className={stat.value.length > 7 ? "ab-stat ab-stat--text" : "ab-stat"} key={stat.label}>
                   <b>{stat.value}</b>
                   <span>{stat.label}</span>
                 </div>
@@ -218,9 +219,9 @@ export default async function AboutPage() {
                 </li>
                 <li>
                   <Phone aria-hidden="true" />
-                  <a href={site.primaryPhone.href}>{site.primaryPhone.display}</a>
+                  <a href={site.primaryPhone.href} className="whitespace-nowrap">{site.primaryPhone.display}</a>
                   {" · "}
-                  <a href={site.secondaryPhone.href}>{site.secondaryPhone.display}</a>
+                  <a href={site.secondaryPhone.href} className="whitespace-nowrap">{site.secondaryPhone.display}</a>
                 </li>
               </ul>
             </div>

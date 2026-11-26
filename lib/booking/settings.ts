@@ -82,7 +82,7 @@ export const BOOKING_SETTINGS_FIELDS: Field[] = [
   {
     type: "number",
     key: "oneWayReturnPercent",
-    label: "One-way return charge (%)",
+    label: "One-way multiplier (stored as % added on top)",
     min: 0,
     max: 200,
     step: 1,

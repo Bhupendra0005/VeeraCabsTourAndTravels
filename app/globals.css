@@ -5747,9 +5747,10 @@ a.service-link:hover {
   padding-bottom: clamp(54px, 7vw, 90px);
 }
 
+/* any number of boxes (the owner can add up to 6): they share the row, and a wrapped row stretches to fill it */
 .ab-stats {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  display: flex;
+  flex-wrap: wrap;
   overflow: hidden;
   border: 1px solid rgba(60, 184, 242, 0.25);
   border-radius: 28px;
@@ -5758,13 +5759,14 @@ a.service-link:hover {
 }
 
 .ab-stat {
-  padding: 32px 20px;
-  border-left: 1px solid var(--line);
+  flex: 1 1 0;
+  min-width: 170px;
+  padding: 32px 16px;
+  /* dividers on the left and top; the ones on the outer edge are clipped by the box */
+  box-shadow:
+    -1px 0 0 var(--line),
+    0 -1px 0 var(--line);
   text-align: center;
-}
-
-.ab-stat:first-child {
-  border-left: 0;
 }
 
 .ab-stat b {
@@ -5778,6 +5780,15 @@ a.service-link:hover {
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
+}
+
+.ab-stat--text b {
+  display: grid;
+  place-content: center;
+  /* as tall as a number, so the small labels stay on one line across the boxes */
+  min-height: clamp(34px, 4.4vw, 56px);
+  font-size: clamp(22px, 2.1vw, 34px);
+  line-height: 1.15;
 }
 
 .ab-stat span {
@@ -5945,16 +5956,10 @@ a.service-link:hover {
     margin-inline: auto;
   }
 
-  .ab-stats {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .ab-stat:nth-child(3) {
-    border-left: 0;
-  }
-
-  .ab-stat:nth-child(n + 3) {
-    border-top: 1px solid var(--line);
+  /* two to a row; an odd last box takes the whole row */
+  .ab-stat {
+    flex-basis: 40%;
+    min-width: 0;
   }
 }
 
@@ -13940,44 +13945,94 @@ a.service-link:hover {
     display: flex;
     align-items: center;
     gap: 10px;
-    padding: 10px 12px;
-    border-radius: 12px;
+    padding: 12px;
+    border-radius: 18px;
     background: #fff;
-    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.22);
+    box-shadow: 0 8px 22px rgba(0, 0, 0, 0.28);
   }
 
   .bk-sumbar-back {
     display: grid;
     flex: none;
     place-items: center;
-    width: 32px;
-    height: 32px;
-    color: #0f1b2d;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: #eef4fd;
+    color: #0a2a5e;
   }
 
   .bk-sumbar-back svg {
-    width: 22px;
-    height: 22px;
+    width: 20px;
+    height: 20px;
   }
 
   .bk-sumbar-text {
     display: grid;
     flex: 1;
+    gap: 4px;
     min-width: 0;
   }
 
+  /* two stops on a small route line: green dot = from, red dot = to */
   .bk-sumbar-text b {
-    overflow: hidden;
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    min-width: 0;
     color: #0f1b2d;
     font-size: 15px;
     font-weight: 800;
+    line-height: 1.25;
+  }
+
+  .bk-sumbar-text b span {
+    overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
 
-  .bk-sumbar-text span {
-    color: #5b6778;
-    font-size: 12.5px;
+  .bk-sumbar-text b::before {
+    content: "";
+    flex: none;
+    width: 10px;
+    height: 10px;
+    border: 3px solid #0f8a4b;
+    border-radius: 50%;
+  }
+
+  .bk-sumbar-text .bk-sumbar-to::before {
+    border-color: #e0483c;
+  }
+
+  .bk-sumbar-text .bk-sumbar-to::after {
+    content: "";
+    position: absolute;
+    left: 4px;
+    bottom: calc(50% + 7px);
+    height: 11px;
+    border-left: 2px dotted #9aa5b5;
+  }
+
+  .bk-sumbar-text small {
+    display: inline-flex;
+    align-items: center;
+    justify-self: start;
+    gap: 5px;
+    margin-top: 3px;
+    padding: 3px 10px;
+    border-radius: 999px;
+    background: #eef4fd;
+    color: #36506f;
+    font-size: 12px;
+    font-weight: 700;
+  }
+
+  .bk-sumbar-text small svg {
+    flex: none;
+    width: 13px;
+    height: 13px;
   }
 
   .bk-sumbar-edit {
@@ -13985,11 +14040,14 @@ a.service-link:hover {
     align-items: center;
     gap: 5px;
     flex: none;
+    padding: 9px 14px;
     border: 0;
-    background: transparent;
-    color: #0a84e8;
+    border-radius: 999px;
+    background: linear-gradient(100deg, #0a47bf, #2a80f4);
+    box-shadow: 0 6px 14px rgba(31, 116, 238, 0.35);
+    color: #fff;
     font-family: inherit;
-    font-size: 14px;
+    font-size: 13.5px;
     font-weight: 800;
   }
 
@@ -14012,7 +14070,7 @@ a.service-link:hover {
     padding-bottom: 90px;
   }
 
-  /* dark trust strip: three icons over short labels */
+  /* dark trust strip on phones: three icons over short labels */
   .bk-trust {
     grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
     gap: 6px;
@@ -15565,4 +15623,334 @@ main {
   color: var(--gold-bright);
   font-size: 14px;
   font-weight: 800;
+}
+
+/* Short labels and badges that must stay on one line (they were breaking mid-phrase) */
+.bk-off {
+  flex-wrap: wrap;
+  row-gap: 2px;
+}
+
+.bk-off em,
+.bk-off s,
+.bk-card-price small,
+.rv-timeline-labels b,
+.rv-timeline-labels em,
+.rv-mid,
+.route-footer small,
+.route-footer button,
+.tour-meta {
+  white-space: nowrap;
+}
+
+/* when a card is narrow, the button moves to the next line instead of squeezing the text */
+.route-footer,
+.tour-footer {
+  flex-wrap: wrap;
+}
+
+.tour-meta {
+  min-width: max-content;
+}
+
+@media (max-width: 440px) {
+  .rv-timeline-labels {
+    grid-template-columns: auto 1fr auto;
+    gap: 6px;
+    font-size: 12.5px;
+  }
+
+  .rv-mid {
+    justify-self: center;
+    gap: 4px;
+    font-size: 11.5px;
+  }
+
+  .rv-mid svg {
+    width: 15px;
+    height: 15px;
+  }
+
+  .service-link {
+    gap: 8px;
+    font-size: 11px;
+    letter-spacing: 0.03em;
+  }
+
+  .cx-card-copy b {
+    font-size: 0.9rem;
+  }
+}
+
+/* narrow phones: home banner badges and the booking tabs keep their words on one line */
+@media (max-width: 440px) {
+  .hero-badges {
+    display: flex;
+    flex-wrap: wrap;
+  }
+
+  .hero-badge {
+    flex: 1 1 auto;
+    justify-content: center;
+    white-space: nowrap;
+  }
+
+  .bk-mtab {
+    padding-inline: 2px;
+    font-size: 11.5px;
+    white-space: nowrap;
+  }
+}
+
+/* small laptops and tablets: the two booking columns were cramped by wide side gaps */
+@media (min-width: 860px) and (max-width: 1279px) {
+  .mmt-wrap--wide {
+    width: calc(100% - 48px);
+  }
+}
+
+/* cab card on phones: tidier heading, detail pills, and the offer on its own line above the price */
+@container (max-width: 560px) {
+  .bk-card-info {
+    gap: 5px;
+  }
+
+  .bk-card-info h3 span {
+    display: inline-block;
+    margin: 0 0 0 6px;
+    font-size: 0.76rem;
+    font-weight: 500;
+  }
+
+  .bk-card-sub {
+    font-size: 0.82rem;
+    line-height: 1.3;
+  }
+
+  .bk-sub-name {
+    display: none;
+  }
+
+  .bk-chips {
+    gap: 5px;
+    margin-top: 3px;
+  }
+
+  .bk-chips li {
+    padding: 3px 9px;
+    background: #eef4fd;
+    color: #36506f;
+    font-size: 0.76rem;
+    font-weight: 600;
+  }
+
+  .bk-chips li + li::before,
+  .bk-chips li:not(:last-child)::after {
+    content: none;
+  }
+
+  .bk-card-price {
+    row-gap: 3px;
+  }
+
+  .bk-card-price .bk-off {
+    grid-column: 1 / -1;
+    gap: 8px;
+    margin-bottom: 3px;
+  }
+
+  .bk-card-price .bk-off em {
+    padding: 3px 10px;
+    border-radius: 999px;
+    background: #e3f6ec;
+    font-size: 0.8rem;
+  }
+
+  .bk-card-price .bk-off s {
+    font-size: 0.86rem;
+  }
+
+  .bk-card-price .bk-off ~ .bk-cta {
+    grid-row: 2 / span 2;
+  }
+}
+
+/* cancellation policy on phones: icons beside their text, smaller type, the policy link on its own line */
+@media (max-width: 640px) {
+  .rv-free:not(.rv-free--no) {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: start;
+    gap: 3px 10px;
+    padding: 12px 14px;
+  }
+
+  .rv-free:not(.rv-free--no) svg {
+    grid-row: 1 / span 2;
+    width: 22px;
+    height: 22px;
+  }
+
+  .rv-free b {
+    font-size: 0.92rem;
+    line-height: 1.35;
+  }
+
+  .rv-free span {
+    font-size: 0.8rem;
+    line-height: 1.35;
+  }
+
+  .rv-timeline {
+    margin-top: 18px;
+  }
+
+  .rv-note {
+    align-items: flex-start;
+    margin-top: 14px;
+    padding: 12px 14px;
+    font-size: 0.84rem;
+    line-height: 1.45;
+  }
+
+  .rv-note > svg {
+    margin-top: 1px;
+  }
+
+  .rv-note a {
+    display: flex;
+    width: fit-content;
+    margin-top: 6px;
+  }
+
+  .rv-note a svg {
+    width: 16px;
+    height: 16px;
+    color: inherit;
+  }
+}
+
+/* coupons drawn as tickets: coloured edge, tinted code, saving (or the minimum fare) in a pill; code box and Apply on one row */
+.rv-coupons {
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.rv-coupon {
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
+  gap: 8px 12px;
+  padding: 14px;
+  border: 1px solid #cfe0f8;
+  border-left: 5px solid #1f74ee;
+  background: linear-gradient(120deg, #f2f7ff, #fff 70%);
+}
+
+.rv-coupon.is-selected {
+  border-color: #0f9d58;
+  background: #eefaf3;
+  box-shadow: none;
+}
+
+.rv-coupon.is-off {
+  border-color: #e1e8f2;
+  border-left-color: #c3cedd;
+  background: #fafbfd;
+}
+
+.rv-coupon input {
+  width: 20px;
+  height: 20px;
+  margin-top: 5px;
+}
+
+.rv-coupon .rv-code {
+  padding: 4px 12px;
+  border: 1.5px dashed #1f74ee;
+  border-radius: 8px;
+  background: #e6f0ff;
+  font-size: 0.95rem;
+  font-weight: 800;
+}
+
+.rv-coupon.is-off .rv-code {
+  border-color: #aab8cc;
+  background: #eef1f6;
+  color: #5b6778;
+}
+
+.rv-coupon-body {
+  gap: 7px;
+}
+
+.rv-coupon-body small {
+  font-size: 0.84rem;
+}
+
+.rv-coupon-body .rv-warn {
+  width: fit-content;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: #fff1d6;
+  color: #8a5200 !important;
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
+.rv-coupon .rv-save {
+  grid-column: 2;
+  justify-self: start;
+  padding: 4px 12px;
+  border-radius: 999px;
+  background: #e3f6ec;
+  font-size: 0.86rem;
+}
+
+.rv-coupon-input {
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  padding: 6px;
+  border: 1.5px dashed #b4c9e8;
+  border-radius: 16px;
+  background: #f5f9ff;
+}
+
+.rv-coupon-input .rv-coupon-field {
+  gap: 8px;
+  height: 44px;
+  padding: 0 8px;
+  border: 0;
+  background: transparent;
+}
+
+.rv-coupon-input .rv-coupon-field:focus-within {
+  border-radius: 10px;
+  background: #fff;
+}
+
+.rv-coupon-input .rv-coupon-field input {
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.rv-coupon-input .rv-apply {
+  height: 44px;
+  padding: 0 22px;
+  border: 0;
+  border-radius: 12px;
+  background: linear-gradient(100deg, #0a47bf, #2a80f4);
+  color: #fff;
+}
+
+.rv-coupon-input .rv-apply:disabled {
+  background: #dce8fa;
+  color: #5f7fb3;
+  opacity: 1;
+}
+
+/* review page on desktop: side gaps narrower than on the other booking pages */
+@media (min-width: 1280px) {
+  .rv-page .mmt-wrap--wide {
+    width: min(1440px, calc(100% - 112px));
+  }
 }

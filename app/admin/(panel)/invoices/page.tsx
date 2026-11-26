@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Download, FilePlus2, FileText, Receipt } from "lucide-react";
 import { ConfirmDelete } from "@/components/admin/confirm-delete";
+import { InvoiceTabs } from "@/components/admin/invoice-tabs";
 import { Alert, Badge, ButtonLink, DataTable, EmptyState, PageHeader, buttonClass } from "@/components/admin/ui";
 import { can } from "@/lib/admin/permissions";
 import { deleteManualInvoiceAction } from "@/lib/server/admin/actions/invoices";
@@ -46,17 +47,21 @@ export default async function AdminInvoicesPage({ searchParams }: { searchParams
         description="Invoices made by hand. Invoices for website and phone bookings are on each booking's page."
         actions={
           <span className="flex flex-wrap gap-2">
-            <ButtonLink href="/admin/invoices/quotations" variant="secondary">
-              <FileText aria-hidden="true" /> Quotations
-            </ButtonLink>
             {canCreate ? (
-              <ButtonLink href="/admin/invoices/new">
-                <FilePlus2 aria-hidden="true" /> New invoice
-              </ButtonLink>
+              <>
+                <ButtonLink href="/admin/invoices/quotations/new" variant="secondary">
+                  <FileText aria-hidden="true" /> New quotation
+                </ButtonLink>
+                <ButtonLink href="/admin/invoices/new">
+                  <FilePlus2 aria-hidden="true" /> New invoice
+                </ButtonLink>
+              </>
             ) : null}
           </span>
         }
       />
+
+      <InvoiceTabs active="invoices" />
 
       {fresh ? (
         <Alert tone="success">

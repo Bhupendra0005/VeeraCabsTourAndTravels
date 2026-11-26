@@ -46,7 +46,8 @@ export default async function AdminBookingPage({ params, searchParams }: { param
     ...(b.discount > 0 ? ([["Coupon discount", `-${money(b.discount)}${b.coupon_code ? ` (${b.coupon_code})` : ""}`, "text-emerald-300"]] as [string, string, string][]) : []),
     ["GST", money(b.gst)],
     ...(b.service_fee > 0 ? ([["Service fee", money(b.service_fee)]] as [string, string][]) : []),
-    ["Trip protection", money(b.insurance)],
+    // trip protection is no longer offered: only an old booking that paid for it shows the line
+    ...(b.insurance > 0 ? ([["Trip protection", money(b.insurance)]] as [string, string][]) : []),
   ];
 
   return (

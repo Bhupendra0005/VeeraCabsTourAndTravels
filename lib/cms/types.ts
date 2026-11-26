@@ -5,7 +5,7 @@
 
 type Base = { key: string; label: string; hint?: string; required?: boolean; /** Kept in the data but not shown in the form. */ hidden?: boolean; /** Value for a newly added list item. */ defaultValue?: string | number | boolean };
 
-export type TextField = Base & { type: "text"; max?: number; placeholder?: string; /** Show a live character count and the length that works best, e.g. [30, 60]. */ ideal?: [number, number]; /** Phone-style box: only digits can be typed. */ digits?: boolean; /** Capital letters only (codes such as a GSTIN). */ upper?: boolean };
+export type TextField = Base & { type: "text"; max?: number; placeholder?: string; /** Show a live character count and the length that works best, e.g. [30, 60]. */ ideal?: [number, number]; /** Phone-style box: only digits can be typed. */ digits?: boolean; /** Capital letters only (codes such as a GSTIN). */ upper?: boolean; /** A date (YYYY-MM-DD) or time (HH:MM) picked from the browser's own control. */ format?: "date" | "time" };
 export type TextareaField = Base & { type: "textarea"; max?: number; rows?: number; /** Show a live character count and the length that works best, e.g. [70, 160]. */ ideal?: [number, number] };
 export type NumberField = Base & { type: "number"; min: number; max: number; step?: number };
 export type ToggleField = Base & { type: "toggle" };

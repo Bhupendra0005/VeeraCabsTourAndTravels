@@ -62,6 +62,9 @@ export function validateFields(fields: Field[], input: unknown, path = ""): Reco
       case "textarea": {
         const value = clean(raw, field.max ?? (field.type === "text" ? 200 : 4000), field.type === "textarea");
         if (field.required && !value) fail(where, "is required");
+        if (field.type === "text" && field.format && value && !(field.format === "date" ? /^\d{4}-\d{2}-\d{2}$/ : /^([01]\d|2[0-3]):[0-5]\d$/).test(value)) {
+          fail(where, field.format === "date" ? "must be a date" : "must be a time");
+        }
         out[field.key] = value;
         break;
       }

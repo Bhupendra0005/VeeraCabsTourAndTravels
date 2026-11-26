@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { ArrowRightLeft, Download, Eye, FilePlus2, FileText } from "lucide-react";
 import { ConfirmDelete } from "@/components/admin/confirm-delete";
+import { InvoiceTabs } from "@/components/admin/invoice-tabs";
 import { Alert, Badge, ButtonLink, DataTable, EmptyState, PageHeader, buttonClass } from "@/components/admin/ui";
 import { can } from "@/lib/admin/permissions";
 import { formatDate } from "@/lib/booking/config";
@@ -56,18 +57,15 @@ export default async function AdminQuotationsPage({ searchParams }: { searchPara
         title="Quotations"
         description="Send a price first. When the customer says yes, convert it into a booking."
         actions={
-          <span className="flex flex-wrap gap-2">
-            <ButtonLink href="/admin/invoices" variant="secondary">
-              Back to invoices
+          canCreate ? (
+            <ButtonLink href="/admin/invoices/quotations/new">
+              <FilePlus2 aria-hidden="true" /> New quotation
             </ButtonLink>
-            {canCreate ? (
-              <ButtonLink href="/admin/invoices/quotations/new">
-                <FilePlus2 aria-hidden="true" /> New quotation
-              </ButtonLink>
-            ) : null}
-          </span>
+          ) : null
         }
       />
+
+      <InvoiceTabs active="quotations" />
 
       {fresh ? (
         <Alert tone="success">
@@ -82,7 +80,7 @@ export default async function AdminQuotationsPage({ searchParams }: { searchPara
         <Alert tone="danger">Could not load quotations. Check that migration 016_quotations.sql has been run.</Alert>
       ) : quotations.length === 0 ? (
         <EmptyState icon={<FileText />} title="No quotations yet">
-          {canCreate ? "Use “New quotation” to make one." : "Quotations made by the owner or staff appear here."}
+          {canCreate ? "Use “New quotation” to make one. When the customer agrees, press “Convert to booking” on it." : "Quotations made by the owner or staff appear here."}
         </EmptyState>
       ) : (
         <DataTable

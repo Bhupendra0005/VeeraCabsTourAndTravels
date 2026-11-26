@@ -152,6 +152,13 @@ export function SearchForm({ options, initial, tabs, maxStops, askTravellers, su
       ...(airportTrip ? { airport, address } : {}),
       ...(hourly ? { from, pkg } : {}),
     });
+    // the same search again: the address does not change, so scroll to the results that are already there
+    const shown = document.getElementById("results");
+    if (shown && window.location.search === `?${query}`) {
+      shown.scrollIntoView({ behavior: "smooth", block: "start" });
+      router.refresh();
+      return;
+    }
     try {
       sessionStorage.setItem(SCROLL_FLAG, "1");
     } catch {
@@ -307,7 +314,7 @@ export function SearchForm({ options, initial, tabs, maxStops, askTravellers, su
             </label>
             <div className="field-control">
               <CalendarDays aria-hidden="true" />
-              <DateField id="bk-return" value={returnDate} onChange={setReturnDate} placeholder="Select return date" />
+              <DateField id="bk-return" value={returnDate} onChange={setReturnDate} placeholder="Select date" />
             </div>
           </div>
         ) : null}

@@ -1,4 +1,5 @@
 import type { Addon, BookingTripType, Coupon } from "@/lib/booking/config";
+import { DEFAULT_TIME_RULES, TIME_RULE_FIELDS, TRIP_QUICK_TOGGLES, type TimeRules } from "@/lib/booking/surcharges";
 import type { Field } from "@/lib/cms/types";
 
 /**
@@ -65,12 +66,13 @@ export type BookingExtras = {
   inclusions: Inclusion[];
   /** What the fare does not include (paid extra), per trip type. */
   exclusions: Inclusion[];
-};
+} & TimeRules;
 
 export const BOOKING_EXTRAS_KEY = "booking_extras";
 
 /** Sample content: the owner must confirm every line (prices, coupons, what the fare includes). */
 export const DEFAULT_BOOKING_EXTRAS: BookingExtras = {
+  ...DEFAULT_TIME_RULES,
   stopCharge: 300,
   serviceFee: 0,
   serviceFeeLabel: "Service Fee",
@@ -122,14 +124,6 @@ export const DEFAULT_BOOKING_EXTRAS: BookingExtras = {
   ],
 };
 
-/** The trip switches, also shown as on/off buttons under each line in the admin list. */
-const TRIP_QUICK_TOGGLES = [
-  { key: "oneWay", label: "One-way" },
-  { key: "roundTrip", label: "Round trip" },
-  { key: "airport", label: "Airport" },
-  { key: "hourly", label: "Local" },
-];
-
 /** The fields of one inclusion or exclusion line, with a switch per trip type. */
 const lineFields = (what: string): Field[] => [
   { type: "text", key: "title", label: "Title", required: true, max: 60 },
@@ -142,6 +136,7 @@ const lineFields = (what: string): Field[] => [
 ];
 
 export const BOOKING_EXTRAS_FIELDS: Field[] = [
+  ...TIME_RULE_FIELDS,
   {
     type: "number",
     key: "serviceFee",

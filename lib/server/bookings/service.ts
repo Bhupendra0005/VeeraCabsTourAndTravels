@@ -44,6 +44,7 @@ import {
   type BookingRow,
   type PaymentRow,
 } from "@/lib/server/bookings/types";
+import { leadMinutesFor, surchargeTotal, surchargesFor, type Surcharge } from "@/lib/booking/surcharges";
 
 const REF_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // no 0/O/1/I
 const MAX_PENDING_PER_HOUR = 5;
@@ -83,6 +84,8 @@ export type RouteFare = {
   tollApprox?: number;
   /** Airport transfers longer than the included km: the extra already added to `fare`. */
   airportExtra?: AirportExtra;
+  /** Night and peak-time charges already added to `fare`. */
+  surcharges?: Surcharge[];
 };
 
 type FareJoin = {
@@ -395,6 +398,19 @@ export function isFullyBooked(vehicle: { count?: number }, busy: Record<string, 
   return !!vehicle.count && vehicle.count > 0 && (busy[title] ?? 0) >= vehicle.count;
 }
 
+/**
+ * Adds the owner's night and peak-time charges for the pickup date and time. Applied here, on the server, so the cab
+ * list, the review page and the payment always agree.
+ */
+async function withSurcharges(fares: RouteFare[], trip: { tripType: BookingTripType; date: string; time: string }): Promise<RouteFare[]> {
+  if (fares.length === 0) return fares;
+  const rules = await getBookingExtras();
+  return fares.map((fare) => {
+    const surcharges = surchargesFor(rules, trip, fare.fare - (fare.allowance ?? 0) - (fare.breakup?.toll ?? 0));
+    return surcharges.length ? { ...fare, fare: fare.fare + surchargeTotal(surcharges), surcharges } : fare;
+  });
+}
+
 /** Every vehicle fare for a search, whatever the trip type. Cheapest first. */
 export async function searchFares(search: SearchParams): Promise<RouteFare[]> {
   const list = isOutstation(search.tripType)
@@ -406,7 +422,7 @@ export async function searchFares(search: SearchParams): Promise<RouteFare[]> {
     : isAirport(search.tripType)
       ? await airportFares(search.airport, search.tripType, search.address)
       : await hourlyFares(search.from, search.pkg);
-  return list.sort((x, y) => x.fare - y.fare);
+  return (await withSurcharges(list, search)).sort((x, y) => x.fare - y.fare);
 }
 
 /** The one fare a booking is priced from. The browser only names the trip; the price comes from here. */
@@ -422,7 +438,9 @@ export async function lookupTripFare(
     /** Outstation fares by distance: the drop place, the stops and the dates. */
     to?: string;
     stops?: string[];
-    date?: string;
+    /** Pickup date and time: night and peak charges depend on them. */
+    date: string;
+    time: string;
     returnDate?: string | null;
   },
 ): Promise<RouteFare | null> {
@@ -432,12 +450,14 @@ export async function lookupTripFare(
       ? await lookupFare(trip.routeId, trip.vehicle, trip.tripType)
       : ((await distanceFares({ tripType: trip.tripType, from: trip.from, to: trip.to ?? "", stops: trip.stops ?? [], date: trip.date ?? "", returnDate: trip.returnDate ?? null }))?.find((fare) => fare.vehicle === trip.vehicle) ?? null);
     if (!found) return null;
-    return (await withDriverAllowance([found], { tripType: trip.tripType, date: trip.date ?? "", returnDate: trip.returnDate ?? null }))[0];
+    const priced = await withDriverAllowance([found], { tripType: trip.tripType, date: trip.date, returnDate: trip.returnDate ?? null });
+    return (await withSurcharges(priced, trip))[0];
   }
   const list = isAirport(trip.tripType)
     ? await airportFares(trip.airport, trip.tripType, trip.address)
     : await hourlyFares(trip.from, trip.pkg);
-  return list.find((fare) => fare.vehicle === trip.vehicle) ?? null;
+  const match = list.find((fare) => fare.vehicle === trip.vehicle);
+  return match ? (await withSurcharges([match], trip))[0] : null;
 }
 
 export type SearchOptions = {
@@ -598,8 +618,9 @@ export async function createBooking(customerId: string, input: BookingInput): Pr
 
   const departure = departureAt(input.date, input.time);
   const now = Date.now();
-  if (Number.isNaN(departure.getTime()) || departure.getTime() < now + settings.minLeadMinutes * 60_000) {
-    throw new HttpError(400, `Please choose a pickup time at least ${describeMinutes(settings.minLeadMinutes)} from now.`);
+  const leadMinutes = leadMinutesFor(input.tripType, settings.minLeadMinutes, await getBookingExtras());
+  if (Number.isNaN(departure.getTime()) || departure.getTime() < now + leadMinutes * 60_000) {
+    throw new HttpError(400, `Please choose a pickup time at least ${describeMinutes(leadMinutes)} from now.`);
   }
   if (departure.getTime() > now + 365 * 86_400_000) {
     throw new HttpError(400, "Bookings can be made up to one year ahead.");
@@ -630,6 +651,7 @@ export async function createBooking(customerId: string, input: BookingInput): Pr
     to: input.to,
     stops: input.stops,
     date: input.date,
+    time: input.time,
     returnDate: input.tripType === "round_trip" ? input.returnDate : null,
   });
   if (!fare) throw new HttpError(404, "This route or vehicle is not available.");
@@ -724,6 +746,8 @@ export async function createBooking(customerId: string, input: BookingInput): Pr
         pay_mode: input.payMode,
         advance_due: quote.payNow,
         terms_accepted_at: new Date().toISOString(),
+        // a booking does not keep the charges separately: note them for the owner (customers never see this)
+        ...(fare.surcharges?.length ? { admin_note: `Fare includes: ${fare.surcharges.map((item) => `${item.label} Rs ${item.amount / 100}`).join(", ")}.` } : {}),
       })
       .select(BOOKING_COLUMNS)
       .single();

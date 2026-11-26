@@ -39,6 +39,7 @@ import { getProfile } from "@/lib/server/auth/profile";
 import { getSession } from "@/lib/server/auth/session";
 import { ui } from "@/components/ui/styles";
 import { cn } from "@/lib/utils/cn";
+import { leadMinutesFor, surchargeTotal } from "@/lib/booking/surcharges";
 
 export const metadata: Metadata = {
   title: "Review booking",
@@ -84,6 +85,7 @@ export default async function ReviewPage({
     to: search.to,
     stops: search.stops,
     date: search.date,
+    time: search.time,
     returnDate: search.returnDate || null,
   }).catch((error) => {
     console.error("Fare lookup failed", error);
@@ -94,7 +96,7 @@ export default async function ReviewPage({
   const [settings, extras, fleet] = await Promise.all([getBookingSettings(), getBookingExtras(), getFleet()]);
   if (!settings.onlineBookingEnabled) redirect("/book");
   // sooner than the owner's "Earliest bookable pickup": back to the results, which say why
-  if (pickupTooSoon(search.date, search.time, settings.minLeadMinutes)) redirect(`/book?${searchToQuery(search)}`);
+  if (pickupTooSoon(search.date, search.time, leadMinutesFor(search.tripType, settings.minLeadMinutes, extras))) redirect(`/book?${searchToQuery(search)}`);
   const meta = fleet.find((item) => item.title === fare.vehicle);
   const bookingPage = await getBookingPage();
   const places = await getLocalPlaces();
@@ -140,7 +142,7 @@ export default async function ReviewPage({
 
   return (
     <PageShell footer={false}>
-      <div className="mmt">
+      <div className="mmt rv-page">
         <BookingBand title="Review booking" wide curved>
           <div className="flex flex-wrap items-end justify-between gap-x-8 gap-y-5 text-white">
             <div className="grid min-w-0 max-w-full gap-4">
@@ -218,7 +220,8 @@ export default async function ReviewPage({
             baseFare={fare.fare}
             distanceBreakup={fare.breakup}
             airportExtra={fare.airportExtra}
-            offer={listOffer(fare.fare - (fare.allowance ?? 0) - (fare.breakup?.toll ?? 0), meta?.listDiscountPercent)}
+            offer={listOffer(fare.fare - (fare.allowance ?? 0) - (fare.breakup?.toll ?? 0) - surchargeTotal(fare.surcharges), meta?.listDiscountPercent)}
+            surcharges={fare.surcharges}
             allowance={fare.allowance ? { perDay: meta?.driverAllowance ?? 0, days: fare.allowanceDays ?? 1, total: fare.allowance } : undefined}
             rules={{
               gstPercent: settings.gstPercent,
@@ -302,7 +305,7 @@ export default async function ReviewPage({
                   <span className="absolute -right-3 -top-3 size-6 rounded-full border border-line bg-(--page)" />
                 </div>
 
-                <ul className={cn("m-0 grid list-none grid-cols-2 gap-3 p-0 sm:grid-cols-3", search.tripType === "round_trip" && "sm:grid-cols-2 lg:grid-cols-4")}>
+                <ul className={cn("m-0 grid list-none grid-cols-2 gap-3 p-0", search.tripType === "round_trip" ? "sm:grid-cols-2" : "sm:grid-cols-[repeat(auto-fit,minmax(162px,1fr))]")}>
                   {[
                     { icon: CalendarDays, label: "Pickup date", value: formatDate(search.date) },
                     { icon: Clock3, label: "Pickup time", value: to12h(search.time) },
@@ -317,14 +320,15 @@ export default async function ReviewPage({
                         ]
                       : []),
                   ].map(({ icon: Icon, label, value }) => (
-                    <li key={label} className="flex items-center gap-3 rounded-xl bg-(--panel-soft) p-3 transition hover:-translate-y-0.5 hover:shadow-md last:col-span-2 sm:last:col-span-1">
-                      <span className="grid size-9 flex-none place-items-center rounded-full bg-white text-brand shadow-sm">
-                        <Icon className="size-[18px]" aria-hidden="true" />
+                    <li key={label} className="grid content-start gap-1.5 rounded-xl bg-(--panel-soft) p-2.5 sm:p-3 transition hover:-translate-y-0.5 hover:shadow-md last:col-span-2 sm:last:col-span-1">
+                      <span className="flex items-center gap-2">
+                        <span className="grid size-8 flex-none place-items-center rounded-full bg-white text-brand shadow-sm">
+                          <Icon className="size-4" aria-hidden="true" />
+                        </span>
+                        <small className="text-[13px] font-medium whitespace-nowrap text-[#4a5668]">{label}</small>
                       </span>
-                      <span className="min-w-0">
-                        <small className="block text-[13px] font-medium text-[#4a5668]">{label}</small>
-                        <b className="block text-[15px] leading-tight">{value}</b>
-                      </span>
+                      {/* icon and label on top, the value on its own line below: a date never breaks */}
+                      <b className="block text-[13.5px] leading-tight whitespace-nowrap sm:text-[15px]">{value}</b>
                     </li>
                   ))}
                 </ul>
@@ -344,7 +348,7 @@ export default async function ReviewPage({
                   <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
                     <h3 className="font-(family-name:--font-display) text-xl font-extrabold leading-tight">
                       {heading.name}
-                      {heading.similar ? <span className="ml-2 text-sm font-normal text-muted">or similar</span> : null}
+                      {heading.similar ? <span className="ml-2 text-sm font-normal whitespace-nowrap text-muted">or similar</span> : null}
                     </h3>
                     <span className="inline-flex items-center gap-1.5 rounded-full bg-brand/10 px-2.5 py-0.5 text-xs font-bold text-brand">
                       <Fuel className="size-3.5" aria-hidden="true" /> {meta?.fuel || "Diesel"}

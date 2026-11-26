@@ -37,6 +37,16 @@ async function crossChecks(key: string, doc: Record<string, unknown>) {
     doc.ownerAlertEmails = alerts.emails.join(", ");
   }
 
+  if (key === BOOKING_EXTRAS_KEY) {
+    const night = doc.nightCharge as { active?: boolean; from?: string; to?: string; kind?: string; value?: number } | undefined;
+    if (night?.active && (!night.from || !night.to)) throw new ActionError("Night charge: set both the start and the end time.");
+    if (night?.kind === "percent" && Number(night.value) > 100) throw new ActionError("Night charge: a percentage cannot be more than 100.");
+    for (const row of (Array.isArray(doc.peakCharges) ? doc.peakCharges : []) as { name: string; startDate: string; endDate: string; kind: string; value: number }[]) {
+      if (row.endDate && row.endDate < row.startDate) throw new ActionError(`"${row.name}": the "To date" is before the "From date".`);
+      if (row.kind === "percent" && row.value > 100) throw new ActionError(`"${row.name}": a percentage cannot be more than 100.`);
+    }
+  }
+
   if (["destinations", "areas", "services"].includes(key)) {
     const seen = new Set<string>();
     for (const item of items) {

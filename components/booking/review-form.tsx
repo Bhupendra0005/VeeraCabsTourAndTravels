@@ -3,7 +3,7 @@
 import { ArrowRight, Building2, CarTaxiFront, CheckCircle2, ChevronDown, Info, Languages, Lock, Mail, MapPin, Phone, ShieldCheck, Sparkles, Tag, Ticket, User, Users, TriangleAlert, Wallet, X } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useState, type FormEvent, type ReactNode } from "react";
+import { Fragment, useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { LoginForm } from "@/components/auth/login-form";
 import { cleanMobile } from "@/lib/utils/phone";
@@ -30,6 +30,7 @@ import { cn } from "@/lib/utils/cn";
 import type { ListOffer } from "@/lib/booking/fleet";
 import type { AirportExtra } from "@/lib/booking/transfers";
 import type { FareBreakup } from "@/lib/booking/outstation";
+import { surchargeTotal, type Surcharge } from "@/lib/booking/surcharges";
 
 /** "Distance 51 km x ₹14/km"; for a round trip it also says how the billed km came about. */
 function distanceLabel(b: FareBreakup): string {
@@ -84,6 +85,8 @@ type Props = {
   distanceBreakup?: FareBreakup;
   /** Driver allowance already inside the base fare (paise), per day and for the days of the trip. */
   allowance?: { perDay: number; days: number; total: number };
+  /** Night and peak-time charges already inside the base fare. */
+  surcharges?: Surcharge[];
   rules: PricingRules & { balanceCutoffHours: number };
   addons: Addon[];
   coupons: Coupon[];
@@ -121,8 +124,8 @@ export function ReviewForm(props: Props) {
   const [couponInput, setCouponInput] = useState("");
   const [couponError, setCouponError] = useState("");
   const [payMode, setPayMode] = useState<PayMode>("part");
-  // a fare by distance is explained from the start: the customer sees what the price is made of
-  const [showBreakup, setShowBreakup] = useState(!!props.distanceBreakup || !!props.airportExtra);
+  // open from the start: the customer sees what the price is made of
+  const [showBreakup, setShowBreakup] = useState(true);
   const [accepted, setAccepted] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -166,113 +169,76 @@ export function ReviewForm(props: Props) {
   const driverCharges = props.allowance?.total ?? 0;
   // the one-way toll too: Base Fare is the km charge alone, the same figure the cab list shows
   const tollCharges = props.distanceBreakup?.toll ?? 0;
-  const baseShown = quote.baseFare - driverCharges - tollCharges;
+  const timeCharges = surchargeTotal(props.surcharges);
+  const baseShown = quote.baseFare - driverCharges - tollCharges - timeCharges;
+  // a heading row of the break-up, and the smaller rows under it
+  const mainRow = (label: string, value: string, tone = "") => (
+    <div className="flex items-baseline justify-between gap-3 text-base font-bold text-[#0f1b2d]">
+      <dt>{label}</dt>
+      <dd className={cn("shrink-0 tabular-nums", tone)}>{value}</dd>
+    </div>
+  );
+  const subRow = (label: string, value: string, note = "") => (
+    <div className="flex items-baseline justify-between gap-3 pl-5 text-sm text-[#6b7480]">
+      <dt className="min-w-0">
+        {label}
+        {note ? <span className="text-xs"> ({note})</span> : null}
+      </dt>
+      <dd className="shrink-0 tabular-nums">{value}</dd>
+    </div>
+  );
+  const divider = "grid gap-2 border-t border-[#dde3ec] pt-3.5";
+
   const breakupLines = (
     <>
-            {props.offer ? (
-              <p className="mt-3 flex flex-wrap items-center gap-x-2 rounded-lg bg-[#e6f6ec] px-3 py-2 text-sm font-semibold text-[#0f8a4b]">
-                You save {formatINR(props.offer.saved)} ({props.offer.percent}% off)
-                <s className="font-normal text-[#5b6778]">{formatINR(props.offer.was)}</s>
-              </p>
-            ) : null}
-            {showBreakup ? (
-              <dl className={cn(ui.fareBreakdown, "mt-3")}>
-                <div>
-                  <dt>Base Fare</dt>
-                  <dd>{formatINR(baseShown)}</dd>
-                </div>
-                {!props.distanceBreakup && !props.airportExtra ? (
-                  <div>
-                    <dt className="pl-3 text-sm">Cab charges</dt>
-                    <dd className="text-sm font-normal! text-muted">{formatINR(baseShown)}</dd>
-                  </div>
-                ) : null}
-                {props.distanceBreakup ? (
-                  <>
-                    <div>
-                      <dt className="pl-3 text-sm">{distanceLabel(props.distanceBreakup)}</dt>
-                      <dd className="text-sm font-normal! text-muted">{formatINR(props.distanceBreakup.kmCharge + props.distanceBreakup.returnCharge)}</dd>
-                    </div>
-                    {props.distanceBreakup.minFareTopUp > 0 ? (
-                      <div>
-                        <dt className="pl-3 text-sm">Minimum fare for this vehicle</dt>
-                        <dd className="text-sm font-normal! text-muted">+{formatINR(props.distanceBreakup.minFareTopUp)}</dd>
-                      </div>
-                    ) : null}
-                  </>
-                ) : null}
-                {props.airportExtra ? (
-                  <>
-                    <div>
-                      <dt className="pl-3 text-sm">Airport fare (up to {props.airportExtra.includedKm} km)</dt>
-                      <dd className="text-sm font-normal! text-muted">{formatINR(props.airportExtra.base)}</dd>
-                    </div>
-                    <div>
-                      <dt className="pl-3 text-sm">
-                        Extra {props.airportExtra.extraKm} km x ₹{props.airportExtra.rate}/km
-                      </dt>
-                      <dd className="text-sm font-normal! text-muted">{formatINR(props.airportExtra.amount)}</dd>
-                    </div>
-                  </>
-                ) : null}
-                {quote.addons > 0 ? (
-                  <div>
-                    <dt>{props.stops.length > 0 ? "Extra stops & special requests" : "Special requests"}</dt>
-                    <dd>{formatINR(quote.addons)}</dd>
-                  </div>
-                ) : null}
-                {quote.discount > 0 ? (
-                  <div>
-                    <dt>Coupon discount{coupon ? ` (${coupon.code})` : ""}</dt>
-                    <dd className="text-ok">-{formatINR(quote.discount)}</dd>
-                  </div>
-                ) : null}
-                <div>
-                  <dt>Taxes &amp; Fees</dt>
-                  <dd>{formatINR(driverCharges + tollCharges + quote.gst + quote.serviceFee)}</dd>
-                </div>
-                {tollCharges > 0 ? (
-                  <div>
-                    <dt className="pl-3 text-sm">Toll charges (included)</dt>
-                    <dd className="text-sm font-normal! text-muted">{formatINR(tollCharges)}</dd>
-                  </div>
-                ) : null}
-                {props.allowance ? (
-                  <div>
-                    <dt className="pl-3 text-sm">
-                      Driver Charges (food and stay{props.allowance.days > 1 ? `, ${props.allowance.days} days` : ""})
-                    </dt>
-                    <dd className="text-sm font-normal! text-muted">{formatINR(driverCharges)}</dd>
-                  </div>
-                ) : null}
-                <div>
-                  <dt className="pl-3 text-sm">GST ({props.rules.gstPercent}%)</dt>
-                  <dd className="text-sm font-normal! text-muted">{formatINR(quote.gst)}</dd>
-                </div>
-                {quote.serviceFee > 0 ? (
-                  <div>
-                    <dt className="pl-3 text-sm">{props.serviceFeeLabel || "Service Fee"}</dt>
-                    <dd className="text-sm font-normal! text-muted">{formatINR(quote.serviceFee)}</dd>
-                  </div>
-                ) : null}
-                {quote.insurance > 0 ? (
-                  <div>
-                    <dt>Trip protection</dt>
-                    <dd>{formatINR(quote.insurance)}</dd>
-                  </div>
-                ) : null}
-                <div className={ui.fareTotal}>
-                  <dt>Total</dt>
-                  <dd>{formatINR(quote.total)}</dd>
-                </div>
-              </dl>
-            ) : null}
-            {showBreakup && props.distanceBreakup ? (
-              <p className="mt-3 text-xs leading-relaxed text-muted">
-                {props.distanceBreakup.tripType === "round_trip" ? "A round trip counts the distance both ways. " : ""}
-                The fare is worked out from the road distance and the cab you choose.
-              </p>
-            ) : null}
+      {props.offer ? (
+        <p className="flex flex-wrap items-center gap-x-2 rounded-lg bg-[#e6f6ec] px-3 py-2 text-sm font-semibold text-[#0f8a4b]">
+          You save {formatINR(props.offer.saved)} ({props.offer.percent}% off)
+          <s className="font-normal text-[#5b6778]">{formatINR(props.offer.was)}</s>
+        </p>
+      ) : null}
+      <dl className="grid gap-3.5 rounded-2xl bg-[#f3f5f8] p-4 sm:p-5">
+        <div className="grid gap-2">
+          {mainRow("Base Fare", formatINR(baseShown))}
+          {!props.distanceBreakup && !props.airportExtra ? subRow("Cab charges", formatINR(baseShown)) : null}
+          {props.distanceBreakup ? (
+            <>
+              {subRow(distanceLabel(props.distanceBreakup), formatINR(props.distanceBreakup.kmCharge + props.distanceBreakup.returnCharge))}
+              {props.distanceBreakup.minFareTopUp > 0 ? subRow("Minimum fare for this vehicle", `+${formatINR(props.distanceBreakup.minFareTopUp)}`) : null}
+            </>
+          ) : null}
+          {props.airportExtra ? (
+            <>
+              {subRow(`Airport fare (up to ${props.airportExtra.includedKm} km)`, formatINR(props.airportExtra.base))}
+              {subRow(`Extra ${props.airportExtra.extraKm} km x ₹${props.airportExtra.rate}/km`, formatINR(props.airportExtra.amount))}
+            </>
+          ) : null}
+        </div>
+        {quote.addons > 0 || quote.discount > 0 ? (
+          <div className={divider}>
+            {quote.addons > 0 ? mainRow(props.stops.length > 0 ? "Extra stops & special requests" : "Special requests", formatINR(quote.addons)) : null}
+            {quote.discount > 0 ? mainRow(`Coupon discount${coupon ? ` (${coupon.code})` : ""}`, `-${formatINR(quote.discount)}`, "text-ok") : null}
+          </div>
+        ) : null}
+        <div className={divider}>
+          {mainRow("Taxes & Fees", formatINR(driverCharges + tollCharges + timeCharges + quote.gst + quote.serviceFee))}
+          {(props.surcharges ?? []).map((item) => (
+            <Fragment key={item.label}>{subRow(item.label, formatINR(item.amount))}</Fragment>
+          ))}
+          {tollCharges > 0 ? subRow("Toll charges", formatINR(tollCharges), "included") : null}
+          {props.allowance ? subRow("Driver Charges", formatINR(driverCharges), `Driver food and stay${props.allowance.days > 1 ? `, ${props.allowance.days} days` : ""}`) : null}
+          {subRow(`GST (${props.rules.gstPercent}%)`, formatINR(quote.gst))}
+          {quote.serviceFee > 0 ? subRow(props.serviceFeeLabel || "Service Fee", formatINR(quote.serviceFee)) : null}
+        </div>
+        {quote.insurance > 0 ? <div className={divider}>{mainRow("Trip protection", formatINR(quote.insurance))}</div> : null}
+        <div className={divider}>{mainRow("Total", formatINR(quote.total))}</div>
+      </dl>
+      {props.distanceBreakup ? (
+        <p className="text-xs leading-relaxed text-muted">
+          {props.distanceBreakup.tripType === "round_trip" ? "A round trip counts the distance both ways. " : ""}
+          The fare is worked out from the road distance and the cab you choose.
+        </p>
+      ) : null}
     </>
   );
 
@@ -642,32 +608,20 @@ export function ReviewForm(props: Props) {
             </p>
           ) : null}
 
-          {props.distanceBreakup ? (
-            <div className="mb-3">
-              <p className="text-sm font-bold">Fare break up</p>
-              {breakupLines}
-            </div>
-          ) : null}
-
-          <div className="rv-total">
-            <span>Total Fare (Incl. taxes)</span>
-            <b>{formatINR(quote.total)}</b>
-          </div>
-
           <label className={cn(ui.check, ui.terms)}>
             <input type="checkbox" checked={accepted} onChange={(e) => setAccepted(e.target.checked)} />
             <span>
               <span>
                 By proceeding to book, I agree to the{" "}
-                <Link href="/terms" target="_blank">
+                <Link href="/terms" target="_blank" className="whitespace-nowrap">
                   Terms &amp; Conditions
                 </Link>{" "}
                 and{" "}
-                <Link href="/cancellation-policy" target="_blank">
+                <Link href="/cancellation-policy" target="_blank" className="whitespace-nowrap">
                   Cancellation Rules
                 </Link>
                 , and the{" "}
-                <Link href="/privacy-policy" target="_blank">
+                <Link href="/privacy-policy" target="_blank" className="whitespace-nowrap">
                   Privacy Policy
                 </Link>
                 .
@@ -685,19 +639,18 @@ export function ReviewForm(props: Props) {
             <Lock aria-hidden="true" /> Secure payment by Razorpay. We never see your card details.
           </p>
 
-          {!props.distanceBreakup ? (
-            <>
+          <div className="mt-4 grid gap-3 border-t border-line pt-3">
             <button
               type="button"
-              className={cn(ui.linkButton, "mt-4 inline-flex items-center gap-1")}
+              className="mx-auto flex cursor-pointer items-center gap-2 border-0 bg-transparent px-2 py-1 text-base font-bold text-[#0a84e8]"
               aria-expanded={showBreakup}
               onClick={() => setShowBreakup((current) => !current)}
             >
-              {showBreakup ? "Hide" : "View"} Fare Break up <ChevronDown className={cn("size-4 transition", showBreakup && "rotate-180")} aria-hidden="true" />
+              {showBreakup ? "Hide" : "View"} Fare Break up
+              <ChevronDown className={cn("size-5 transition", showBreakup && "rotate-180")} aria-hidden="true" />
             </button>
-              {breakupLines}
-            </>
-          ) : null}
+            {showBreakup ? breakupLines : null}
+          </div>
         </SectionCard>
         </div>
       </aside>
